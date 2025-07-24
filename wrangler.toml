@@ -1,0 +1,55 @@
+name = "jetsy-landing"
+main = "src/worker.js"
+compatibility_date = "2024-01-01"
+
+# Build configuration for React app
+[build]
+command = "npm run build"
+
+[env.production]
+name = "jetsy-landing-prod"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "jetsy-leads"
+database_id = "682478d4-6494-4f47-93e6-be1b6397fe92"
+
+[env.staging]
+name = "jetsy-landing-staging"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "jetsy-leads-staging"
+database_id = "your-staging-database-id-here"
+
+[env.development]
+name = "jetsy-landing-dev"
+
+[env.development.vars]
+# Development environment variables
+# Note: Secrets need to be added separately with: npx wrangler secret put OPENAI_API_KEY --env development
+
+# Use the global jetsy-leads binding for development too!
+
+[[env.development.d1_databases]]
+binding = "DB"
+database_name = "jetsy-leads"
+database_id = "682478d4-6494-4f47-93e6-be1b6397fe92"
+
+# Add your D1 database
+[[d1_databases]]
+binding = "DB"
+database_name = "jetsy-leads"
+database_id = "682478d4-6494-4f47-93e6-be1b6397fe92"
+
+# Environment variables
+[vars]
+# Add your OpenAI API key as a secret using: wrangler secret put OPENAI_API_KEY
+# OPENAI_API_KEY = "your-api-key-here"
+
+# Static assets configuration
+[site]
+bucket = "./dist"
+
+# Pages configuration
+pages_build_output_dir = "./dist" 

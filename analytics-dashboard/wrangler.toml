@@ -1,0 +1,20 @@
+name = "jetsy-analytics-dashboard"
+main = "src/worker.js"
+compatibility_date = "2024-01-01"
+
+# Add your D1 database
+[[d1_databases]]
+binding = "DB"
+database_name = "jetsy-leads"
+database_id = "682478d4-6494-4f47-93e6-be1b6397fe92"
+
+[env.production]
+name = "jetsy-analytics-dashboard"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "jetsy-leads"
+database_id = "682478d4-6494-4f47-93e6-be1b6397fe92"
+
+[site]
+bucket = "./dist" 

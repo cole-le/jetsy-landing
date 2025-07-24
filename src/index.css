@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', sans-serif;
+  }
+  
+  body {
+    @apply bg-background text-text;
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply px-6 py-3 rounded-lg font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white;
+  }
+  
+  .btn-primary {
+    @apply bg-buttonPrimary hover:bg-buttonHover focus:ring-accent text-white shadow-sm hover:shadow-md;
+  }
+  
+  .btn-secondary {
+    @apply bg-white hover:bg-gray-50 focus:ring-accent text-text border border-gray-200 shadow-sm;
+  }
+  
+  .btn-outline {
+    @apply bg-transparent hover:bg-gray-50 focus:ring-accent text-text border border-gray-300;
+  }
+  
+  .input-field {
+    @apply w-full px-4 py-3 bg-white border border-gray-200 rounded-lg text-text placeholder-mutedText focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all duration-200 shadow-sm;
+  }
+  
+  .modal-overlay {
+    @apply fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-[99999] flex items-center justify-center p-4;
+  }
+  
+  .modal-content {
+    @apply bg-white rounded-xl shadow-2xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto;
+  }
+  
+  .chat-box {
+    @apply fixed bottom-6 right-6 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-40;
+  }
+  
+  .radial-bg {
+    background: radial-gradient(circle at center, white 0%, #F9F9F9 100%);
+  }
+  
+  .lovable-gradient {
+    background: radial-gradient(circle at 50% 30%, #F4F4F4 0%, #D1DDFE 40%, #F8A9A5 80%);
+    background-attachment: fixed;
+  }
+  
+  .lovable-gradient::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 50% 30%, rgba(244, 244, 244, 0.8) 0%, rgba(209, 221, 254, 0.6) 40%, rgba(248, 169, 165, 0.4) 80%);
+    backdrop-filter: blur(1px);
+    pointer-events: none;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-accent to-gray-700 bg-clip-text text-transparent;
+  }
+  
+  .glass-effect {
+    @apply bg-white bg-opacity-80 backdrop-blur-lg border border-white border-opacity-20;
+  }
+} 
