@@ -70,6 +70,10 @@ export default {
       if (path.startsWith('/api/projects')) {
         // Extract project id if present
         const projectIdMatch = path.match(/^\/api\/projects\/(\d+)$/);
+        if (request.method === 'GET' && path === '/api/projects') {
+          // GET /api/projects - list all projects for user
+          return await getProjects(request, env, corsHeaders);
+        }
         if (request.method === 'GET' && projectIdMatch) {
           // GET /api/projects/:id
           return await getProjectById(projectIdMatch[1], env, corsHeaders);
@@ -81,6 +85,10 @@ export default {
         if (request.method === 'PUT' && projectIdMatch) {
           // PUT /api/projects/:id
           return await updateProjectFiles(projectIdMatch[1], request, env, corsHeaders);
+        }
+        if (request.method === 'DELETE' && projectIdMatch) {
+          // DELETE /api/projects/:id
+          return await deleteProject(projectIdMatch[1], env, corsHeaders);
         }
         if (request.method === 'OPTIONS') {
           return new Response(null, { status: 200, headers: corsHeaders });
@@ -860,6 +868,19 @@ async function getAnalytics(request, env, corsHeaders) {
 }
 
 // --- Projects Handlers ---
+async function getProjects(request, env, corsHeaders) {
+  const db = env.DB;
+  try {
+    const url = new URL(request.url);
+    const user_id = url.searchParams.get('user_id') || 1; // Default to user_id 1 for now
+    
+    const result = await db.prepare('SELECT * FROM projects WHERE user_id = ? ORDER BY updated_at DESC').bind(user_id).all();
+    return new Response(JSON.stringify({ success: true, projects: result.results }), { status: 200, headers: corsHeaders });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: 'Failed to fetch projects' }), { status: 500, headers: corsHeaders });
+  }
+}
+
 async function getProjectById(id, env, corsHeaders) {
   const db = env.DB;
   try {
@@ -876,12 +897,12 @@ async function getProjectById(id, env, corsHeaders) {
 async function createProject(request, env, corsHeaders) {
   const db = env.DB;
   try {
-    const { project_name, files } = await request.json();
+    const { project_name, files, user_id = 1 } = await request.json();
     if (!project_name || !files) {
       return new Response(JSON.stringify({ error: 'project_name and files are required' }), { status: 400, headers: corsHeaders });
     }
     const now = new Date().toISOString();
-    const result = await db.prepare('INSERT INTO projects (project_name, files, updated_at) VALUES (?, ?, ?)').bind(project_name, JSON.stringify(files), now).run();
+    const result = await db.prepare('INSERT INTO projects (user_id, project_name, files, created_at, updated_at) VALUES (?, ?, ?, ?, ?)').bind(user_id, project_name, JSON.stringify(files), now, now).run();
     if (!result.success) {
       throw new Error('Failed to create project');
     }
@@ -895,18 +916,56 @@ async function createProject(request, env, corsHeaders) {
 async function updateProjectFiles(id, request, env, corsHeaders) {
   const db = env.DB;
   try {
-    const { files } = await request.json();
-    if (!files) {
-      return new Response(JSON.stringify({ error: 'files are required' }), { status: 400, headers: corsHeaders });
+    const { files, project_name } = await request.json();
+    if (!files && !project_name) {
+      return new Response(JSON.stringify({ error: 'files or project_name are required' }), { status: 400, headers: corsHeaders });
     }
     const now = new Date().toISOString();
-    const result = await db.prepare('UPDATE projects SET files = ?, updated_at = ? WHERE id = ?').bind(JSON.stringify(files), now, id).run();
+    
+    let query, params;
+    if (files && project_name) {
+      query = 'UPDATE projects SET files = ?, project_name = ?, updated_at = ? WHERE id = ?';
+      params = [JSON.stringify(files), project_name, now, id];
+    } else if (files) {
+      query = 'UPDATE projects SET files = ?, updated_at = ? WHERE id = ?';
+      params = [JSON.stringify(files), now, id];
+    } else {
+      query = 'UPDATE projects SET project_name = ?, updated_at = ? WHERE id = ?';
+      params = [project_name, now, id];
+    }
+    
+    const result = await db.prepare(query).bind(...params).run();
     if (!result.success) {
-      throw new Error('Failed to update project files');
+      throw new Error('Failed to update project');
     }
     return new Response(JSON.stringify({ success: true }), { status: 200, headers: corsHeaders });
   } catch (error) {
-    return new Response(JSON.stringify({ error: 'Failed to update project files' }), { status: 500, headers: corsHeaders });
+    return new Response(JSON.stringify({ error: 'Failed to update project' }), { status: 500, headers: corsHeaders });
+  }
+}
+
+async function deleteProject(id, env, corsHeaders) {
+  const db = env.DB;
+  try {
+    console.log('🗑️ Deleting project:', id);
+    
+    // First delete all chat messages for this project
+    const chatDeleteResult = await db.prepare('DELETE FROM chat_messages WHERE project_id = ?').bind(id).run();
+    console.log('Chat messages deleted:', chatDeleteResult.meta.changes);
+    
+    // Then delete the project
+    const result = await db.prepare('DELETE FROM projects WHERE id = ?').bind(id).run();
+    console.log('Project delete result:', result);
+    
+    if (!result.success) {
+      throw new Error('Failed to delete project');
+    }
+    
+    console.log('✅ Project deleted successfully');
+    return new Response(JSON.stringify({ success: true }), { status: 200, headers: corsHeaders });
+  } catch (error) {
+    console.error('❌ Error deleting project:', error);
+    return new Response(JSON.stringify({ error: 'Failed to delete project' }), { status: 500, headers: corsHeaders });
   }
 }
 // --- Chat Messages Handlers ---

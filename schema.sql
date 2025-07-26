@@ -142,6 +142,26 @@ CREATE TABLE IF NOT EXISTS conversion_funnels (
     FOREIGN KEY (website_id) REFERENCES jetsy_websites(website_id)
 );
 
+-- Add projects table for AI-powered landing page builder
+CREATE TABLE IF NOT EXISTS projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER DEFAULT 1, -- Default user ID for now
+    project_name TEXT NOT NULL,
+    files TEXT NOT NULL, -- JSON mapping filenames to content
+    created_at TEXT NOT NULL, -- ISO string
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add chat_messages table for AI chat history
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    role TEXT CHECK(role IN ('user', 'assistant')) NOT NULL,
+    message TEXT NOT NULL,
+    timestamp TEXT NOT NULL, -- ISO string
+    FOREIGN KEY (project_id) REFERENCES projects(id)
+);
+
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_leads_email ON leads(email);
 CREATE INDEX IF NOT EXISTS idx_leads_created_at ON leads(created_at);
@@ -165,6 +185,10 @@ CREATE INDEX IF NOT EXISTS idx_user_sessions_session_id ON user_sessions(session
 CREATE INDEX IF NOT EXISTS idx_user_sessions_website ON user_sessions(website_id);
 CREATE INDEX IF NOT EXISTS idx_conversion_funnels_website ON conversion_funnels(website_id);
 CREATE INDEX IF NOT EXISTS idx_conversion_funnels_session ON conversion_funnels(session_id);
+CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects(user_id);
+CREATE INDEX IF NOT EXISTS idx_projects_created_at ON projects(created_at);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_project_id ON chat_messages(project_id);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_timestamp ON chat_messages(timestamp);
 
 -- Insert some sample data for testing (optional)
 -- INSERT INTO leads (email, phone, ts, created_at) VALUES 

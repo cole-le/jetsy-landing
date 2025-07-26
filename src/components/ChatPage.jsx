@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ProjectSelector from './ProjectSelector';
 
 const ChatPage = ({ onBackToHome }) => {
   const [messages, setMessages] = useState([]);
@@ -7,18 +8,76 @@ const ChatPage = ({ onBackToHome }) => {
   const [currentProject, setCurrentProject] = useState(null);
   const [previewError, setPreviewError] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [showProjectSelector, setShowProjectSelector] = useState(false);
+  const [showProjectPanel, setShowProjectPanel] = useState(false);
   const iframeRef = useRef(null);
 
   // Load existing chat history when component mounts
   useEffect(() => {
-    loadOrCreateProject();
+    loadOrRestoreProject();
   }, []);
 
-  const loadOrCreateProject = async () => {
+  // Session-based project tracking
+  const getStoredProjectId = () => {
+    return localStorage.getItem('jetsy_current_project_id');
+  };
+
+  const setStoredProjectId = (projectId) => {
+    localStorage.setItem('jetsy_current_project_id', projectId);
+  };
+
+  const loadOrRestoreProject = async () => {
     try {
-      // For now, create a new project if none exists
+      // First, try to restore from session storage
+      const storedProjectId = getStoredProjectId();
+      
+      if (storedProjectId) {
+        // Try to load the stored project
+        const response = await fetch(`/api/projects/${storedProjectId}`);
+        if (response.ok) {
+          const result = await response.json();
+          const project = result.project;
+          setCurrentProject({
+            id: project.id,
+            project_name: project.project_name,
+            files: JSON.parse(project.files)
+          });
+          await loadChatMessages(project.id);
+          return;
+        }
+      }
+
+      // If no stored project or it doesn't exist, load the most recent project
+      const projectsResponse = await fetch('/api/projects?user_id=1');
+      if (projectsResponse.ok) {
+        const result = await projectsResponse.json();
+        if (result.projects && result.projects.length > 0) {
+          const mostRecent = result.projects[0];
+          setCurrentProject({
+            id: mostRecent.id,
+            project_name: mostRecent.project_name,
+            files: JSON.parse(mostRecent.files)
+          });
+          setStoredProjectId(mostRecent.id);
+          await loadChatMessages(mostRecent.id);
+          return;
+        }
+      }
+
+      // If no projects exist, create a default one
+      await createDefaultProject();
+    } catch (error) {
+      console.error('Error loading/restoring project:', error);
+      // Fallback to creating a default project
+      await createDefaultProject();
+    }
+  };
+
+  const createDefaultProject = async () => {
+    try {
       const projectData = {
         project_name: "AI Landing Page Builder",
+        user_id: 1,
         files: {
           "src/App.jsx": `import React from 'react';\nimport './index.css';\nfunction App() {\n  return (\n    <div className=\"min-h-screen bg-gray-50\">\n      <div className=\"container mx-auto px-4 py-8\">\n        <h1 className=\"text-4xl font-bold text-center text-gray-900 mb-8\">Welcome to Your Landing Page</h1>\n        <p className=\"text-center text-gray-600 mb-8\">This is a placeholder. Start chatting to customize your landing page!</p>\n      </div>\n    </div>\n  );\n}\nexport default App;`,
           "src/index.css": `@tailwind base;\n@tailwind components;\n@tailwind utilities;`
@@ -33,12 +92,33 @@ const ChatPage = ({ onBackToHome }) => {
 
       if (response.ok) {
         const result = await response.json();
-        setCurrentProject({ id: result.project_id, ...projectData });
+        const newProject = { id: result.project_id, ...projectData };
+        setCurrentProject(newProject);
+        setStoredProjectId(result.project_id);
         await loadChatMessages(result.project_id);
       }
     } catch (error) {
-      console.error('Error creating project:', error);
+      console.error('Error creating default project:', error);
     }
+  };
+
+  const handleProjectSelect = async (project) => {
+    setCurrentProject({
+      id: project.id,
+      project_name: project.project_name,
+      files: typeof project.files === 'string' ? JSON.parse(project.files) : project.files
+    });
+    setStoredProjectId(project.id);
+    await loadChatMessages(project.id);
+    setShowProjectPanel(false);
+  };
+
+  const handleAllProjectsDeleted = async () => {
+    setCurrentProject(null);
+    setMessages([]);
+    setStoredProjectId(null);
+    // Create a new default project
+    await createDefaultProject();
   };
 
   const loadChatMessages = async (projectId) => {
@@ -185,6 +265,18 @@ const ChatPage = ({ onBackToHome }) => {
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
+  // Close project selector when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showProjectSelector && !event.target.closest('.project-selector-container')) {
+        setShowProjectSelector(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showProjectSelector]);
+
   const generatePreviewHTML = () => {
     if (!currentProject || !currentProject.files) {
       return '<html><body><p>No preview available</p></body></html>';
@@ -250,16 +342,77 @@ const ChatPage = ({ onBackToHome }) => {
             </button>
             <h1 className="text-xl font-semibold text-gray-900">AI Landing Page Builder</h1>
           </div>
-          <div className="text-sm text-gray-500">
-            {currentProject ? `Project: ${currentProject.project_name}` : 'No project loaded'}
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setShowProjectPanel(!showProjectPanel)}
+              className="flex items-center space-x-2 px-3 py-2 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded-md transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              <span>Projects</span>
+            </button>
+            {currentProject && (
+              <div className="text-sm text-gray-600">
+                Current: <span className="font-medium">{currentProject.project_name}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Project Management Panel */}
+      {showProjectPanel && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={() => setShowProjectPanel(false)}>
+          <div className="fixed left-0 top-0 h-full w-80 bg-white shadow-xl z-50" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">Project Management</h2>
+                <button
+                  onClick={() => setShowProjectPanel(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="p-4">
+              <ProjectSelector 
+                onProjectSelect={handleProjectSelect}
+                currentProjectId={currentProject?.id}
+                onAllProjectsDeleted={handleAllProjectsDeleted}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Two-pane layout */}
       <div className="flex h-[calc(100vh-80px)]">
         {/* Left pane - Chat interface */}
         <div className="w-1/2 bg-white border-r border-gray-200 flex flex-col">
+          {/* Project Info Bar */}
+          {currentProject && (
+            <div className="px-6 py-3 bg-blue-50 border-b border-blue-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span className="text-sm font-medium text-blue-900">{currentProject.project_name}</span>
+                </div>
+                <button
+                  onClick={() => setShowProjectPanel(true)}
+                  className="text-xs text-blue-600 hover:text-blue-800 underline"
+                >
+                  Switch Project
+                </button>
+              </div>
+            </div>
+          )}
+          
           {/* Chat messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             {messages.length === 0 ? (

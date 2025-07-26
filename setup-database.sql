@@ -128,8 +128,10 @@ CREATE TABLE IF NOT EXISTS demo_leads (
 -- Add projects table for AI-powered landing page builder
 CREATE TABLE IF NOT EXISTS projects (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER DEFAULT 1, -- Default user ID for now
   project_name TEXT NOT NULL,
   files TEXT NOT NULL, -- JSON mapping filenames to content
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
