@@ -328,38 +328,6 @@ const ChatPage = ({ onBackToHome }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={onBackToHome}
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-            </button>
-            <h1 className="text-xl font-semibold text-gray-900">AI Landing Page Builder</h1>
-          </div>
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => setShowProjectPanel(!showProjectPanel)}
-              className="flex items-center space-x-2 px-3 py-2 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded-md transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              <span>Projects</span>
-            </button>
-            {currentProject && (
-              <div className="text-sm text-gray-600">
-                Current: <span className="font-medium">{currentProject.project_name}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
 
       {/* Project Management Panel */}
       {showProjectPanel && (
@@ -390,9 +358,9 @@ const ChatPage = ({ onBackToHome }) => {
       )}
 
       {/* Two-pane layout */}
-      <div className="flex h-[calc(100vh-80px)]">
+      <div className="flex h-screen pt-16">
         {/* Left pane - Chat interface */}
-        <div className="w-1/2 bg-white border-r border-gray-200 flex flex-col">
+        <div className="w-1/3 bg-white border-r border-gray-200 flex flex-col">
           {/* Project Info Bar */}
           {currentProject && (
             <div className="px-6 py-3 bg-blue-50 border-b border-blue-200">
@@ -487,15 +455,10 @@ const ChatPage = ({ onBackToHome }) => {
         </div>
 
         {/* Right pane - Live preview */}
-        <div className="w-1/2 bg-white flex flex-col relative">
-          {/* Preview header */}
-          <div className="border-b border-gray-200 px-6 py-4">
-            <h2 className="text-lg font-semibold text-gray-900">Live Preview</h2>
-            <p className="text-sm text-gray-500">Your landing page will appear here as you chat</p>
-          </div>
+        <div className="w-2/3 bg-white flex flex-col relative">
 
           {/* Preview iframe */}
-          <div className="flex-1 p-6 relative">
+          <div className="flex-1 relative">
             {previewLoading && (
               <div className="absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center z-10">
                 <div className="flex flex-col items-center">
@@ -512,15 +475,13 @@ const ChatPage = ({ onBackToHome }) => {
                 </div>
               </div>
             )}
-            <div className="w-full h-full border border-gray-200 rounded-lg overflow-hidden bg-white">
-              <iframe
-                ref={iframeRef}
-                title="Landing Page Preview"
-                className="w-full h-full min-h-[400px]"
-                sandbox="allow-scripts allow-same-origin"
-                style={{ background: 'white' }}
-              />
-            </div>
+            <iframe
+              ref={iframeRef}
+              title="Landing Page Preview"
+              className="w-full h-full"
+              sandbox="allow-scripts allow-same-origin"
+              style={{ background: 'white' }}
+            />
           </div>
         </div>
       </div>
