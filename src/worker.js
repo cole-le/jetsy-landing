@@ -1085,9 +1085,18 @@ async function handleLLMOrchestration(request, env, corsHeaders) {
     const response = await callOpenAI(user_message, projectFiles, { ...env, OPENAI_API_KEY: apiKey });
     console.log('✅ OpenAI API call successful');
     
-    // Process image requests if any
+    // Smart image generation logic
+    const isInitialPrompt = !projectFiles || Object.keys(projectFiles).length === 0 || 
+                           (Object.keys(projectFiles).length === 1 && projectFiles['src/index.css']);
+    
     if (response.image_requests && response.image_requests.length > 0) {
-      console.log('🎨 Processing image requests:', response.image_requests.length);
+      if (isInitialPrompt) {
+        console.log('🎨 Generating images for initial prompt:', response.image_requests.length, 'images');
+      } else {
+        console.log('🎨 Skipping image generation for non-initial prompt (keeping existing images)');
+        // Clear image requests to prevent generation
+        response.image_requests = [];
+      }
       
       const generatedImages = [];
       
@@ -1158,16 +1167,8 @@ async function handleLLMOrchestration(request, env, corsHeaders) {
       }
       
       response.generated_images = generatedImages;
-      
-      // Debug: Log the final updated files
-      if (response.updated_files) {
-        console.log('📄 Final updated files:');
-        Object.keys(response.updated_files).forEach(filename => {
-          const content = response.updated_files[filename];
-          const imageCount = (content.match(/https:\/\/pub-.*\.r2\.dev/g) || []).length;
-          console.log(`   ${filename}: ${imageCount} images found`);
-        });
-      }
+    } else if (!isInitialPrompt) {
+      console.log('🎨 No image requests - keeping existing images');
     }
     
     // Log business info if available
@@ -1243,6 +1244,8 @@ IMPORTANT RULES:
         33. IMAGE PLACEHOLDER FORMAT: Use exact format: <img src="{GENERATED_IMAGE_URL_HERO}" alt="description" className="..." />
         34. IMAGE REQUEST PLACEMENTS: Generate image requests with specific placements: "hero", "logo", "feature_1", "feature_2", "feature_3"
         35. FEATURE IMAGE PLACEMENTS: Each feature card must have a unique placement: feature_1, feature_2, feature_3
+        36. SMART IMAGE GENERATION: Only generate image_requests for initial prompts or when user explicitly asks for new images
+        37. NON-IMAGE PROMPTS: For styling, content, or feature changes, do NOT generate image_requests, keep existing images
 
 LANDING PAGE REQUIREMENTS:
 - Generate a business name and tagline if not provided
@@ -1408,11 +1411,22 @@ IMAGE PLACEHOLDER REQUIREMENTS:
   * Feature 2: placement: "feature_2"
   * Feature 3: placement: "feature_3"
 - Each feature card must have a unique placement to avoid duplicate images
+- CRITICAL: Only generate image_requests for:
+  * Initial prompts (first prompt in a project)
+  * When user explicitly asks for "new images", "different images", or "generate images"
+- DO NOT generate image_requests for:
+  * Styling changes (colors, layout, fonts)
+  * Content changes (text, descriptions, features)
+  * Navigation or CTA improvements
+  * Any non-image-related requests
 
 Current files content:
 ${currentFiles ? JSON.stringify(currentFiles, null, 2) : '{}'}
 
-IMPORTANT: ALWAYS generate images for the initial prompt in a project (when no existing files or empty project). For subsequent prompts, only generate images if the user specifically requests new images or if this is a completely new landing page creation.
+IMPORTANT: 
+- ALWAYS generate images for the initial prompt in a project (when no existing files or empty project)
+- For subsequent prompts, ONLY generate images if the user explicitly asks for "new images", "different images", or "generate images"
+- For all other requests (styling, content, features, navigation), do NOT generate image_requests - keep existing images and placeholders
 
 Return only the JSON response with assistant_message, updated_files, image_requests, and business_info.`;
 
@@ -1769,38 +1783,19 @@ async function handleImageGeneration(request, env, corsHeaders) {
       throw new Error('Gemini API key is required but not found. Please configure GEMINI_API_KEY as a Wrangler secret.');
     }
 
-    console.log('🎨 Generating image with Gemini Imagen 3 Generate...');
-    console.log('   - Project ID:', project_id);
-    console.log('   - Prompt:', prompt);
-    console.log('   - Aspect Ratio:', aspect_ratio);
-    console.log('   - Number of Images:', number_of_images);
-    console.log('   - Environment check:');
-    console.log('     * GEMINI_API_KEY present:', !!env.GEMINI_API_KEY);
-    console.log('     * IMAGES_BUCKET present:', !!env.IMAGES_BUCKET);
-    console.log('     * DB present:', !!env.DB);
+    console.log('🎨 Generating image:', prompt);
 
     const generatedImages = [];
     
     for (let i = 0; i < number_of_images; i++) {
-      console.log(`\n🔄 Processing image ${i + 1}/${number_of_images}...`);
-      
       const imageResult = await generateImageWithGemini(prompt, aspect_ratio, env);
-      console.log(`   - Gemini generation result:`, imageResult.success ? 'Success' : 'Failed');
       
       if (imageResult.success) {
-        console.log(`   - Image data size:`, imageResult.fileSize, 'bytes');
-        
         // Upload to R2
-        console.log(`   - Starting R2 upload...`);
         const uploadResult = await uploadImageToR2(imageResult.imageData, env, request);
-        console.log(`   - R2 upload result:`, uploadResult.success ? 'Success' : 'Failed');
         
         if (uploadResult.success) {
-          console.log(`   - Uploaded filename:`, uploadResult.filename);
-          console.log(`   - Generated URL:`, uploadResult.url);
-          
           // Save to database
-          console.log(`   - Starting database save...`);
           const dbResult = await saveImageToDatabase({
             project_id,
             prompt,
@@ -1811,13 +1806,10 @@ async function handleImageGeneration(request, env, corsHeaders) {
             width: imageResult.width,
             height: imageResult.height,
             mime_type: 'image/jpeg',
-            imageId: uploadResult.imageId // Pass the imageId from upload result
+            imageId: uploadResult.imageId
           }, env);
 
-          console.log(`   - Database save result:`, dbResult.success ? 'Success' : 'Failed');
-          
           if (dbResult.success) {
-            console.log(`   - Saved image ID:`, dbResult.image_id);
             generatedImages.push({
               image_id: dbResult.image_id,
               url: uploadResult.url,
@@ -1826,20 +1818,12 @@ async function handleImageGeneration(request, env, corsHeaders) {
               width: imageResult.width,
               height: imageResult.height
             });
-            console.log(`   - Added to generated images array`);
-          } else {
-            console.log(`   - Database save failed:`, dbResult.error);
           }
-        } else {
-          console.log(`   - R2 upload failed:`, uploadResult.error);
         }
-      } else {
-        console.log(`   - Gemini generation failed:`, imageResult.error);
       }
     }
 
-    console.log(`\n✅ Image generation complete. Generated ${generatedImages.length} images.`);
-    console.log('   - Generated images:', generatedImages.map(img => ({ id: img.image_id, url: img.url })));
+    console.log(`✅ Generated ${generatedImages.length} image(s)`);
 
     return new Response(JSON.stringify({
       success: true,
@@ -1896,31 +1880,21 @@ async function generateImageWithGemini(prompt, aspectRatio, env) {
     }
 
     const imageData = response.generatedImages[0]?.image?.imageBytes;
-    console.log('   - Image data present:', !!imageData);
-    console.log('   - Image data type:', typeof imageData);
-    console.log('   - Image data length:', imageData?.length || 0);
     
     if (!imageData) {
       throw new Error('No image data received from Gemini API');
     }
 
     // Convert base64 to Uint8Array (Web API compatible)
-    console.log('   - Converting base64 to Uint8Array...');
     const binaryString = atob(imageData);
-    console.log('   - Binary string length:', binaryString.length);
     
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
     
-    console.log('   - Uint8Array created');
-    console.log('   - Uint8Array length:', bytes.length);
-    console.log('   - Uint8Array constructor:', bytes.constructor.name);
-    
     // Calculate dimensions based on aspect ratio
     const dimensions = getDimensionsFromAspectRatio(aspectRatio);
-    console.log('   - Calculated dimensions:', dimensions);
     
     return {
       success: true,
@@ -1946,17 +1920,7 @@ async function uploadImageToR2(imageBytes, env, request) {
     const imageId = generateImageId();
     const filename = `${imageId}.jpg`;
     
-    console.log('☁️ Uploading image to R2...');
-    console.log('   - Image ID:', imageId);
-    console.log('   - Filename:', filename);
-    console.log('   - Size:', imageBytes.length, 'bytes');
-    console.log('   - Image bytes type:', typeof imageBytes);
-    console.log('   - Image bytes constructor:', imageBytes.constructor.name);
-    console.log('   - Image bytes is ArrayBuffer:', imageBytes instanceof ArrayBuffer);
-    console.log('   - Image bytes is Uint8Array:', imageBytes instanceof Uint8Array);
-    console.log('   - R2 Bucket binding:', env.IMAGES_BUCKET ? 'Available' : 'Missing');
-    console.log('   - R2 Bucket binding type:', typeof env.IMAGES_BUCKET);
-    console.log('   - R2 Bucket binding constructor:', env.IMAGES_BUCKET?.constructor?.name);
+    console.log('☁️ Uploading to R2...');
 
     if (!env.IMAGES_BUCKET) {
       throw new Error('R2 bucket binding not available');
@@ -1966,15 +1930,9 @@ async function uploadImageToR2(imageBytes, env, request) {
     let uploadData = imageBytes;
     if (imageBytes instanceof Uint8Array) {
       uploadData = imageBytes.buffer;
-      console.log('   - Converted Uint8Array to ArrayBuffer');
     }
 
-    console.log('   - Final upload data type:', typeof uploadData);
-    console.log('   - Final upload data constructor:', uploadData.constructor.name);
-    console.log('   - Final upload data byte length:', uploadData.byteLength);
-
-    // Upload to R2 with detailed logging
-    console.log('   - Starting R2 PUT operation...');
+    // Upload to R2
     const uploadResult = await env.IMAGES_BUCKET.put(filename, uploadData, {
       httpMetadata: {
         contentType: 'image/jpeg',
@@ -1982,19 +1940,9 @@ async function uploadImageToR2(imageBytes, env, request) {
       },
     });
 
-    console.log('   - Upload result:', uploadResult);
-    console.log('   - Upload result type:', typeof uploadResult);
-    console.log('   - Upload result constructor:', uploadResult?.constructor?.name);
-
     // Verify the upload by trying to get the object
-    console.log('   - Verifying upload by attempting to get object...');
     try {
       const verifyResult = await env.IMAGES_BUCKET.get(filename);
-      console.log('   - Verification result:', verifyResult ? 'Object found' : 'Object not found');
-      if (verifyResult) {
-        console.log('   - Verified object size:', verifyResult.size);
-        console.log('   - Verified object type:', verifyResult.type);
-      }
     } catch (verifyError) {
       console.log('   - Verification failed:', verifyError.message);
     }
@@ -2028,8 +1976,7 @@ async function saveImageToDatabase(imageData, env) {
     const imageId = imageData.imageId; // Use the imageId from upload result
     const currentTime = new Date().toISOString();
     
-    console.log('💾 Saving image metadata to database...');
-    console.log('   - Image ID:', imageId);
+    console.log('💾 Saving to database...');
 
     const stmt = env.DB.prepare(`
       INSERT INTO images (
