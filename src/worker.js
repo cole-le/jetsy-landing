@@ -117,6 +117,48 @@ export default {
         return new Response(null, { status: 200, headers: corsHeaders });
       }
 
+      // --- Image Generation API ---
+      if (path === '/api/generate-image' && request.method === 'POST') {
+        return await handleImageGeneration(request, env, corsHeaders);
+      }
+      if (path === '/api/generate-image' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
+      // --- R2 Test API ---
+      if (path === '/api/test-r2-access' && request.method === 'GET') {
+        return await handleTestR2Access(request, env, corsHeaders);
+      }
+      if (path === '/api/test-r2-access' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
+      // --- Image Management API ---
+      if (path === '/api/images' && request.method === 'GET') {
+        return await handleGetImages(request, env, corsHeaders);
+      }
+      if (path === '/api/images' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
+      if (path.match(/^\/api\/images\/[^\/]+$/) && request.method === 'GET') {
+        return await handleGetImage(request, env, corsHeaders);
+      }
+      if (path.match(/^\/api\/images\/[^\/]+$/) && request.method === 'DELETE') {
+        return await handleDeleteImage(request, env, corsHeaders);
+      }
+      if (path.match(/^\/api\/images\/[^\/]+$/) && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
+      // --- Image Serving API ---
+      if (path.match(/^\/api\/serve-image\/[^\/]+$/) && request.method === 'GET') {
+        return await handleServeImage(request, env, corsHeaders);
+      }
+      if (path.match(/^\/api\/serve-image\/[^\/]+$/) && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
       // Serve static files
       return await serveStaticFiles(request, env);
 
@@ -1020,14 +1062,108 @@ async function handleLLMOrchestration(request, env, corsHeaders) {
     }
     const apiKey = env.OPENAI_API_KEY;
 
+    // Fetch current project files from database if not provided
+    let projectFiles = current_files;
+    if (!projectFiles) {
+      console.log('📁 Fetching project files from database...');
+      const stmt = env.DB.prepare('SELECT files FROM projects WHERE id = ?');
+      const result = await stmt.bind(project_id).first();
+      if (result) {
+        projectFiles = JSON.parse(result.files);
+      } else {
+        projectFiles = {};
+      }
+    }
+
     console.log('🔍 LLM Orchestration Debug:');
     console.log('   - API Key present:', !!apiKey);
     console.log('   - API Key length:', apiKey ? apiKey.length : 0);
     console.log('   - User message:', user_message);
+    console.log('   - Project files:', Object.keys(projectFiles));
     
     console.log('🚀 Calling OpenAI API with gpt-4o-mini...');
-    const response = await callOpenAI(user_message, current_files, { ...env, OPENAI_API_KEY: apiKey });
+    const response = await callOpenAI(user_message, projectFiles, { ...env, OPENAI_API_KEY: apiKey });
     console.log('✅ OpenAI API call successful');
+    
+    // Process image requests if any
+    if (response.image_requests && response.image_requests.length > 0) {
+      console.log('🎨 Processing image requests:', response.image_requests.length);
+      
+      const generatedImages = [];
+      
+      for (const imageRequest of response.image_requests) {
+        try {
+          const imageResponse = await fetch(`${new URL(request.url).origin}/api/generate-image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              project_id: project_id,
+              prompt: imageRequest.prompt,
+              aspect_ratio: imageRequest.aspect_ratio || '1:1',
+              number_of_images: 1
+            })
+          });
+          
+          if (imageResponse.ok) {
+            const imageResult = await imageResponse.json();
+            if (imageResult.success && imageResult.images.length > 0) {
+              generatedImages.push({
+                ...imageResult.images[0],
+                placement: imageRequest.placement
+              });
+              
+              // Update the code to use the generated image
+              if (imageRequest.placement && response.updated_files) {
+                const imageId = imageResult.images[0].image_id;
+                const imageUrl = imageResult.images[0].url;
+                
+                console.log(`🔄 Replacing image placeholder for ${imageRequest.placement} with ID: ${imageId}`);
+                
+                for (const [filename, content] of Object.entries(response.updated_files)) {
+                  let updatedContent = content;
+                  
+                  // Replace only the FIRST occurrence of placeholder with actual R2 URL
+                  // This ensures each image gets its own unique replacement
+                  const placeholderRegex = new RegExp(`\\{GENERATED_IMAGE_URL\\}`);
+                  if (placeholderRegex.test(updatedContent)) {
+                    updatedContent = updatedContent.replace(placeholderRegex, imageUrl);
+                  }
+                  
+                  // Also replace any remaining generic placeholders (first occurrence only)
+                  const imageIdRegex = new RegExp(`/api/images/\\{IMAGE_ID\\}`);
+                  if (imageIdRegex.test(updatedContent)) {
+                    updatedContent = updatedContent.replace(imageIdRegex, imageUrl);
+                  }
+                  
+                  // Replace any remaining API endpoints with direct URLs (first occurrence only)
+                  const generatedImageIdRegex = new RegExp(`/api/images/\\{GENERATED_IMAGE_ID\\}`);
+                  if (generatedImageIdRegex.test(updatedContent)) {
+                    updatedContent = updatedContent.replace(generatedImageIdRegex, imageUrl);
+                  }
+                  
+                  response.updated_files[filename] = updatedContent;
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Failed to generate image:', error);
+          // Continue with other images even if one fails
+        }
+      }
+      
+      response.generated_images = generatedImages;
+      
+      // Debug: Log the final updated files
+      if (response.updated_files) {
+        console.log('📄 Final updated files:');
+        Object.keys(response.updated_files).forEach(filename => {
+          const content = response.updated_files[filename];
+          const imageCount = (content.match(/https:\/\/pub-.*\.r2\.dev/g) || []).length;
+          console.log(`   ${filename}: ${imageCount} images found`);
+        });
+      }
+    }
     
     return new Response(JSON.stringify(response), {
       status: 200,
@@ -1055,39 +1191,50 @@ async function callOpenAI(userMessage, currentFiles, env) {
   console.log('🔍 Attempting to call OpenAI API with o4-mini...');
   console.log('📝 User message:', userMessage);
   
-  // Create a comprehensive prompt for landing page generation
-  const systemPrompt = `You are an expert React developer and UI/UX designer. Your task is to help users create and modify landing pages by generating React code.
+  // Create a comprehensive prompt for landing page generation with image planning
+  const systemPrompt = `You are an expert React developer and UI/UX designer. Your task is to help users create and modify landing pages by generating React code and planning images.
 
 IMPORTANT RULES:
 1. Always return valid React JSX code
 2. Use Tailwind CSS for styling
 3. Include proper imports and exports
 4. Make the code production-ready
-5. Respond with JSON format: {"assistant_message": "explanation", "updated_files": {"filename": "code"}}
+5. Respond with JSON format: {"assistant_message": "explanation", "updated_files": {"filename": "code"}, "image_requests": [{"prompt": "description", "aspect_ratio": "1:1", "placement": "hero"}]}
 6. Only modify files that need changes
 7. Keep existing files unchanged unless specifically requested
 8. For icons, you may use Font Awesome icons via <i class='fa fa-ICONNAME'></i> (Font Awesome 6 is available via CDN in the preview). Do NOT use react-icons or any other external icon libraries unless specified here. If you need an icon not in Font Awesome, use an inline SVG.
+9. When images are needed, include image_requests array with detailed prompts for Google Gemini Imagen 4 Preview
+10. Use descriptive image prompts that match the website's theme and purpose
+11. Specify appropriate aspect ratios: "1:1" for logos/icons, "16:9" for hero images, "4:3" for feature images
+12. For image placeholders, use: <img src="{GENERATED_IMAGE_URL}" alt="description" className="..." />
+13. The LLM will replace {GENERATED_IMAGE_URL} with actual R2 URLs after generation
 
 Current files structure:
-${Object.keys(currentFiles).map(file => `- ${file}`).join('\n')}
+${currentFiles ? Object.keys(currentFiles).map(file => `- ${file}`).join('\n') : 'No files'}
 
 User request: ${userMessage}`;
 
-  const userPrompt = `Please analyze the user's request and generate appropriate React code. 
+  const userPrompt = `Please analyze the user's request and generate appropriate React code and image requests. 
 
 If they want to create a new landing page, generate a complete professional landing page with:
-- Hero section with compelling copy
-- Features section with benefits
+- Hero section with compelling copy and hero image
+- Features section with benefits and feature images
 - Call-to-action sections
-- Modern design with gradients and icons
+- Modern design with gradients, icons, and relevant images
 - Responsive layout
 
 If they want to modify existing code, make the specific changes requested while maintaining the overall structure.
 
-Current files content:
-${JSON.stringify(currentFiles, null, 2)}
+For images, think about:
+- What type of images would enhance this landing page?
+- What aspect ratios work best for different sections?
+- What descriptive prompts would generate appropriate images?
+- Where should images be placed in the layout?
 
-Return only the JSON response with assistant_message and updated_files.`;
+Current files content:
+${currentFiles ? JSON.stringify(currentFiles, null, 2) : '{}'}
+
+Return only the JSON response with assistant_message, updated_files, and image_requests (if images are needed).`;
 
         const requestBody = {
       model: 'gpt-4o-mini', // Using gpt-4o-mini which we confirmed works
@@ -1132,7 +1279,8 @@ Return only the JSON response with assistant_message and updated_files.`;
     const parsedResponse = JSON.parse(content);
     return {
       assistant_message: parsedResponse.assistant_message,
-      updated_files: parsedResponse.updated_files
+      updated_files: parsedResponse.updated_files,
+      image_requests: parsedResponse.image_requests || []
     };
   } catch (parseError) {
     console.error('Failed to parse LLM response:', parseError);
@@ -1148,7 +1296,7 @@ function extractCodeFromResponse(content, currentFiles) {
   const matches = [...content.matchAll(codeBlockRegex)];
   
   if (matches.length > 0) {
-    const updatedFiles = { ...currentFiles };
+    const updatedFiles = { ...(currentFiles || {}) };
     updatedFiles['src/App.jsx'] = matches[0][1];
     
     return {
@@ -1160,7 +1308,7 @@ function extractCodeFromResponse(content, currentFiles) {
   // If no code blocks found, return a generic response
   return {
     assistant_message: "I understand your request. Let me help you create a professional landing page.",
-    updated_files: currentFiles
+    updated_files: currentFiles || {}
   };
 }
 
@@ -1170,7 +1318,7 @@ async function mockLLMResponse(userMessage, currentFiles) {
   await new Promise(resolve => setTimeout(resolve, 1000));
   
   const lowerMessage = userMessage.toLowerCase();
-  let updatedFiles = { ...currentFiles };
+  let updatedFiles = { ...(currentFiles || {}) };
   let assistantMessage = '';
 
   if (lowerMessage.includes('startup') || lowerMessage.includes('landing page') || lowerMessage.includes('create')) {
@@ -1420,4 +1568,539 @@ async function getIndexHTML() {
     <link rel="stylesheet" href="/assets/index-990da001.css">
 </body>
 </html>`;
+}
+
+// --- Image Generation and Management Functions ---
+
+// Handle image generation using Google Gemini Imagen 4 Preview
+async function handleImageGeneration(request, env, corsHeaders) {
+  try {
+    const { project_id, prompt, aspect_ratio = '1:1', number_of_images = 1 } = await request.json();
+    
+    if (!project_id || !prompt) {
+      return new Response(JSON.stringify({ error: 'project_id and prompt are required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    if (!env.GEMINI_API_KEY) {
+      throw new Error('Gemini API key is required but not found. Please configure GEMINI_API_KEY as a Wrangler secret.');
+    }
+
+    console.log('🎨 Generating image with Gemini Imagen 4 Preview...');
+    console.log('   - Project ID:', project_id);
+    console.log('   - Prompt:', prompt);
+    console.log('   - Aspect Ratio:', aspect_ratio);
+    console.log('   - Number of Images:', number_of_images);
+    console.log('   - Environment check:');
+    console.log('     * GEMINI_API_KEY present:', !!env.GEMINI_API_KEY);
+    console.log('     * IMAGES_BUCKET present:', !!env.IMAGES_BUCKET);
+    console.log('     * DB present:', !!env.DB);
+
+    const generatedImages = [];
+    
+    for (let i = 0; i < number_of_images; i++) {
+      console.log(`\n🔄 Processing image ${i + 1}/${number_of_images}...`);
+      
+      const imageResult = await generateImageWithGemini(prompt, aspect_ratio, env);
+      console.log(`   - Gemini generation result:`, imageResult.success ? 'Success' : 'Failed');
+      
+      if (imageResult.success) {
+        console.log(`   - Image data size:`, imageResult.fileSize, 'bytes');
+        
+        // Upload to R2
+        console.log(`   - Starting R2 upload...`);
+        const uploadResult = await uploadImageToR2(imageResult.imageData, env, request);
+        console.log(`   - R2 upload result:`, uploadResult.success ? 'Success' : 'Failed');
+        
+        if (uploadResult.success) {
+          console.log(`   - Uploaded filename:`, uploadResult.filename);
+          console.log(`   - Generated URL:`, uploadResult.url);
+          
+          // Save to database
+          console.log(`   - Starting database save...`);
+          const dbResult = await saveImageToDatabase({
+            project_id,
+            prompt,
+            aspect_ratio,
+            filename: uploadResult.filename,
+            r2_url: uploadResult.url,
+            file_size: imageResult.fileSize,
+            width: imageResult.width,
+            height: imageResult.height,
+            mime_type: 'image/jpeg',
+            imageId: uploadResult.imageId // Pass the imageId from upload result
+          }, env);
+
+          console.log(`   - Database save result:`, dbResult.success ? 'Success' : 'Failed');
+          
+          if (dbResult.success) {
+            console.log(`   - Saved image ID:`, dbResult.image_id);
+            generatedImages.push({
+              image_id: dbResult.image_id,
+              url: uploadResult.url,
+              prompt: prompt,
+              aspect_ratio: aspect_ratio,
+              width: imageResult.width,
+              height: imageResult.height
+            });
+            console.log(`   - Added to generated images array`);
+          } else {
+            console.log(`   - Database save failed:`, dbResult.error);
+          }
+        } else {
+          console.log(`   - R2 upload failed:`, uploadResult.error);
+        }
+      } else {
+        console.log(`   - Gemini generation failed:`, imageResult.error);
+      }
+    }
+
+    console.log(`\n✅ Image generation complete. Generated ${generatedImages.length} images.`);
+    console.log('   - Generated images:', generatedImages.map(img => ({ id: img.image_id, url: img.url })));
+
+    return new Response(JSON.stringify({
+      success: true,
+      images: generatedImages,
+      message: `Successfully generated ${generatedImages.length} image(s)`
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+
+  } catch (error) {
+    console.error('Image generation error:', error);
+    console.error('Error stack:', error.stack);
+    return new Response(JSON.stringify({ 
+      error: 'Failed to generate image',
+      details: error.message
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+}
+
+// Generate image using Google Gemini Imagen 4 Preview
+async function generateImageWithGemini(prompt, aspectRatio, env) {
+  try {
+    const { GoogleGenAI } = await import('@google/genai');
+    
+    const ai = new GoogleGenAI({
+      apiKey: env.GEMINI_API_KEY,
+    });
+
+    console.log('🤖 Calling Gemini Imagen 4 Preview API...');
+    console.log('   - Prompt:', prompt);
+    console.log('   - Aspect Ratio:', aspectRatio);
+    console.log('   - Gemini API Key present:', !!env.GEMINI_API_KEY);
+    
+    const response = await ai.models.generateImages({
+      model: 'models/imagen-4.0-generate-preview-06-06',
+      prompt: prompt,
+      config: {
+        numberOfImages: 1,
+        outputMimeType: 'image/jpeg',
+        aspectRatio: aspectRatio,
+      },
+    });
+
+    console.log('   - Gemini response received');
+    console.log('   - Response has generatedImages:', !!response?.generatedImages);
+    console.log('   - Number of generated images:', response?.generatedImages?.length || 0);
+
+    if (!response?.generatedImages || response.generatedImages.length === 0) {
+      throw new Error('No images generated by Gemini API');
+    }
+
+    const imageData = response.generatedImages[0]?.image?.imageBytes;
+    console.log('   - Image data present:', !!imageData);
+    console.log('   - Image data type:', typeof imageData);
+    console.log('   - Image data length:', imageData?.length || 0);
+    
+    if (!imageData) {
+      throw new Error('No image data received from Gemini API');
+    }
+
+    // Convert base64 to Uint8Array (Web API compatible)
+    console.log('   - Converting base64 to Uint8Array...');
+    const binaryString = atob(imageData);
+    console.log('   - Binary string length:', binaryString.length);
+    
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    console.log('   - Uint8Array created');
+    console.log('   - Uint8Array length:', bytes.length);
+    console.log('   - Uint8Array constructor:', bytes.constructor.name);
+    
+    // Calculate dimensions based on aspect ratio
+    const dimensions = getDimensionsFromAspectRatio(aspectRatio);
+    console.log('   - Calculated dimensions:', dimensions);
+    
+    return {
+      success: true,
+      imageData: bytes,
+      fileSize: bytes.length,
+      width: dimensions.width,
+      height: dimensions.height
+    };
+
+  } catch (error) {
+    console.error('Gemini API error:', error);
+    console.error('Error stack:', error.stack);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+// Upload image to Cloudflare R2
+async function uploadImageToR2(imageBytes, env, request) {
+  try {
+    const imageId = generateImageId();
+    const filename = `${imageId}.jpg`;
+    
+    console.log('☁️ Uploading image to R2...');
+    console.log('   - Image ID:', imageId);
+    console.log('   - Filename:', filename);
+    console.log('   - Size:', imageBytes.length, 'bytes');
+    console.log('   - Image bytes type:', typeof imageBytes);
+    console.log('   - Image bytes constructor:', imageBytes.constructor.name);
+    console.log('   - Image bytes is ArrayBuffer:', imageBytes instanceof ArrayBuffer);
+    console.log('   - Image bytes is Uint8Array:', imageBytes instanceof Uint8Array);
+    console.log('   - R2 Bucket binding:', env.IMAGES_BUCKET ? 'Available' : 'Missing');
+    console.log('   - R2 Bucket binding type:', typeof env.IMAGES_BUCKET);
+    console.log('   - R2 Bucket binding constructor:', env.IMAGES_BUCKET?.constructor?.name);
+
+    if (!env.IMAGES_BUCKET) {
+      throw new Error('R2 bucket binding not available');
+    }
+
+    // Convert to ArrayBuffer if needed
+    let uploadData = imageBytes;
+    if (imageBytes instanceof Uint8Array) {
+      uploadData = imageBytes.buffer;
+      console.log('   - Converted Uint8Array to ArrayBuffer');
+    }
+
+    console.log('   - Final upload data type:', typeof uploadData);
+    console.log('   - Final upload data constructor:', uploadData.constructor.name);
+    console.log('   - Final upload data byte length:', uploadData.byteLength);
+
+    // Upload to R2 with detailed logging
+    console.log('   - Starting R2 PUT operation...');
+    const uploadResult = await env.IMAGES_BUCKET.put(filename, uploadData, {
+      httpMetadata: {
+        contentType: 'image/jpeg',
+        cacheControl: 'public, max-age=31536000', // 1 year cache
+      },
+    });
+
+    console.log('   - Upload result:', uploadResult);
+    console.log('   - Upload result type:', typeof uploadResult);
+    console.log('   - Upload result constructor:', uploadResult?.constructor?.name);
+
+    // Verify the upload by trying to get the object
+    console.log('   - Verifying upload by attempting to get object...');
+    try {
+      const verifyResult = await env.IMAGES_BUCKET.get(filename);
+      console.log('   - Verification result:', verifyResult ? 'Object found' : 'Object not found');
+      if (verifyResult) {
+        console.log('   - Verified object size:', verifyResult.size);
+        console.log('   - Verified object type:', verifyResult.type);
+      }
+    } catch (verifyError) {
+      console.log('   - Verification failed:', verifyError.message);
+    }
+
+    // Use worker's image serving endpoint
+    const url = `${new URL(request.url).origin}/api/serve-image/${filename}`;
+    console.log('   - Generated URL:', url);
+    
+    return {
+      success: true,
+      imageId: imageId,
+      filename: filename,
+      url: url
+    };
+
+  } catch (error) {
+    console.error('R2 upload error:', error);
+    console.error('Error details:', error.stack);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+// Save image metadata to database
+async function saveImageToDatabase(imageData, env) {
+  try {
+    const imageId = imageData.imageId; // Use the imageId from upload result
+    const currentTime = new Date().toISOString();
+    
+    console.log('💾 Saving image metadata to database...');
+    console.log('   - Image ID:', imageId);
+
+    const stmt = env.DB.prepare(`
+      INSERT INTO images (
+        image_id, project_id, filename, original_prompt, aspect_ratio, 
+        width, height, file_size, mime_type, r2_url, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const result = await stmt.bind(
+      imageId,
+      imageData.project_id,
+      imageData.filename,
+      imageData.prompt,
+      imageData.aspect_ratio,
+      imageData.width,
+      imageData.height,
+      imageData.file_size,
+      imageData.mime_type,
+      imageData.r2_url,
+      currentTime
+    ).run();
+
+    return {
+      success: true,
+      image_id: imageId
+    };
+
+  } catch (error) {
+    console.error('Database save error:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+// Get images for a project
+async function handleGetImages(request, env, corsHeaders) {
+  try {
+    const url = new URL(request.url);
+    const projectId = url.searchParams.get('project_id');
+    
+    if (!projectId) {
+      return new Response(JSON.stringify({ error: 'project_id is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    const stmt = env.DB.prepare(`
+      SELECT i.*, ip.placement_type, ip.file_path, ip.component_name, ip.css_class, ip.alt_text
+      FROM images i
+      LEFT JOIN image_placements ip ON i.image_id = ip.image_id
+      WHERE i.project_id = ? AND i.status = 'active'
+      ORDER BY i.created_at DESC
+    `);
+
+    const result = await stmt.bind(projectId).all();
+    
+    return new Response(JSON.stringify({
+      success: true,
+      images: result.results
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+
+  } catch (error) {
+    console.error('Get images error:', error);
+    return new Response(JSON.stringify({ 
+      error: 'Failed to get images',
+      details: error.message
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+}
+
+// Get specific image
+async function handleGetImage(request, env, corsHeaders) {
+  try {
+    const url = new URL(request.url);
+    const imageId = url.pathname.split('/').pop();
+    
+    const stmt = env.DB.prepare(`
+      SELECT * FROM images WHERE image_id = ? AND status = 'active'
+    `);
+
+    const result = await stmt.bind(imageId).first();
+    
+    if (!result) {
+      return new Response(JSON.stringify({ error: 'Image not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      image: result
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+
+  } catch (error) {
+    console.error('Get image error:', error);
+    return new Response(JSON.stringify({ 
+      error: 'Failed to get image',
+      details: error.message
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+}
+
+// Delete image
+async function handleDeleteImage(request, env, corsHeaders) {
+  try {
+    const url = new URL(request.url);
+    const imageId = url.pathname.split('/').pop();
+    
+    // Mark as deleted in database
+    const stmt = env.DB.prepare(`
+      UPDATE images SET status = 'deleted', updated_at = ? WHERE image_id = ?
+    `);
+
+    await stmt.bind(new Date().toISOString(), imageId).run();
+    
+    // Note: We don't delete from R2 immediately to avoid breaking existing references
+    // A cleanup job can be implemented later to remove orphaned files
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Image deleted successfully'
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+
+  } catch (error) {
+    console.error('Delete image error:', error);
+    return new Response(JSON.stringify({ 
+      error: 'Failed to delete image',
+      details: error.message
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+}
+
+// Utility functions
+function generateImageId() {
+  return `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+function getDimensionsFromAspectRatio(aspectRatio) {
+  const baseSize = 1024; // Base size for calculations
+  
+  switch (aspectRatio) {
+    case '1:1':
+      return { width: baseSize, height: baseSize };
+    case '16:9':
+      return { width: baseSize, height: Math.round(baseSize * 9 / 16) };
+    case '4:3':
+      return { width: baseSize, height: Math.round(baseSize * 3 / 4) };
+    case '3:2':
+      return { width: baseSize, height: Math.round(baseSize * 2 / 3) };
+    case '2:1':
+      return { width: baseSize, height: Math.round(baseSize / 2) };
+    default:
+      return { width: baseSize, height: baseSize };
+  }
+}
+
+// Test R2 bucket access
+async function handleTestR2Access(request, env, corsHeaders) {
+  try {
+    console.log('🔍 Testing R2 bucket access...');
+    
+    // List objects in the bucket
+    const objects = await env.IMAGES_BUCKET.list();
+    console.log('📋 R2 bucket objects:', objects);
+    
+    // Get bucket info
+    const bucketInfo = {
+      name: 'jetsy-images-prod',
+      objectCount: objects.objects.length,
+      objects: objects.objects.map(obj => ({
+        key: obj.key,
+        size: obj.size,
+        uploaded: obj.uploaded
+      }))
+    };
+    
+    return new Response(JSON.stringify({
+      success: true,
+      bucket: bucketInfo
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+
+  } catch (error) {
+    console.error('R2 access test error:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+}
+
+// Serve image directly from R2
+async function handleServeImage(request, env, corsHeaders) {
+  try {
+    const url = new URL(request.url);
+    const filename = url.pathname.split('/').pop();
+    
+    console.log('🖼️ Serving image:', filename);
+    
+    // Get the image from R2
+    const object = await env.IMAGES_BUCKET.get(filename);
+    
+    if (!object) {
+      return new Response('Image not found', {
+        status: 404,
+        headers: { 'Content-Type': 'text/plain', ...corsHeaders }
+      });
+    }
+    
+    // Set appropriate headers
+    const headers = new Headers(corsHeaders);
+    object.writeHttpMetadata(headers);
+    headers.set('etag', object.httpEtag);
+    headers.set('cache-control', 'public, max-age=31536000');
+    
+    return new Response(object.body, {
+      status: 200,
+      headers
+    });
+
+  } catch (error) {
+    console.error('Serve image error:', error);
+    return new Response('Internal server error', {
+      status: 500,
+      headers: { 'Content-Type': 'text/plain', ...corsHeaders }
+    });
+  }
 } 

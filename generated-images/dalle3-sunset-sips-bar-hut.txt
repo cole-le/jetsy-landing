@@ -1,0 +1,4 @@
+DALL-E 3 Generated Image: Sunset Sips Bar Hut
+Prompt: Photorealistic image of a Miami beach bar hut with a wooden sign that reads 'Sunset Sips'. The bar is built from driftwood, with hanging lanterns, surfboards, and tropical plants. Sign text should be clear and readable, integrated naturally into the scene. Sunset sky, ocean visible behind the bar
+URL: https://oaidalleapiprodscus.blob.core.windows.net/private/org-cBFC7NMCWPjfIeTX5YiVWgm5/user-UGQxOJCVhtUJuY6X01dhL8c8/img-ihxfRnN2VtVfhv4XqnXoLzWk.png?st=2025-07-26T20%3A19%3A39Z&se=2025-07-26T22%3A19%3A39Z&sp=r&sv=2024-08-04&sr=b&rscd=inline&rsct=image/png&skoid=475fd488-6c59-44a5-9aa9-31c4db451bea&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-07-26T13%3A33%3A35Z&ske=2025-07-27T13%3A33%3A35Z&sks=b&skv=2024-08-04&sig=QUmA/4DGAdjLg/AwclnTbMasgBbtcObfkmSN2aC%2BpXw%3D
+Generated: 2025-07-26T21:19:39.577Z

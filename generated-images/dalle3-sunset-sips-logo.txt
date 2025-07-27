@@ -1,0 +1,4 @@
+DALL-E 3 Generated Image: Sunset Sips Logo
+Prompt: Minimalistic logo for a startup called 'Sunset Sips' — a beach bar in Miami. Include stylized palm trees, ocean wave icon, and bold modern text 'Sunset Sips' below the icon. Use a tropical, high-contrast color palette (sunset orange, teal, white). Vector style, transparent background.
+URL: https://oaidalleapiprodscus.blob.core.windows.net/private/org-cBFC7NMCWPjfIeTX5YiVWgm5/user-UGQxOJCVhtUJuY6X01dhL8c8/img-WZe1PvJi9YfFCc9a8aqnFthK.png?st=2025-07-26T20%3A19%3A21Z&se=2025-07-26T22%3A19%3A21Z&sp=r&sv=2024-08-04&sr=b&rscd=inline&rsct=image/png&skoid=475fd488-6c59-44a5-9aa9-31c4db451bea&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-07-26T21%3A19%3A21Z&ske=2025-07-27T21%3A19%3A21Z&sks=b&skv=2024-08-04&sig=4obr2jZ08cBsRaL5s2zLw1ruAAanbuzk0rOSkm%2B2MhU%3D
+Generated: 2025-07-26T21:19:21.472Z
