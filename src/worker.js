@@ -1122,8 +1122,13 @@ async function handleLLMOrchestration(request, env, corsHeaders) {
                 for (const [filename, content] of Object.entries(response.updated_files)) {
                   let updatedContent = content;
                   
-                  // Replace only the FIRST occurrence of placeholder with actual R2 URL
-                  // This ensures each image gets its own unique replacement
+                  // Replace specific placeholders based on placement
+                  const specificPlaceholder = new RegExp(`\\{GENERATED_IMAGE_URL_${imageRequest.placement.toUpperCase()}\\}`);
+                  if (specificPlaceholder.test(updatedContent)) {
+                    updatedContent = updatedContent.replace(specificPlaceholder, imageUrl);
+                  }
+                  
+                  // Replace generic placeholders (first occurrence only)
                   const placeholderRegex = new RegExp(`\\{GENERATED_IMAGE_URL\\}`);
                   if (placeholderRegex.test(updatedContent)) {
                     updatedContent = updatedContent.replace(placeholderRegex, imageUrl);
@@ -1165,6 +1170,14 @@ async function handleLLMOrchestration(request, env, corsHeaders) {
       }
     }
     
+    // Log business info if available
+    if (response.business_info) {
+      console.log('🏢 Business Info Generated:');
+      console.log(`   Name: ${response.business_info.name || 'Not specified'}`);
+      console.log(`   Tagline: ${response.business_info.tagline || 'Not specified'}`);
+      console.log(`   Color Scheme: ${response.business_info.color_scheme || 'Not specified'}`);
+    }
+    
     return new Response(JSON.stringify(response), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
@@ -1191,59 +1204,226 @@ async function callOpenAI(userMessage, currentFiles, env) {
   console.log('🔍 Attempting to call OpenAI API with o4-mini...');
   console.log('📝 User message:', userMessage);
   
-  // Create a comprehensive prompt for landing page generation with image planning
-  const systemPrompt = `You are an expert React developer and UI/UX designer. Your task is to help users create and modify landing pages by generating React code and planning images.
+  // Enhanced system prompt for beautiful landing page generation
+  const systemPrompt = `You are an expert React developer, UI/UX designer, and business strategist. Your task is to create stunning, conversion-optimized landing pages that generate leads and drive business growth.
 
 IMPORTANT RULES:
-1. Always return valid React JSX code
-2. Use Tailwind CSS for styling
-3. Include proper imports and exports
-4. Make the code production-ready
-5. Respond with JSON format: {"assistant_message": "explanation", "updated_files": {"filename": "code"}, "image_requests": [{"prompt": "description", "aspect_ratio": "1:1", "placement": "hero"}]}
-6. Only modify files that need changes
-7. Keep existing files unchanged unless specifically requested
-8. For icons, you may use Font Awesome icons via <i class='fa fa-ICONNAME'></i> (Font Awesome 6 is available via CDN in the preview). Do NOT use react-icons or any other external icon libraries unless specified here. If you need an icon not in Font Awesome, use an inline SVG.
-9. When images are needed, include image_requests array with detailed prompts for Google Gemini Imagen 4 Preview
-10. Use descriptive image prompts that match the website's theme and purpose
-11. Specify appropriate aspect ratios: "1:1" for logos/icons, "16:9" for hero images, "4:3" for feature images
-12. For image placeholders, use: <img src="{GENERATED_IMAGE_URL}" alt="description" className="..." />
-13. The LLM will replace {GENERATED_IMAGE_URL} with actual R2 URLs after generation
+1. Always return valid React JSX code with proper imports and exports
+2. Use Tailwind CSS for styling with modern design patterns
+3. Make the code production-ready with error handling
+4. Respond with JSON format: {"assistant_message": "explanation", "updated_files": {"filename": "code"}, "image_requests": [{"prompt": "description", "aspect_ratio": "1:1", "placement": "hero"}], "business_info": {"name": "Business Name", "tagline": "Tagline", "color_scheme": "theme"}}
+5. Only modify files that need changes
+6. Keep existing files unchanged unless specifically requested
+7. For icons, use Font Awesome 6 via CDN: <i class='fa fa-ICONNAME'></i>
+8. When images are needed, include detailed image_requests for Google Gemini Imagen 3 Generate
+9. Use descriptive image prompts that match the website's theme and purpose
+10. Specify appropriate aspect ratios: "1:1" for logos/icons, "16:9" for hero images, "4:3" for feature images
+11. For image placeholders, use: <img src="{GENERATED_IMAGE_URL}" alt="description" className="..." />
+12. The LLM will replace {GENERATED_IMAGE_URL} with actual R2 URLs after generation
+        13. IMPORTANT: Always include a prominent hero section with the business name and tagline at the top of the page
+        14. Use React hooks (useState, useEffect) for form handling and interactivity
+        15. Ensure the hero section is the first section and prominently displays the business name and tagline
+        16. Make sure all React hooks are properly imported and used correctly
+        17. ALWAYS include a navigation header with smooth scrolling to sections
+        18. ALWAYS include a prominent CTA button in the hero section
+        19. Ensure proper text contrast - never use white text on light backgrounds or dark text on dark backgrounds
+        20. Use text shadows or dark overlays on images to ensure text readability
+        21. Navigation header must include links to: Home, Features, About, Contact sections
+        22. Use smooth scrolling behavior for navigation links
+        23. Make navigation header fixed/sticky at the top of the page
+        24. SMART IMAGE GENERATION: Always generate images for the initial prompt in a project, regardless of user request
+        25. COLOR SCHEME PLANNING: Always define a cohesive color scheme first before generating any code
+        26. TEXT CONTRAST RULES: Never use white text on white backgrounds, always use contrasting colors
+        27. BACKGROUND OVERLAY: Always add dark overlays on background images to ensure text readability
+        28. INITIAL PROMPT DETECTION: If currentFiles is empty or only contains basic files (like index.css), treat this as an initial prompt and ALWAYS generate images
+        29. IMAGE GENERATION FOR INITIAL PROMPTS: For initial prompts, generate hero image, logo, and feature images regardless of user request
+        30. IMAGE PLACEHOLDERS: Always include image placeholders in generated code: {GENERATED_IMAGE_URL_HERO}, {GENERATED_IMAGE_URL_LOGO}, {GENERATED_IMAGE_URL_FEATURE_1}, {GENERATED_IMAGE_URL_FEATURE_2}, {GENERATED_IMAGE_URL_FEATURE_3}
+        31. IMAGE INTEGRATION: Use <img> tags with placeholders in hero sections, logos, and feature cards
+        32. CRITICAL: For initial prompts, ALWAYS include image placeholders in the React code so images can be integrated
+        33. IMAGE PLACEHOLDER FORMAT: Use exact format: <img src="{GENERATED_IMAGE_URL_HERO}" alt="description" className="..." />
+        34. IMAGE REQUEST PLACEMENTS: Generate image requests with specific placements: "hero", "logo", "feature_1", "feature_2", "feature_3"
+        35. FEATURE IMAGE PLACEMENTS: Each feature card must have a unique placement: feature_1, feature_2, feature_3
+
+LANDING PAGE REQUIREMENTS:
+- Generate a business name and tagline if not provided
+- Create a professional logo concept
+- Design smart color schemes based on business type (e.g., Miami Beach bar = neon coral/purple, tech startup = blue/gray)
+- Include at least one lead capture form (email input, phone input, or both)
+- Add interactive elements (hover effects, animations, smooth scrolling)
+- Include multiple sections: Hero, Features, About, Pricing, Contact, Footer
+- Use background images with overlay options
+- Make it mobile-responsive
+- Include clear CTAs (Book Now, Join Waitlist, Pre-purchase, etc.)
+
+REACT COMPONENTS TO USE:
+- Modern gradient backgrounds
+- Smooth animations with CSS transitions
+- Interactive buttons with hover states
+- Form components with validation
+- Modal/popup components for lead capture
+- Responsive grid layouts
+- Professional typography with proper hierarchy
+
+COLOR SCHEME PLANNING (ALWAYS DO THIS FIRST):
+1. Analyze the business type and choose a cohesive color scheme
+2. Define primary, secondary, and accent colors
+3. Ensure text colors contrast with background colors
+4. Plan overlay colors for background images
+
+COLOR SCHEME GUIDELINES:
+- Miami Beach bar: coral pinks (#FF6B6B), ocean blues (#4ECDC4), neon purples (#A55EEA)
+- Tech startup: professional blues (#3B82F6), grays (#6B7280), accent colors (#10B981)
+- Restaurant/food: warm oranges (#F59E0B), deep reds (#DC2626), cream whites (#FEF3C7)
+- Fitness/health: energetic greens (#10B981), dark grays (#1F2937), accent yellows (#F59E0B)
+- Luxury/services: deep blacks (#111827), gold accents (#F59E0B), elegant whites (#F9FAFB)
+
+TEXT CONTRAST RULES:
+- Light backgrounds (white, cream, light gray): Use dark text (text-gray-900, text-gray-800)
+- Dark backgrounds (black, dark blue, dark gray): Use light text (text-white, text-gray-100)
+- Gradient backgrounds: Use text shadows and dark overlays
+- Background images: Always add dark overlay (bg-black bg-opacity-40) before text
 
 Current files structure:
 ${currentFiles ? Object.keys(currentFiles).map(file => `- ${file}`).join('\n') : 'No files'}
 
 User request: ${userMessage}`;
 
-  const userPrompt = `Please analyze the user's request and generate appropriate React code and image requests. 
+  const userPrompt = `Please analyze the user's request and generate a complete, professional landing page with the following features:
 
-If they want to create a new landing page, generate a complete professional landing page with:
-- Hero section with compelling copy and hero image
-- Features section with benefits and feature images
-- Call-to-action sections
-- Modern design with gradients, icons, and relevant images
-- Responsive layout
+1. BUSINESS IDENTITY:
+- Generate a compelling business name if not provided
+- Create a professional tagline
+- Design a logo concept
+- Choose an appropriate color scheme based on the business type
 
-If they want to modify existing code, make the specific changes requested while maintaining the overall structure.
+COLOR SCHEME PLANNING (REQUIRED FIRST STEP):
+- Analyze the business type and define a cohesive color palette
+- Primary color: Main brand color (e.g., coral for beach bar)
+- Secondary color: Supporting color (e.g., ocean blue for beach bar)
+- Accent color: Highlight color (e.g., neon purple for beach bar)
+- Text colors: Ensure high contrast with backgrounds
+- Background colors: Light or dark based on text color choice
+- Overlay colors: Dark overlays for background images
 
-For images, think about:
-- What type of images would enhance this landing page?
-- What aspect ratios work best for different sections?
-- What descriptive prompts would generate appropriate images?
-- Where should images be placed in the layout?
+INITIAL PROMPT DETECTION:
+- If this is the first prompt in a project (empty or basic files), ALWAYS generate images
+- Generate hero image, logo, and feature images for initial prompts
+- For subsequent prompts, only generate images if specifically requested
+
+IMAGE PLACEHOLDER REQUIREMENTS:
+- ALWAYS include image placeholders in the generated React code
+- Hero section: <img src="{GENERATED_IMAGE_URL_HERO}" alt="Hero Image" className="w-full h-64 object-cover rounded-lg" />
+- Logo: <img src="{GENERATED_IMAGE_URL_LOGO}" alt="Logo" className="h-12 w-auto" />
+- Feature images: Use UNIQUE placeholders for each feature card:
+  * First feature: <img src="{GENERATED_IMAGE_URL_FEATURE_1}" alt="Feature 1" className="w-full h-32 object-cover rounded-lg" />
+  * Second feature: <img src="{GENERATED_IMAGE_URL_FEATURE_2}" alt="Feature 2" className="w-full h-32 object-cover rounded-lg" />
+  * Third feature: <img src="{GENERATED_IMAGE_URL_FEATURE_3}" alt="Feature 3" className="w-full h-32 object-cover rounded-lg" />
+- Background images: <img src="{GENERATED_IMAGE_URL_BACKGROUND}" alt="Background" className="absolute inset-0 w-full h-full object-cover" />
+
+2. LANDING PAGE STRUCTURE:
+- NAVIGATION HEADER: Fixed header with smooth scrolling navigation links to all sections
+- HERO SECTION (MOST IMPORTANT): Must be the first section with the business name and tagline prominently displayed
+- Features/benefits section with relevant images
+- About section with business story
+- Pricing section (if applicable)
+- Contact/location section (if applicable)
+- Footer with social links
+
+3. HERO SECTION REQUIREMENTS:
+- Must be the first section of the page
+- Must prominently display the business name in large, bold text
+- Must display the tagline below the business name
+- Should include a hero image if applicable
+- MUST have a prominent call-to-action button (e.g., "Book Table" for restaurants, "Join Waitlist" for SaaS, "Get Started" for services)
+- Use gradient backgrounds or eye-catching colors
+- CRITICAL: Ensure proper text contrast - use text shadows or dark overlays on images
+- NEVER use white text on light backgrounds or dark text on dark backgrounds
+- For light backgrounds: use dark text (text-gray-900, text-gray-800)
+- For dark backgrounds: use light text (text-white, text-gray-100)
+- For background images: always add dark overlay (bg-black bg-opacity-40) before text
+- Use text shadows: text-shadow: 0 2px 4px rgba(0,0,0,0.5)
+
+3. LEAD CAPTURE:
+- Include at least one lead capture form
+- Options: email input, phone input, or both
+- Clear CTA buttons: "Book Now", "Join Waitlist", "Pre-purchase", "Get Started"
+- Form validation and error handling
+
+4. CTA BUTTON REQUIREMENTS:
+- Hero section MUST have a prominent CTA button
+- For restaurants/bars: "Book Table", "Reserve Now", "Order Online"
+- For SaaS/tech: "Join Waitlist", "Start Free Trial", "Get Started"
+- For services: "Get Started", "Contact Us", "Learn More"
+- For e-commerce: "Shop Now", "Pre-order", "Buy Now"
+- Use contrasting colors and hover effects
+- Make buttons large and prominent in the hero section
+
+4. INTERACTIVE ELEMENTS:
+- Smooth animations and hover effects
+- Background images with overlay options
+- Responsive design for all devices
+- Professional typography and spacing
+
+5. TEXT CONTRAST AND STYLING:
+- Always ensure text is readable against backgrounds
+- Use text shadows: text-shadow: 0 2px 4px rgba(0,0,0,0.5)
+- Use dark overlays on images: bg-black bg-opacity-50
+- For light backgrounds, use dark text: text-gray-900, text-gray-800
+- For dark backgrounds, use light text: text-white, text-gray-100
+- Test contrast ratios for accessibility
+- NEVER use white text on white backgrounds
+- NEVER use black text on black backgrounds
+- Always add dark overlays to background images: bg-black bg-opacity-40
+
+5. IMAGE PLANNING:
+- Hero image that represents the business
+- Feature images for key benefits
+- Logo concept image
+- Background images with appropriate overlays
+
+6. IMAGE INTEGRATION REQUIREMENTS:
+- ALWAYS include image placeholders in the generated code
+- Hero section: Use <img src="{GENERATED_IMAGE_URL_HERO}" alt="Hero Image" className="..." />
+- Logo: Use <img src="{GENERATED_IMAGE_URL_LOGO}" alt="Logo" className="..." />
+- Feature images: Use UNIQUE placeholders for each feature card:
+  * First feature: <img src="{GENERATED_IMAGE_URL_FEATURE_1}" alt="Feature 1" className="..." />
+  * Second feature: <img src="{GENERATED_IMAGE_URL_FEATURE_2}" alt="Feature 2" className="..." />
+  * Third feature: <img src="{GENERATED_IMAGE_URL_FEATURE_3}" alt="Feature 3" className="..." />
+- Background images: Use <img src="{GENERATED_IMAGE_URL_BACKGROUND}" alt="Background" className="..." />
+
+7. SMART IMAGE GENERATION RULES:
+- ALWAYS generate images for the initial prompt in a project (when no existing files or empty project)
+- For subsequent prompts, only generate images when user specifically requests them
+- If user asks for styling changes only, reuse existing images
+- If user asks for "new images" or "different images", then generate
+- If user asks for layout/styling/color changes, keep existing images
+- If user asks for navigation, contrast, or CTA improvements, keep existing images
+- Only generate images when user explicitly mentions images or visual content
+
+8. IMAGE REQUEST SPECIFICATIONS:
+- Generate image requests with specific placements for proper integration:
+  * Hero image: placement: "hero"
+  * Logo: placement: "logo" 
+  * Feature 1: placement: "feature_1"
+  * Feature 2: placement: "feature_2"
+  * Feature 3: placement: "feature_3"
+- Each feature card must have a unique placement to avoid duplicate images
 
 Current files content:
 ${currentFiles ? JSON.stringify(currentFiles, null, 2) : '{}'}
 
-Return only the JSON response with assistant_message, updated_files, and image_requests (if images are needed).`;
+IMPORTANT: ALWAYS generate images for the initial prompt in a project (when no existing files or empty project). For subsequent prompts, only generate images if the user specifically requests new images or if this is a completely new landing page creation.
+
+Return only the JSON response with assistant_message, updated_files, image_requests, and business_info.`;
 
         const requestBody = {
-      model: 'gpt-4o-mini', // Using gpt-4o-mini which we confirmed works
+      model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
       temperature: 0.7,
-      max_tokens: 4000
+      max_tokens: 6000
     };
 
   console.log('📤 Sending request to OpenAI API...');
@@ -1280,7 +1460,8 @@ Return only the JSON response with assistant_message, updated_files, and image_r
     return {
       assistant_message: parsedResponse.assistant_message,
       updated_files: parsedResponse.updated_files,
-      image_requests: parsedResponse.image_requests || []
+      image_requests: parsedResponse.image_requests || [],
+      business_info: parsedResponse.business_info || {}
     };
   } catch (parseError) {
     console.error('Failed to parse LLM response:', parseError);
@@ -1572,7 +1753,7 @@ async function getIndexHTML() {
 
 // --- Image Generation and Management Functions ---
 
-// Handle image generation using Google Gemini Imagen 4 Preview
+// Handle image generation using Google Gemini Imagen 3 Generate
 async function handleImageGeneration(request, env, corsHeaders) {
   try {
     const { project_id, prompt, aspect_ratio = '1:1', number_of_images = 1 } = await request.json();
@@ -1588,7 +1769,7 @@ async function handleImageGeneration(request, env, corsHeaders) {
       throw new Error('Gemini API key is required but not found. Please configure GEMINI_API_KEY as a Wrangler secret.');
     }
 
-    console.log('🎨 Generating image with Gemini Imagen 4 Preview...');
+    console.log('🎨 Generating image with Gemini Imagen 3 Generate...');
     console.log('   - Project ID:', project_id);
     console.log('   - Prompt:', prompt);
     console.log('   - Aspect Ratio:', aspect_ratio);
@@ -1682,7 +1863,7 @@ async function handleImageGeneration(request, env, corsHeaders) {
   }
 }
 
-// Generate image using Google Gemini Imagen 4 Preview
+// Generate image using Google Gemini Imagen 3 Generate
 async function generateImageWithGemini(prompt, aspectRatio, env) {
   try {
     const { GoogleGenAI } = await import('@google/genai');
@@ -1691,13 +1872,13 @@ async function generateImageWithGemini(prompt, aspectRatio, env) {
       apiKey: env.GEMINI_API_KEY,
     });
 
-    console.log('🤖 Calling Gemini Imagen 4 Preview API...');
+    console.log('🤖 Calling Gemini Imagen 3 Generate API...');
     console.log('   - Prompt:', prompt);
     console.log('   - Aspect Ratio:', aspectRatio);
     console.log('   - Gemini API Key present:', !!env.GEMINI_API_KEY);
     
     const response = await ai.models.generateImages({
-      model: 'models/imagen-4.0-generate-preview-06-06',
+      model: 'models/imagen-3.0-generate-002',
       prompt: prompt,
       config: {
         numberOfImages: 1,

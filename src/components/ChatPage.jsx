@@ -10,6 +10,7 @@ const ChatPage = ({ onBackToHome }) => {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [showProjectSelector, setShowProjectSelector] = useState(false);
   const [showProjectPanel, setShowProjectPanel] = useState(false);
+  const [isIframeLoaded, setIsIframeLoaded] = useState(false);
   const iframeRef = useRef(null);
 
   // Load existing chat history when component mounts
@@ -254,15 +255,34 @@ const ChatPage = ({ onBackToHome }) => {
     // eslint-disable-next-line
   }, [currentProject && currentProject.files]);
 
-  // Listen for error messages from the iframe
+  // Listen for messages from the iframe
   useEffect(() => {
     const handleMessage = (event) => {
       if (event.data && event.data.type === 'preview-error') {
         setPreviewError(event.data.error);
+        setPreviewLoading(false);
+      } else if (event.data && event.data.type === 'preview-success') {
+        setPreviewError(null);
+        setPreviewLoading(false);
+        console.log('Preview loaded successfully');
       }
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // Handle iframe load events
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (iframe) {
+      const handleLoad = () => {
+        console.log('Iframe loaded');
+        setIsIframeLoaded(true);
+      };
+      
+      iframe.addEventListener('load', handleLoad);
+      return () => iframe.removeEventListener('load', handleLoad);
+    }
   }, []);
 
   // Close project selector when clicking outside
@@ -287,11 +307,23 @@ const ChatPage = ({ onBackToHome }) => {
     if (!appCode) {
       return '<html><body><p>No App component found</p></body></html>';
     }
-    // Remove all import/export lines and export keywords before function/class
-    appCode = appCode
+    
+    // Debug: Log the original code
+    console.log('Original App.jsx code:', appCode.substring(0, 500) + '...');
+    
+    // Process the code to work in the iframe
+    let processedCode = appCode
+      // Remove all import/export statements
       .replace(/^import .*;?$/gm, '')
       .replace(/^export .*;?$/gm, '')
-      .replace(/export (function|class) /g, '$1 ');
+      .replace(/export (function|class) /g, '$1 ')
+      // Fix common JSX issues
+      .replace(/class=/g, 'className=')
+      .replace(/for=/g, 'htmlFor=');
+    
+    // Debug: Log the processed code
+    console.log('Processed App.jsx code:', processedCode.substring(0, 500) + '...');
+    
     // The injected script will catch errors and post them to the parent
     return `
 <!DOCTYPE html>
@@ -303,8 +335,52 @@ const ChatPage = ({ onBackToHome }) => {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script>
+      // Make React hooks available globally
+      window.React = React;
+      
+      // Make hooks available as global functions
+      if (React.useState) {
+        window.useState = React.useState;
+        window.useEffect = React.useEffect;
+        window.useRef = React.useRef;
+        window.useCallback = React.useCallback;
+        window.useMemo = React.useMemo;
+        window.useContext = React.useContext;
+      }
+      
+      // Also try alternative access patterns
+      if (!window.useState && React['useState']) {
+        window.useState = React['useState'];
+        window.useEffect = React['useEffect'];
+        window.useRef = React['useRef'];
+        window.useCallback = React['useCallback'];
+        window.useMemo = React['useMemo'];
+        window.useContext = React['useContext'];
+      }
+      
+      console.log('React loaded successfully:', typeof React);
+      console.log('React hooks available:', {
+        useState: typeof React.useState,
+        useEffect: typeof React.useEffect,
+        useRef: typeof React.useRef
+      });
+      console.log('Window hooks available:', {
+        useState: typeof window.useState,
+        useEffect: typeof window.useEffect,
+        useRef: typeof window.useRef
+      });
+    </script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // Configure Tailwind for production warning suppression
+      tailwind.config = {
+        theme: {
+          extend: {}
+        }
+      }
+    </script>
     <style>
       ${cssCode}
     </style>
@@ -314,12 +390,45 @@ const ChatPage = ({ onBackToHome }) => {
     <div id="root"></div>
     <script type="text/babel">
       try {
-        ${appCode}
+        console.log('Starting preview rendering...');
+        
+        // Make sure React hooks are available in this scope
+        const { useState, useEffect, useRef, useCallback, useMemo, useContext } = React;
+        
+        // Also make them available as global variables for compatibility
+        window.useState = useState;
+        window.useEffect = useEffect;
+        window.useRef = useRef;
+        window.useCallback = useCallback;
+        window.useMemo = useMemo;
+        window.useContext = useContext;
+        
+        console.log('Hooks available in Babel scope:', {
+          useState: typeof useState,
+          useEffect: typeof useEffect,
+          useRef: typeof useRef
+        });
+        
+        // Process the app code
+        console.log('Processing app code...');
+        ${processedCode}
+        
+        // Check if App component was created successfully
+        if (typeof App === 'undefined') {
+          throw new Error('App component was not defined after processing');
+        }
+        
+        console.log('App component created successfully, rendering...');
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(React.createElement(App));
+        console.log('Rendering complete');
+        
+        // Send success message to parent
+        window.parent.postMessage({ type: 'preview-success' }, '*');
       } catch (err) {
+        console.error('Preview error:', err);
         window.parent.postMessage({ type: 'preview-error', error: err.message }, '*');
-        document.body.innerHTML = '<div style="color:red;padding:2rem;font-family:monospace;">'+err.message+'</div>';
+        document.body.innerHTML = '<div style="color:red;padding:2rem;font-family:monospace;">Error: '+err.message+'<br><br>Stack: '+err.stack+'</div>';
       }
     </script>
 </body>
@@ -477,10 +586,15 @@ const ChatPage = ({ onBackToHome }) => {
             )}
             <iframe
               ref={iframeRef}
+              key={`preview-${currentProject?.id}-${currentProject?.files ? JSON.stringify(currentProject.files).length : 0}`}
               title="Landing Page Preview"
               className="w-full h-full"
-              sandbox="allow-scripts allow-same-origin"
+              sandbox="allow-scripts allow-same-origin allow-forms"
               style={{ background: 'white' }}
+              onLoad={() => {
+                console.log('Iframe loaded successfully');
+                setPreviewLoading(false);
+              }}
             />
           </div>
         </div>
