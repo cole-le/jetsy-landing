@@ -159,6 +159,30 @@ export default {
         return new Response(null, { status: 200, headers: corsHeaders });
       }
 
+      // --- Smart Placeholder Generation API ---
+      if (path === '/api/generate-placeholders' && request.method === 'POST') {
+        return await handleGeneratePlaceholders(request, env, corsHeaders);
+      }
+      if (path === '/api/generate-placeholders' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
+      // --- Code Analysis API ---
+      if (path === '/api/analyze-code' && request.method === 'POST') {
+        return await handleAnalyzeCode(request, env, corsHeaders);
+      }
+      if (path === '/api/analyze-code' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
+      // --- Multi-Task Parser API ---
+      if (path === '/api/parse-multi-task' && request.method === 'POST') {
+        return await handleParseMultiTask(request, env, corsHeaders);
+      }
+      if (path === '/api/parse-multi-task' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
       // Serve static files
       return await serveStaticFiles(request, env);
 
@@ -1047,6 +1071,13 @@ async function addChatMessage(request, env, corsHeaders) {
 // --- LLM Orchestration Handler ---
 async function handleLLMOrchestration(request, env, corsHeaders) {
   try {
+    // Reset cost tracking for this request
+    totalCost = {
+      nano: { input_tokens: 0, output_tokens: 0, cost: 0 },
+      mini: { input_tokens: 0, output_tokens: 0, cost: 0 },
+      total: 0
+    };
+    
     const { project_id, user_message, current_files } = await request.json();
     
     if (!project_id || !user_message) {
@@ -1075,118 +1106,293 @@ async function handleLLMOrchestration(request, env, corsHeaders) {
       }
     }
 
-    console.log('🔍 LLM Orchestration Debug:');
-    console.log('   - API Key present:', !!apiKey);
-    console.log('   - API Key length:', apiKey ? apiKey.length : 0);
-    console.log('   - User message:', user_message);
-    console.log('   - Project files:', Object.keys(projectFiles));
+
     
-    console.log('🚀 Calling OpenAI API with gpt-4o-mini...');
-    const response = await callOpenAI(user_message, projectFiles, { ...env, OPENAI_API_KEY: apiKey });
-    console.log('✅ OpenAI API call successful');
+    // Smart image generation logic - treat as initial prompt if only basic files exist
+    const isInitialPrompt = !projectFiles || 
+                           Object.keys(projectFiles).length === 0 || 
+                           (Object.keys(projectFiles).length === 1 && projectFiles['src/index.css']) ||
+                           (Object.keys(projectFiles).length === 2 && 
+                            projectFiles['src/index.css'] && 
+                            (projectFiles['src/App.jsx'] || projectFiles['src/main.jsx'] || projectFiles['src/index.jsx']));
     
-    // Smart image generation logic
-    const isInitialPrompt = !projectFiles || Object.keys(projectFiles).length === 0 || 
-                           (Object.keys(projectFiles).length === 1 && projectFiles['src/index.css']);
+    // For initial prompts, ALWAYS generate images regardless of user message content
+    // For subsequent prompts, only generate images if user explicitly requests them
+    const isImageRequest = isInitialPrompt || 
+                          user_message.trim() === '' || 
+                          user_message.toLowerCase().includes('image') || 
+                          user_message.toLowerCase().includes('photo') || 
+                          user_message.toLowerCase().includes('picture') ||
+                          user_message.toLowerCase().includes('add') && user_message.toLowerCase().includes('image') ||
+                          user_message.toLowerCase().includes('new') && user_message.toLowerCase().includes('image') ||
+                          user_message.toLowerCase().includes('generate') && user_message.toLowerCase().includes('image');
     
-    if (response.image_requests && response.image_requests.length > 0) {
-      if (isInitialPrompt) {
-        console.log('🎨 Generating images for initial prompt:', response.image_requests.length, 'images');
-      } else {
-        console.log('🎨 Skipping image generation for non-initial prompt (keeping existing images)');
-        // Clear image requests to prevent generation
-        response.image_requests = [];
+    // Detect specific section requests
+    const sectionKeywords = {
+      'hero': ['hero', 'main', 'header', 'banner'],
+      'about': ['about', 'about us', 'about section'],
+      'features': ['feature', 'features', 'feature section'],
+      'contact': ['contact', 'contact us', 'contact section'],
+      'gallery': ['gallery', 'photos', 'images'],
+      'logo': ['logo', 'brand', 'branding']
+    };
+    
+    let requestedSections = [];
+    const userMessageLower = user_message.toLowerCase();
+    
+    for (const [section, keywords] of Object.entries(sectionKeywords)) {
+      if (keywords.some(keyword => userMessageLower.includes(keyword))) {
+        requestedSections.push(section);
+      }
+    }
+    
+    // If no specific section mentioned but image request, try to infer from context
+    if (isImageRequest && requestedSections.length === 0) {
+      // Look for custom section names in the user message
+      const customSectionMatch = userMessageLower.match(/(?:create|add|new)\s+(?:a\s+)?(?:new\s+)?(?:section\s+)?(?:called\s+)?([a-zA-Z]+)/);
+      if (customSectionMatch) {
+        requestedSections = [customSectionMatch[1].toLowerCase()];
+      }
+    }
+    
+    // Generate smart placeholders based on detected sections
+    const generateSmartPlaceholders = (sections) => {
+      const placeholders = [];
+      sections.forEach(section => {
+        switch(section) {
+          case 'hero':
+            placeholders.push('{GENERATED_IMAGE_URL_HERO}');
+            break;
+          case 'logo':
+            placeholders.push('{GENERATED_IMAGE_URL_LOGO}');
+            break;
+          case 'about':
+            placeholders.push('{GENERATED_IMAGE_URL_ABOUT}');
+            break;
+          case 'contact':
+            placeholders.push('{GENERATED_IMAGE_URL_CONTACT}');
+            break;
+          case 'gallery':
+            placeholders.push('{GENERATED_IMAGE_URL_GALLERY}');
+            break;
+          case 'features':
+            placeholders.push('{GENERATED_IMAGE_URL_FEATURE_1}', '{GENERATED_IMAGE_URL_FEATURE_2}', '{GENERATED_IMAGE_URL_FEATURE_3}');
+            break;
+          default:
+            // For custom sections, create a custom placeholder
+            const customPlaceholder = `{GENERATED_IMAGE_URL_${section.toUpperCase()}}`;
+            placeholders.push(customPlaceholder);
+        }
+      });
+      return placeholders;
+    };
+    
+    const smartPlaceholders = generateSmartPlaceholders(requestedSections);
+    
+    // Stage 1: Use GPT-4.1-nano for task parsing and preprocessing
+    let nanoAnalysis = null;
+    let processedUserMessage = user_message; // Initialize with original message
+    
+    try {
+      // Check if GPT-4.1-nano is available (optional check)
+      if (!env.OPENAI_API_KEY) {
+        throw new Error('OpenAI API key not available');
       }
       
-      const generatedImages = [];
+      nanoAnalysis = await callOpenAINano(user_message, env);
       
-      for (const imageRequest of response.image_requests) {
-        try {
-          const imageResponse = await fetch(`${new URL(request.url).origin}/api/generate-image`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              project_id: project_id,
-              prompt: imageRequest.prompt,
-              aspect_ratio: imageRequest.aspect_ratio || '1:1',
-              number_of_images: 1
-            })
-          });
+      // Use the processed prompt from nano for stage 2
+      processedUserMessage = nanoAnalysis.processed_prompt || user_message;
+      
+    } catch (error) {
+      // Don't fallback - fail the entire request if Stage 1 fails
+      // This ensures we get proper task parsing or fail fast
+      throw new Error(`Stage 1 task parsing failed: ${error.message}`);
+    }
+    
+    // Legacy multi-step detection (fallback)
+    let multiTaskAnalysis = null;
+    let isMultiStepRequest = nanoAnalysis?.is_multi_step || false;
+    
+    if (!nanoAnalysis && isMultiStepRequest) {
+      try {
+        const multiTaskResponse = await fetch(`${new URL(request.url).origin}/api/parse-multi-task`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_message })
+        });
+        
+        if (multiTaskResponse.ok) {
+          const multiTaskResult = await multiTaskResponse.json();
+          multiTaskAnalysis = multiTaskResult;
+        }
+      } catch (error) {
+        // Legacy multi-task parsing failed, continue without it
+      }
+    }
+    
+    // For targeted changes, analyze the current code structure first
+    let codeAnalysis = null;
+    if (!isInitialPrompt && requestedSections.length > 0) {
+      try {
+        const analysisResponse = await fetch(`${new URL(request.url).origin}/api/analyze-code`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            current_files: projectFiles,
+            target_section: requestedSections[0]
+          })
+        });
+        
+        if (analysisResponse.ok) {
+          const analysisResult = await analysisResponse.json();
+          codeAnalysis = analysisResult.analysis;
+        }
+      } catch (error) {
+        // Code analysis failed, continue without it
+      }
+    }
+    
+    // Now call OpenAI with all the prepared variables
+    const response = await callOpenAI(processedUserMessage, projectFiles, { ...env, OPENAI_API_KEY: apiKey }, codeAnalysis, nanoAnalysis, multiTaskAnalysis);
+    
+    // Force image generation for initial prompts if AI didn't generate any
+    if (isInitialPrompt && (!response.image_requests || response.image_requests.length === 0)) {
+      response.image_requests = [
+        {
+          prompt: "A stunning hero image for a beach bar website with vibrant colors and tropical atmosphere",
+          aspect_ratio: "16:9",
+          placement: "hero"
+        },
+        {
+          prompt: "A professional logo for a beach bar with modern design and tropical elements",
+          aspect_ratio: "1:1",
+          placement: "logo"
+        },
+        {
+          prompt: "A feature image showing people enjoying drinks at a beach bar",
+          aspect_ratio: "4:3",
+          placement: "feature_1"
+        },
+        {
+          prompt: "A feature image showing the beautiful beach bar atmosphere and decor",
+          aspect_ratio: "4:3",
+          placement: "feature_2"
+        },
+        {
+          prompt: "A feature image showing delicious cocktails and drinks at the beach bar",
+          aspect_ratio: "4:3",
+          placement: "feature_3"
+        }
+      ];
+    }
+    
+    if (response.image_requests && response.image_requests.length > 0) {
+        if (isInitialPrompt || isImageRequest) {
+          // Filter image requests based on detected sections
+          let filteredImageRequests = response.image_requests;
           
-          if (imageResponse.ok) {
-            const imageResult = await imageResponse.json();
-            if (imageResult.success && imageResult.images.length > 0) {
-              generatedImages.push({
-                ...imageResult.images[0],
-                placement: imageRequest.placement
-              });
-              
-              // Update the code to use the generated image
-              if (imageRequest.placement && response.updated_files) {
-                const imageId = imageResult.images[0].image_id;
-                const imageUrl = imageResult.images[0].url;
+          if (!isInitialPrompt && requestedSections.length > 0) {
+            // For non-initial prompts, only generate images for requested sections
+            filteredImageRequests = response.image_requests.filter(request => {
+              const requestPlacement = request.placement?.toLowerCase();
+              return requestedSections.some(section => 
+                requestPlacement?.includes(section) || 
+                requestPlacement === section
+              );
+            });
+            
+            if (filteredImageRequests.length === 0) {
+              // If no matching requests found, create a new request for the first requested section
+              const firstSection = requestedSections[0];
+              filteredImageRequests = [{
+                prompt: `A professional image for the ${firstSection} section of a beach bar website`,
+                aspect_ratio: '4:3',
+                placement: firstSection
+              }];
+            }
+          }
+          
+
+          
+          const generatedImages = [];
+          
+          for (const imageRequest of filteredImageRequests) {
+          try {
+            const imageResponse = await fetch(`${new URL(request.url).origin}/api/generate-image`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                project_id: project_id,
+                prompt: imageRequest.prompt,
+                aspect_ratio: imageRequest.aspect_ratio || '1:1',
+                number_of_images: 1
+              })
+            });
+            
+            if (imageResponse.ok) {
+              const imageResult = await imageResponse.json();
+              if (imageResult.success && imageResult.images.length > 0) {
+                generatedImages.push({
+                  ...imageResult.images[0],
+                  placement: imageRequest.placement
+                });
                 
-                console.log(`🔄 Replacing image placeholder for ${imageRequest.placement} with ID: ${imageId}`);
-                
-                for (const [filename, content] of Object.entries(response.updated_files)) {
-                  let updatedContent = content;
+                // Update the code to use the generated image
+                if (imageRequest.placement && response.updated_files) {
+                  const imageId = imageResult.images[0].image_id;
+                  const imageUrl = imageResult.images[0].url;
                   
-                  // Replace specific placeholders based on placement
-                  const specificPlaceholder = new RegExp(`\\{GENERATED_IMAGE_URL_${imageRequest.placement.toUpperCase()}\\}`);
-                  if (specificPlaceholder.test(updatedContent)) {
-                    updatedContent = updatedContent.replace(specificPlaceholder, imageUrl);
+                  for (const [filename, content] of Object.entries(response.updated_files)) {
+                    let updatedContent = content;
+                    
+                    // Replace specific placeholders based on placement
+                    const specificPlaceholder = new RegExp(`\\{GENERATED_IMAGE_URL_${imageRequest.placement.toUpperCase()}\\}`);
+                    if (specificPlaceholder.test(updatedContent)) {
+                      updatedContent = updatedContent.replace(specificPlaceholder, imageUrl);
+                    }
+                    
+                    // Replace generic placeholders (first occurrence only)
+                    const placeholderRegex = new RegExp(`\\{GENERATED_IMAGE_URL\\}`);
+                    if (placeholderRegex.test(updatedContent)) {
+                      updatedContent = updatedContent.replace(placeholderRegex, imageUrl);
+                    }
+                    
+                    // Also replace any remaining generic placeholders (first occurrence only)
+                    const imageIdRegex = new RegExp(`/api/images/\\{IMAGE_ID\\}`);
+                    if (imageIdRegex.test(updatedContent)) {
+                      updatedContent = updatedContent.replace(imageIdRegex, imageUrl);
+                    }
+                    
+                    // Replace any remaining API endpoints with direct URLs (first occurrence only)
+                    const generatedImageIdRegex = new RegExp(`/api/images/\\{GENERATED_IMAGE_ID\\}`);
+                    if (generatedImageIdRegex.test(updatedContent)) {
+                      updatedContent = updatedContent.replace(generatedImageIdRegex, imageUrl);
+                    }
+                    
+                    response.updated_files[filename] = updatedContent;
                   }
-                  
-                  // Replace generic placeholders (first occurrence only)
-                  const placeholderRegex = new RegExp(`\\{GENERATED_IMAGE_URL\\}`);
-                  if (placeholderRegex.test(updatedContent)) {
-                    updatedContent = updatedContent.replace(placeholderRegex, imageUrl);
-                  }
-                  
-                  // Also replace any remaining generic placeholders (first occurrence only)
-                  const imageIdRegex = new RegExp(`/api/images/\\{IMAGE_ID\\}`);
-                  if (imageIdRegex.test(updatedContent)) {
-                    updatedContent = updatedContent.replace(imageIdRegex, imageUrl);
-                  }
-                  
-                  // Replace any remaining API endpoints with direct URLs (first occurrence only)
-                  const generatedImageIdRegex = new RegExp(`/api/images/\\{GENERATED_IMAGE_ID\\}`);
-                  if (generatedImageIdRegex.test(updatedContent)) {
-                    updatedContent = updatedContent.replace(generatedImageIdRegex, imageUrl);
-                  }
-                  
-                  response.updated_files[filename] = updatedContent;
                 }
               }
             }
+          } catch (error) {
+            console.error('Failed to generate image:', error);
+            // Continue with other images even if one fails
           }
-        } catch (error) {
-          console.error('Failed to generate image:', error);
-          // Continue with other images even if one fails
         }
+        
+        response.generated_images = generatedImages;
+      } else {
+        // Clear image requests to prevent generation
+        response.image_requests = [];
       }
-      
-      response.generated_images = generatedImages;
-    } else if (!isInitialPrompt) {
-      console.log('🎨 No image requests - keeping existing images');
-    }
-    
-    // Log business info if available
-    if (response.business_info) {
-      console.log('🏢 Business Info Generated:');
-      console.log(`   Name: ${response.business_info.name || 'Not specified'}`);
-      console.log(`   Tagline: ${response.business_info.tagline || 'Not specified'}`);
-      console.log(`   Color Scheme: ${response.business_info.color_scheme || 'Not specified'}`);
     }
     
     return new Response(JSON.stringify(response), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });
-
   } catch (error) {
-    console.error('LLM orchestration error:', error);
-    console.error('Error stack:', error.stack);
     return new Response(JSON.stringify({ 
       error: 'Failed to process LLM request',
       details: error.message,
@@ -1198,15 +1404,296 @@ async function handleLLMOrchestration(request, env, corsHeaders) {
   }
 }
 
-// Real OpenAI API integration
-async function callOpenAI(userMessage, currentFiles, env) {
-  const openaiUrl = 'https://api.openai.com/v1/chat/completions';
+// Cost tracking for AI system
+let totalCost = {
+  nano: { input_tokens: 0, output_tokens: 0, cost: 0 },
+  mini: { input_tokens: 0, output_tokens: 0, cost: 0 },
+  total: 0
+};
+
+// Pricing constants (per 1M tokens)
+const PRICING = {
+  nano: {
+    input: 0.10,    // $0.10 per 1M input tokens (GPT-4.1-nano)
+    output: 0.40    // $0.40 per 1M output tokens (GPT-4.1-nano)
+  },
+  mini: {
+    input: 1.10,    // $1.10 per 1M input tokens (GPT-4o-mini)
+    output: 4.40    // $4.40 per 1M output tokens (GPT-4o-mini)
+  }
+};
+
+// Calculate cost from tokens
+function calculateCost(inputTokens, outputTokens, model) {
+  const inputCost = (inputTokens / 1000000) * PRICING[model].input;
+  const outputCost = (outputTokens / 1000000) * PRICING[model].output;
+  return inputCost + outputCost;
+}
+
+// Log total cost
+function logTotalCost() {
+  console.log('💰 COST BREAKDOWN:');
+  console.log(`   GPT-4.1-nano: ${totalCost.nano.input_tokens} input + ${totalCost.nano.output_tokens} output tokens = $${totalCost.nano.cost.toFixed(6)}`);
+  console.log(`   GPT-4o-mini: ${totalCost.mini.input_tokens} input + ${totalCost.mini.output_tokens} output tokens = $${totalCost.mini.cost.toFixed(6)}`);
+  console.log(`   TOTAL COST: $${totalCost.total.toFixed(6)}`);
+}
+
+// Stage 1: GPT-4.1 Nano for task parsing and preprocessing
+async function callOpenAINano(userMessage, env) {
+  const openaiUrl = 'https://api.openai.com/v1/responses';
   
-  console.log('🔍 Attempting to call OpenAI API with o4-mini...');
-  console.log('📝 User message:', userMessage);
+            const nanoPrompt = `USER REQUEST: ${userMessage}
+
+CRITICAL SYSTEM REQUIREMENTS:
+- You MUST respond with ONLY valid JSON
+- No explanations, no markdown formatting, no code blocks
+- No additional text before or after the JSON
+- The response must be parseable by JSON.parse()
+- If you cannot parse the request, return a valid JSON with error information
+
+TASK PARSING INSTRUCTIONS:
+1. Identify if this is a single task or multi-step request
+2. For multi-step requests, break them down into individual tasks
+3. For each task, identify:
+   - Task type (add_section, delete_section, add_image, change_text, etc.)
+   - Target section (hero, about, features, contact, etc.)
+   - Task details (what specifically to change)
+   - Priority order
+
+4. Detect task separators like "then", "next", "also", "after that", semicolons, etc.
+
+5. Handle task dependencies (e.g., don't modify sections that will be deleted)
+
+CRITICAL: You MUST respond with ONLY valid JSON. No explanations, no markdown, no code blocks.
+
+OUTPUT FORMAT (JSON ONLY):
+{
+  "is_multi_step": true/false,
+  "total_tasks": number,
+  "tasks": [
+    {
+      "id": 1,
+      "type": "task_type",
+      "section": "section_name",
+      "details": "specific_changes",
+      "priority": 1
+    }
+  ],
+  "processed_prompt": "cleaned_and_structured_prompt_for_stage_2"
+}
+
+Examples:
+- "add image to About section" → {"is_multi_step": false, "total_tasks": 1, "tasks": [{"id": 1, "type": "add_image", "section": "about", "details": "add image to About section", "priority": 1}], "processed_prompt": "add image to About section"}
+- "add image to About section, then change text in Hero section" → {"is_multi_step": true, "total_tasks": 2, "tasks": [{"id": 1, "type": "add_image", "section": "about", "details": "add image to About section", "priority": 1}, {"id": 2, "type": "change_text", "section": "hero", "details": "change text in Hero section", "priority": 2}], "processed_prompt": "add image to About section, then change text in Hero section"}
+
+Parse this request and return ONLY the JSON object.`;
+
+  try {
+    console.log('📤 Sending request to OpenAI GPT-4.1-nano API for task parsing...');
+    
+              const response = await fetch(openaiUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
+              'Content-Type': 'application/json',
+              'OpenAI-Beta': 'responses=v1'
+            },
+            body: JSON.stringify({
+              model: 'gpt-4.1-nano',
+              input: [
+                {
+                  "role": "system",
+                  "content": [
+                    {
+                      "type": "input_text",
+                      "text": "You are a task parser and preprocessor. Your job is to analyze user requests and break them down into structured tasks."
+                    }
+                  ]
+                },
+                {
+                  "role": "user",
+                  "content": [
+                    {
+                      "type": "input_text",
+                      "text": nanoPrompt
+                    }
+                  ]
+                }
+              ],
+              text: {
+                format: {
+                  type: 'text'
+                }
+              },
+              reasoning: {},
+              tools: [],
+              temperature: 0.1, // Low temperature for consistent parsing
+              max_output_tokens: 2048,
+              top_p: 1,
+              store: false
+            })
+          });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ OpenAI GPT-4.1-nano API error:', response.status, errorText);
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+    }
+
+                const data = await response.json();
+            console.log('✅ OpenAI GPT-4.1-nano API call successful for task parsing');
+                console.log('📊 GPT-4.1-nano response structure:', {
+      has_choices: !!data.choices,
+      has_content: !!data.content,
+      has_text: !!data.text,
+      has_output: !!data.output,
+      response_keys: Object.keys(data)
+    });
+    
+    if (data.output && data.output.length > 0) {
+      console.log('🔍 data.output[0] structure:', {
+        id: data.output[0].id,
+        type: data.output[0].type,
+        role: data.output[0].role,
+        content_length: data.output[0].content?.length || 0,
+        content_types: data.output[0].content?.map(c => c.type) || []
+      });
+    }
+    
+    // Track token usage and calculate cost
+    if (data.usage) {
+      totalCost.nano.input_tokens = data.usage.input_tokens || 0;
+      totalCost.nano.output_tokens = data.usage.output_tokens || 0;
+      totalCost.nano.cost = calculateCost(totalCost.nano.input_tokens, totalCost.nano.output_tokens, 'nano');
+      totalCost.total += totalCost.nano.cost;
+      
+      console.log('💰 GPT-4.1-nano cost:', {
+        input_tokens: totalCost.nano.input_tokens,
+        output_tokens: totalCost.nano.output_tokens,
+        cost: `$${totalCost.nano.cost.toFixed(6)}`
+      });
+    }
+    
+                                // Parse the response - NO FALLBACK, FAIL FAST
+    let responseContent;
+    
+    // According to OpenAI Responses API documentation:
+    // The response is in data.output[0].content[0].text
+    if (data.output && data.output.length > 0 && 
+        data.output[0].content && data.output[0].content.length > 0 && 
+        data.output[0].content[0].text) {
+      // Correct Responses API format
+      responseContent = data.output[0].content[0].text;
+    } else if (data.text && typeof data.text === 'string') {
+      // Direct text response (fallback)
+      responseContent = data.text;
+    } else {
+      console.error('❌ Unexpected GPT-4.1-nano response structure:', data);
+      console.log('🔍 Available data keys:', Object.keys(data));
+      if (data.output) {
+        console.log('🔍 data.output structure:', JSON.stringify(data.output, null, 2));
+      }
+      if (data.text) console.log('🔍 data.text type:', typeof data.text, data.text);
+      throw new Error('Unexpected GPT-4.1-nano response structure - missing output[0].content[0].text');
+    }
+            
+            console.log('📝 GPT-4.1-nano raw response:', responseContent);
+            
+            // Validate JSON response
+            if (!responseContent.trim().startsWith('{')) {
+              throw new Error(`GPT-4.1-nano did not return JSON. Response: ${responseContent.substring(0, 100)}...`);
+            }
+            
+            const parsedResult = JSON.parse(responseContent);
+            
+            // Validate required fields
+            if (!parsedResult.hasOwnProperty('is_multi_step') || !parsedResult.hasOwnProperty('total_tasks') || !parsedResult.hasOwnProperty('tasks')) {
+              throw new Error(`GPT-4.1-nano returned invalid JSON structure. Missing required fields. Response: ${JSON.stringify(parsedResult)}`);
+            }
+            
+            // Validate data types
+            if (typeof parsedResult.is_multi_step !== 'boolean') {
+              throw new Error(`GPT-4.1-nano returned invalid is_multi_step type. Expected boolean, got ${typeof parsedResult.is_multi_step}`);
+            }
+            
+            if (typeof parsedResult.total_tasks !== 'number' || parsedResult.total_tasks < 0) {
+              throw new Error(`GPT-4.1-nano returned invalid total_tasks. Expected positive number, got ${parsedResult.total_tasks}`);
+            }
+            
+            if (!Array.isArray(parsedResult.tasks)) {
+              throw new Error(`GPT-4.1-nano returned invalid tasks. Expected array, got ${typeof parsedResult.tasks}`);
+            }
+            
+            // Validate each task has required fields
+            parsedResult.tasks.forEach((task, index) => {
+              if (!task.id || !task.type || !task.details) {
+                throw new Error(`GPT-4.1-nano returned invalid task at index ${index}. Missing required fields: ${JSON.stringify(task)}`);
+              }
+            });
+
+    console.log('📊 Stage 1 parsing result:', {
+      is_multi_step: parsedResult.is_multi_step,
+      total_tasks: parsedResult.total_tasks,
+      tasks: parsedResult.tasks?.map(t => `${t.type}: ${t.section}`)
+    });
+
+    return parsedResult;
+
+  } catch (error) {
+    console.error('❌ Stage 1 (GPT-4.1-nano) error:', error);
+    throw error;
+  }
+}
+
+// Stage 2: GPT-4o-mini for complex reasoning and code generation
+async function callOpenAI(userMessage, currentFiles, env, codeAnalysis = null, nanoAnalysis = null, multiTaskAnalysis = null) {
+  const openaiUrl = 'https://api.openai.com/v1/chat/completions';
   
   // Enhanced system prompt for beautiful landing page generation
   const systemPrompt = `You are an expert React developer, UI/UX designer, and business strategist. Your task is to create stunning, conversion-optimized landing pages that generate leads and drive business growth.
+
+${codeAnalysis ? `
+CURRENT CODE ANALYSIS:
+- Existing sections: ${codeAnalysis.sections.join(', ')}
+- Existing images: ${codeAnalysis.existing_images.length} images
+- Target section: ${codeAnalysis.target_section?.name || 'Not found'}
+- Target section has image: ${codeAnalysis.target_section?.has_image ? 'Yes' : 'No'}
+- Target section placeholder: ${codeAnalysis.target_section?.image_placeholder || 'None'}
+- Target section boundaries: ${codeAnalysis.target_section?.boundaries ? `Lines ${codeAnalysis.target_section.boundaries.start}-${codeAnalysis.target_section.boundaries.end}` : 'Not found'}
+
+TARGETED EDITING INSTRUCTIONS:
+- ONLY modify the target section: ${codeAnalysis.target_section?.name || 'Unknown'}
+- Preserve ALL other sections and images
+- If target section has placeholder, replace it with new image URL
+- If target section has no image, add appropriate placeholder
+- Make minimal changes to achieve the request
+` : ''}
+
+${nanoAnalysis ? `
+NANO ANALYSIS (Stage 1):
+- Is multi-step: ${nanoAnalysis.is_multi_step}
+- Total tasks: ${nanoAnalysis.total_tasks}
+- Tasks to execute:
+${nanoAnalysis.tasks?.map((task, index) => `${index + 1}. ${task.type.toUpperCase()}: ${task.section || 'general'} - ${task.details}`).join('\n') || 'No tasks parsed'}
+
+NANO PROCESSED PROMPT: ${nanoAnalysis.processed_prompt || user_message}
+` : ''}
+
+${multiTaskAnalysis ? `
+LEGACY MULTI-STEP TASK ANALYSIS:
+- Total tasks: ${multiTaskAnalysis.total_tasks}
+- Tasks to execute:
+${multiTaskAnalysis.tasks.map((task, index) => `${index + 1}. ${task.type.toUpperCase()}: ${task.section || 'general'} - ${task.original_text}`).join('\n')}
+
+MULTI-STEP EXECUTION INSTRUCTIONS:
+- Execute ALL tasks in the specified order
+- Each task should be completed before moving to the next
+- For each task, make targeted changes to the specific section
+- Preserve all sections and images not being modified
+- Handle dependencies (e.g., don't modify a section that will be deleted)
+- Generate appropriate image requests for each task that needs images
+- Return the final updated code with ALL changes applied
+` : ''}
 
 IMPORTANT RULES:
 1. Always return valid React JSX code with proper imports and exports
@@ -1238,14 +1725,36 @@ IMPORTANT RULES:
         27. BACKGROUND OVERLAY: Always add dark overlays on background images to ensure text readability
         28. INITIAL PROMPT DETECTION: If currentFiles is empty or only contains basic files (like index.css), treat this as an initial prompt and ALWAYS generate images
         29. IMAGE GENERATION FOR INITIAL PROMPTS: For initial prompts, generate hero image, logo, and feature images regardless of user request
-        30. IMAGE PLACEHOLDERS: Always include image placeholders in generated code: {GENERATED_IMAGE_URL_HERO}, {GENERATED_IMAGE_URL_LOGO}, {GENERATED_IMAGE_URL_FEATURE_1}, {GENERATED_IMAGE_URL_FEATURE_2}, {GENERATED_IMAGE_URL_FEATURE_3}
+        30. IMAGE PLACEHOLDERS: Always include image placeholders in generated code: {GENERATED_IMAGE_URL_HERO}, {GENERATED_IMAGE_URL_LOGO}, {GENERATED_IMAGE_URL_FEATURE_1}, {GENERATED_IMAGE_URL_FEATURE_2}, {GENERATED_IMAGE_URL_FEATURE_3}, {GENERATED_IMAGE_URL_ABOUT}, {GENERATED_IMAGE_URL_CONTACT}, {GENERATED_IMAGE_URL_GALLERY}
         31. IMAGE INTEGRATION: Use <img> tags with placeholders in hero sections, logos, and feature cards
         32. CRITICAL: For initial prompts, ALWAYS include image placeholders in the React code so images can be integrated
         33. IMAGE PLACEHOLDER FORMAT: Use exact format: <img src="{GENERATED_IMAGE_URL_HERO}" alt="description" className="..." />
         34. IMAGE REQUEST PLACEMENTS: Generate image requests with specific placements: "hero", "logo", "feature_1", "feature_2", "feature_3"
         35. FEATURE IMAGE PLACEMENTS: Each feature card must have a unique placement: feature_1, feature_2, feature_3
-        36. SMART IMAGE GENERATION: Only generate image_requests for initial prompts or when user explicitly asks for new images
-        37. NON-IMAGE PROMPTS: For styling, content, or feature changes, do NOT generate image_requests, keep existing images
+        36. SMART IMAGE GENERATION: ALWAYS generate image_requests for initial prompts (first prompt in a project), regardless of user message content
+        37. IMAGE-RELATED REQUESTS: If user mentions "image", "photo", "picture", "add image", "new image", "generate image" - create image_requests
+        38. SECTION-SPECIFIC IMAGES: When user requests images for specific sections (About Us, Hero, Features, etc.), only generate image_requests for those sections
+        39. NON-IMAGE PROMPTS: For styling, content, or feature changes (without image mentions), do NOT generate image_requests, keep existing images
+        40. PRESERVE EXISTING IMAGES: Always keep existing image URLs and placeholders when making non-image changes
+        41. ADD NEW IMAGES: When adding new images, preserve all existing images and add new placeholders for the new images
+        42. SMART PLACEMENT: Use specific placements like "about", "hero", "feature_1", "gallery", "contact" for targeted image generation
+        43. AUTOMATIC PLACEHOLDER GENERATION: Automatically include the correct image placeholders based on the sections being modified
+        44. SMART PLACEHOLDER DETECTION: When user requests images for specific sections, automatically use the corresponding placeholders without manual specification
+        45. CUSTOM SECTION SUPPORT: When user creates new sections (like "Testimony", "Gallery", "Team"), automatically generate appropriate placeholders and integrate them into the code
+        46. DYNAMIC PLACEHOLDER CREATION: For custom sections, create placeholders in format {GENERATED_IMAGE_URL_SECTIONNAME} (e.g., {GENERATED_IMAGE_URL_TESTIMONY})
+        47. HERO LEAD FORM: ALWAYS include a prominent lead capture form in the Hero section for initial prompts
+        48. LEAD FORM VISIBILITY: Make the lead form clearly visible with high contrast, proper positioning, and ensure it stays in front of all background elements
+        49. LEAD FORM STYLING: Use z-index, background overlays, and proper spacing to ensure the lead form is always visible and accessible
+        50. INITIAL PROMPT IMAGES: CRITICAL - For initial prompts, ALWAYS generate image_requests for hero, logo, and feature images regardless of user message content
+        51. INITIAL PROMPT LEAD FORM: CRITICAL - For initial prompts, ALWAYS include a lead capture form in the Hero section regardless of user message content
+        47. SECTION CREATION: When user asks to create a new section, generate complete section code with proper structure, styling, and image placeholders
+        48. TARGETED CODE EDITING: When modifying existing sections, ONLY change the specific section requested, preserve all other sections and images
+        49. IMAGE PRESERVATION: Never regenerate or remove existing images when making targeted changes
+        50. SECTION-SPECIFIC MODIFICATIONS: Use the code analysis to understand current structure and make minimal changes
+        51. MULTI-STEP TASK HANDLING: When user requests multiple changes, execute them in sequence while preserving all existing content
+        52. TASK DEPENDENCY MANAGEMENT: Handle task dependencies (e.g., don't modify sections that will be deleted)
+        53. SEQUENTIAL EXECUTION: Complete each task before moving to the next, ensuring all changes are applied correctly
+        54. COMPREHENSIVE UPDATES: Return the final code with ALL requested changes applied in the correct order
 
 LANDING PAGE REQUIREMENTS:
 - Generate a business name and tagline if not provided
@@ -1289,15 +1798,61 @@ TEXT CONTRAST RULES:
 Current files structure:
 ${currentFiles ? Object.keys(currentFiles).map(file => `- ${file}`).join('\n') : 'No files'}
 
-User request: ${userMessage}`;
+User request: ${userMessage}
+
+${codeAnalysis ? `
+CURRENT CODE ANALYSIS:
+- Target section: ${codeAnalysis.target_section?.name || 'Not found'}
+- Target section has image: ${codeAnalysis.target_section?.has_image ? 'Yes' : 'No'}
+- Target section placeholder: ${codeAnalysis.target_section?.image_placeholder || 'None'}
+- Existing images to preserve: ${codeAnalysis.existing_images.length}
+- All sections: ${codeAnalysis.sections.join(', ')}
+
+TARGETED EDITING REQUIRED:
+- ONLY modify the "${codeAnalysis.target_section?.name || 'target'}" section
+- Preserve ALL other sections and images
+- Make minimal changes to achieve the request
+- Current target section content:
+${codeAnalysis.target_section?.current_content ? codeAnalysis.target_section.current_content.substring(0, 1000) + (codeAnalysis.target_section.current_content.length > 1000 ? '...' : '') : 'Section not found'}
+
+${nanoAnalysis ? `
+NANO TASK EXECUTION (Stage 1 Results):
+- Execute ${nanoAnalysis.total_tasks} tasks in sequence:
+${nanoAnalysis.tasks?.map((task, index) => `${index + 1}. ${task.type.toUpperCase()}: ${task.section || 'general'} - ${task.details}`).join('\n') || 'No tasks'}
+
+- For each task, make targeted changes to the specific section
+- Preserve all sections and images not being modified
+- Handle task dependencies properly
+- Generate images for tasks that require them
+- Return final code with ALL changes applied
+` : ''}
+
+${multiTaskAnalysis ? `
+LEGACY MULTI-STEP TASK EXECUTION:
+- Execute ${multiTaskAnalysis.total_tasks} tasks in sequence:
+${multiTaskAnalysis.tasks.map((task, index) => `${index + 1}. ${task.type.toUpperCase()}: ${task.section || 'general'} - ${task.original_text}`).join('\n')}
+
+- For each task, make targeted changes to the specific section
+- Preserve all sections and images not being modified
+- Handle task dependencies properly
+- Generate images for tasks that require them
+- Return final code with ALL changes applied
+` : ''}
+` : ''}`;
 
   const userPrompt = `Please analyze the user's request and generate a complete, professional landing page with the following features:
+
+CRITICAL REQUIREMENTS FOR INITIAL PROMPTS:
+- If this is the first prompt in a project (empty or basic files), ALWAYS generate image_requests for hero, logo, and feature images
+- If this is the first prompt in a project, ALWAYS include a prominent lead capture form in the Hero section
+- These requirements apply regardless of the user's message content
 
 1. BUSINESS IDENTITY:
 - Generate a compelling business name if not provided
 - Create a professional tagline
 - Design a logo concept
 - Choose an appropriate color scheme based on the business type
+- MUST include a prominent lead capture form in the Hero section
 
 COLOR SCHEME PLANNING (REQUIRED FIRST STEP):
 - Analyze the business type and define a cohesive color palette
@@ -1321,11 +1876,15 @@ IMAGE PLACEHOLDER REQUIREMENTS:
   * First feature: <img src="{GENERATED_IMAGE_URL_FEATURE_1}" alt="Feature 1" className="w-full h-32 object-cover rounded-lg" />
   * Second feature: <img src="{GENERATED_IMAGE_URL_FEATURE_2}" alt="Feature 2" className="w-full h-32 object-cover rounded-lg" />
   * Third feature: <img src="{GENERATED_IMAGE_URL_FEATURE_3}" alt="Feature 3" className="w-full h-32 object-cover rounded-lg" />
+- Section-specific images:
+  * About section: <img src="{GENERATED_IMAGE_URL_ABOUT}" alt="About Us" className="w-full h-64 object-cover rounded-lg" />
+  * Contact section: <img src="{GENERATED_IMAGE_URL_CONTACT}" alt="Contact" className="w-full h-64 object-cover rounded-lg" />
+  * Gallery section: <img src="{GENERATED_IMAGE_URL_GALLERY}" alt="Gallery" className="w-full h-64 object-cover rounded-lg" />
 - Background images: <img src="{GENERATED_IMAGE_URL_BACKGROUND}" alt="Background" className="absolute inset-0 w-full h-full object-cover" />
 
 2. LANDING PAGE STRUCTURE:
 - NAVIGATION HEADER: Fixed header with smooth scrolling navigation links to all sections
-- HERO SECTION (MOST IMPORTANT): Must be the first section with the business name and tagline prominently displayed
+- HERO SECTION (MOST IMPORTANT): Must be the first section with the business name, tagline, and prominent lead capture form
 - Features/benefits section with relevant images
 - About section with business story
 - Pricing section (if applicable)
@@ -1338,6 +1897,9 @@ IMAGE PLACEHOLDER REQUIREMENTS:
 - Must display the tagline below the business name
 - Should include a hero image if applicable
 - MUST have a prominent call-to-action button (e.g., "Book Table" for restaurants, "Join Waitlist" for SaaS, "Get Started" for services)
+- MUST include a prominent lead capture form with email and/or phone input fields
+- Lead form must be clearly visible with high contrast and proper positioning
+- Use z-index and background overlays to ensure lead form stays in front of all background elements
 - Use gradient backgrounds or eye-catching colors
 - CRITICAL: Ensure proper text contrast - use text shadows or dark overlays on images
 - NEVER use white text on light backgrounds or dark text on dark backgrounds
@@ -1347,10 +1909,12 @@ IMAGE PLACEHOLDER REQUIREMENTS:
 - Use text shadows: text-shadow: 0 2px 4px rgba(0,0,0,0.5)
 
 3. LEAD CAPTURE:
-- Include at least one lead capture form
+- MUST include a prominent lead capture form in the Hero section
 - Options: email input, phone input, or both
 - Clear CTA buttons: "Book Now", "Join Waitlist", "Pre-purchase", "Get Started"
 - Form validation and error handling
+- Lead form must be positioned prominently in the Hero section with high visibility
+- Use proper z-index, background overlays, and contrast to ensure form is always visible
 
 4. CTA BUTTON REQUIREMENTS:
 - Hero section MUST have a prominent CTA button
@@ -1392,6 +1956,10 @@ IMAGE PLACEHOLDER REQUIREMENTS:
   * First feature: <img src="{GENERATED_IMAGE_URL_FEATURE_1}" alt="Feature 1" className="..." />
   * Second feature: <img src="{GENERATED_IMAGE_URL_FEATURE_2}" alt="Feature 2" className="..." />
   * Third feature: <img src="{GENERATED_IMAGE_URL_FEATURE_3}" alt="Feature 3" className="..." />
+- Section-specific images:
+  * About section: <img src="{GENERATED_IMAGE_URL_ABOUT}" alt="About Us" className="..." />
+  * Contact section: <img src="{GENERATED_IMAGE_URL_CONTACT}" alt="Contact" className="..." />
+  * Gallery section: <img src="{GENERATED_IMAGE_URL_GALLERY}" alt="Gallery" className="..." />
 - Background images: Use <img src="{GENERATED_IMAGE_URL_BACKGROUND}" alt="Background" className="..." />
 
 7. SMART IMAGE GENERATION RULES:
@@ -1411,22 +1979,70 @@ IMAGE PLACEHOLDER REQUIREMENTS:
   * Feature 2: placement: "feature_2"
   * Feature 3: placement: "feature_3"
 - Each feature card must have a unique placement to avoid duplicate images
-- CRITICAL: Only generate image_requests for:
-  * Initial prompts (first prompt in a project)
-  * When user explicitly asks for "new images", "different images", or "generate images"
+- CRITICAL: Generate image_requests for:
+  * Initial prompts (first prompt in a project) - generate all standard images
+  * When user asks for "new images", "different images", or "generate images" - generate all standard images
+  * When user asks to "add image to [specific section]" - generate ONLY for that section
+  * When user mentions "image", "photo", "picture" for specific sections - generate ONLY for those sections
 - DO NOT generate image_requests for:
-  * Styling changes (colors, layout, fonts)
-  * Content changes (text, descriptions, features)
-  * Navigation or CTA improvements
+  * Styling changes (colors, layout, fonts) without image mentions
+  * Content changes (text, descriptions, features) without image mentions
+  * Navigation or CTA improvements without image mentions
   * Any non-image-related requests
+- SECTION-SPECIFIC PLACEMENTS:
+  * "about" or "about us" → placement: "about"
+  * "hero" or "main" → placement: "hero"
+  * "feature" or "features" → placement: "feature_1", "feature_2", "feature_3"
+  * "contact" → placement: "contact"
+  * "gallery" → placement: "gallery"
+
+9. IMAGE PRESERVATION RULES:
+- When making non-image changes, preserve all existing image URLs and placeholders
+- When adding new images, keep all existing images and add new placeholders
+- Never remove or replace existing images unless specifically requested
+- Use unique placeholders for new images (e.g., {GENERATED_IMAGE_URL_ABOUT_US}, {GENERATED_IMAGE_URL_GALLERY})
 
 Current files content:
 ${currentFiles ? JSON.stringify(currentFiles, null, 2) : '{}'}
 
 IMPORTANT: 
-- ALWAYS generate images for the initial prompt in a project (when no existing files or empty project)
-- For subsequent prompts, ONLY generate images if the user explicitly asks for "new images", "different images", or "generate images"
-- For all other requests (styling, content, features, navigation), do NOT generate image_requests - keep existing images and placeholders
+- ALWAYS generate images for the initial prompt in a project (when no existing files or empty project), REGARDLESS of user message content
+- ALWAYS include a prominent lead capture form in the Hero section for initial prompts
+- For subsequent prompts, generate images if the user asks for:
+  * "new images", "different images", "generate images"
+  * "add image", "add photo", "add picture" to any section
+  * Any request mentioning "image", "photo", "picture"
+- For all other requests (styling, content, features, navigation without image mentions), do NOT generate image_requests - keep existing images and placeholders
+
+AUTOMATIC PLACEHOLDER GENERATION:
+- The system will automatically detect which sections need images and include the correct placeholders
+- When user says "add image to About Us section" → Automatically include {GENERATED_IMAGE_URL_ABOUT} in the About section
+- When user says "add image to Contact section" → Automatically include {GENERATED_IMAGE_URL_CONTACT} in the Contact section
+- When user says "add image to Gallery" → Automatically include {GENERATED_IMAGE_URL_GALLERY} in the Gallery section
+- When user says "add image to Hero" → Automatically include {GENERATED_IMAGE_URL_HERO} in the Hero section
+- When user says "add image to Features" → Automatically include {GENERATED_IMAGE_URL_FEATURE_1}, {GENERATED_IMAGE_URL_FEATURE_2}, {GENERATED_IMAGE_URL_FEATURE_3} in the Features section
+- When user says "create a new section called Testimony and add image" → Automatically create {GENERATED_IMAGE_URL_TESTIMONY} and generate complete Testimony section code
+- When user says "add new section called Team" → Automatically create {GENERATED_IMAGE_URL_TEAM} and generate complete Team section code
+- NO MANUAL PLACEHOLDER SPECIFICATION NEEDED - The system automatically detects and includes the correct placeholders
+- CUSTOM SECTIONS: For any new section name, automatically create placeholder in format {GENERATED_IMAGE_URL_SECTIONNAME}
+
+TARGETED EDITING REQUIREMENTS:
+- When user requests changes to a specific section (e.g., "add image to About Us section"), ONLY modify that section
+- Preserve ALL existing images and sections that are not being modified
+- Use the code analysis to understand the current structure before making changes
+- Make minimal changes to achieve the requested modification
+- If a section already has an image placeholder, replace it with the new image URL
+- If a section doesn't have an image, add the appropriate placeholder
+- NEVER regenerate the entire file unless explicitly requested
+
+MULTI-STEP TASK HANDLING:
+- When user requests multiple changes (e.g., "add image to About section, then change text in Hero section, then delete Contact section"), execute ALL tasks in sequence
+- Parse complex requests into individual tasks and execute them one by one
+- Handle task dependencies (e.g., don't modify a section that will be deleted)
+- Preserve all sections and images not being modified
+- Generate appropriate images for each task that requires them
+- Return the final code with ALL changes applied in the correct order
+- Support separators: "then", "next", "also", "after that", semicolons, etc.
 
 Return only the JSON response with assistant_message, updated_files, image_requests, and business_info.`;
 
@@ -1440,9 +2056,7 @@ Return only the JSON response with assistant_message, updated_files, image_reque
       max_tokens: 6000
     };
 
-  console.log('📤 Sending request to OpenAI API...');
-  console.log('🤖 Model:', requestBody.model);
-  console.log('🔑 API Key present:', !!env.OPENAI_API_KEY);
+
 
   const response = await fetch(openaiUrl, {
     method: 'POST',
@@ -1453,15 +2067,27 @@ Return only the JSON response with assistant_message, updated_files, image_reque
     body: JSON.stringify(requestBody)
   });
 
-  console.log('📥 OpenAI API response status:', response.status);
-  
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('❌ OpenAI API error response:', errorText);
     throw new Error(`OpenAI API error: ${response.status} ${response.statusText} - ${errorText}`);
   }
 
   const data = await response.json();
+  
+  // Track token usage and calculate cost for GPT-4o-mini
+  if (data.usage) {
+    totalCost.mini.input_tokens = data.usage.prompt_tokens || 0;
+    totalCost.mini.output_tokens = data.usage.completion_tokens || 0;
+    totalCost.mini.cost = calculateCost(totalCost.mini.input_tokens, totalCost.mini.output_tokens, 'mini');
+    totalCost.total += totalCost.mini.cost;
+    
+    console.log('💰 GPT-4o-mini cost:', {
+      input_tokens: totalCost.mini.input_tokens,
+      output_tokens: totalCost.mini.output_tokens,
+      cost: `$${totalCost.mini.cost.toFixed(6)}`
+    });
+  }
+  
   let content = data.choices[0].message.content;
   // If the response is wrapped in a code block, extract the JSON
   const codeBlockMatch = content.match(/```(?:json)?\n([\s\S]*?)```/);
@@ -2188,6 +2814,462 @@ async function handleTestR2Access(request, env, corsHeaders) {
     return new Response(JSON.stringify({
       success: false,
       error: error.message
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+}
+
+// Handle multi-task parsing for complex requests
+async function handleParseMultiTask(request, env, corsHeaders) {
+  try {
+    const { user_message } = await request.json();
+    
+    if (!user_message) {
+      return new Response(JSON.stringify({ error: 'user_message is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    // Define task patterns for parsing
+    const taskPatterns = {
+      // Section modifications
+      'add_section': /(?:add|create|new)\s+(?:a\s+)?(?:new\s+)?(?:section\s+)?(?:called\s+)?([a-zA-Z]+)/gi,
+      'delete_section': /(?:delete|remove)\s+(?:the\s+)?(?:section\s+)?([a-zA-Z]+)/gi,
+      'modify_section': /(?:modify|change|update)\s+(?:the\s+)?(?:section\s+)?([a-zA-Z]+)/gi,
+      
+      // Image operations
+      'add_image': /(?:add|generate|create)\s+(?:a\s+)?(?:new\s+)?(?:image|photo|picture)\s+(?:to|in)\s+(?:the\s+)?(?:section\s+)?([a-zA-Z]+)/gi,
+      'change_image': /(?:change|replace|update)\s+(?:the\s+)?(?:image|photo|picture)\s+(?:in|of)\s+(?:the\s+)?(?:section\s+)?([a-zA-Z]+)/gi,
+      'delete_image': /(?:delete|remove)\s+(?:the\s+)?(?:image|photo|picture)\s+(?:from|in)\s+(?:the\s+)?(?:section\s+)?([a-zA-Z]+)/gi,
+      
+      // Content modifications
+      'change_text': /(?:change|update|modify)\s+(?:the\s+)?(?:text|content|description)\s+(?:in|of)\s+(?:the\s+)?(?:section\s+)?([a-zA-Z]+)/gi,
+      'change_title': /(?:change|update|modify)\s+(?:the\s+)?(?:title|heading)\s+(?:in|of)\s+(?:the\s+)?(?:section\s+)?([a-zA-Z]+)/gi,
+      
+      // Styling changes
+      'change_style': /(?:change|update|modify)\s+(?:the\s+)?(?:style|color|background)\s+(?:of|in)\s+(?:the\s+)?(?:section\s+)?([a-zA-Z]+)/gi,
+      
+      // Layout changes
+      'change_layout': /(?:change|update|modify)\s+(?:the\s+)?(?:layout|arrangement|structure)\s+(?:of|in)\s+(?:the\s+)?(?:section\s+)?([a-zA-Z]+)/gi
+    };
+
+    // Parse the user message into individual tasks
+    const tasks = [];
+    const userMessageLower = user_message.toLowerCase();
+    
+    // Split by common separators
+    const taskSeparators = [
+      /,\s*then\s+/gi,
+      /\.\s*Then\s+/gi,
+      /;\s*/gi,
+      /\.\s*Next\s+/gi,
+      /\.\s*After\s+that\s+/gi,
+      /\.\s*Also\s+/gi
+    ];
+    
+    let taskParts = [user_message];
+    
+    // Split by separators
+    for (const separator of taskSeparators) {
+      const newParts = [];
+      for (const part of taskParts) {
+        newParts.push(...part.split(separator));
+      }
+      taskParts = newParts;
+    }
+    
+    // Process each task part
+    for (let i = 0; i < taskParts.length; i++) {
+      const taskText = taskParts[i].trim();
+      if (!taskText) continue;
+      
+      const task = {
+        id: i + 1,
+        original_text: taskText,
+        type: null,
+        section: null,
+        details: {},
+        priority: i + 1 // Order matters
+      };
+      
+      // Determine task type and extract details
+      for (const [taskType, pattern] of Object.entries(taskPatterns)) {
+        const matches = [...taskText.matchAll(pattern)];
+        if (matches.length > 0) {
+          task.type = taskType;
+          task.section = matches[0][1]?.toLowerCase();
+          
+          // Extract additional details based on task type
+          switch (taskType) {
+            case 'add_section':
+              task.details.new_section_name = matches[0][1];
+              break;
+            case 'add_image':
+            case 'change_image':
+              task.details.image_type = taskText.includes('hero') ? 'hero' : 
+                                       taskText.includes('logo') ? 'logo' : 
+                                       taskText.includes('background') ? 'background' : 'content';
+              break;
+            case 'change_text':
+              task.details.text_type = taskText.includes('title') ? 'title' : 
+                                      taskText.includes('heading') ? 'heading' : 'body';
+              break;
+            case 'change_style':
+              task.details.style_type = taskText.includes('color') ? 'color' : 
+                                       taskText.includes('background') ? 'background' : 'general';
+              break;
+          }
+          break;
+        }
+      }
+      
+      // If no specific pattern matched, try to infer task type
+      if (!task.type) {
+        if (taskText.includes('image') || taskText.includes('photo') || taskText.includes('picture')) {
+          task.type = 'add_image';
+          // Try to extract section name
+          const sectionMatch = taskText.match(/(?:in|to|of)\s+(?:the\s+)?(?:section\s+)?([a-zA-Z]+)/i);
+          if (sectionMatch) {
+            task.section = sectionMatch[1].toLowerCase();
+          }
+        } else if (taskText.includes('delete') || taskText.includes('remove')) {
+          task.type = 'delete_section';
+          const sectionMatch = taskText.match(/(?:delete|remove)\s+(?:the\s+)?(?:section\s+)?([a-zA-Z]+)/i);
+          if (sectionMatch) {
+            task.section = sectionMatch[1].toLowerCase();
+          }
+        } else {
+          task.type = 'modify_section';
+          // Try to extract section name
+          const sectionMatch = taskText.match(/(?:in|to|of)\s+(?:the\s+)?(?:section\s+)?([a-zA-Z]+)/i);
+          if (sectionMatch) {
+            task.section = sectionMatch[1].toLowerCase();
+          }
+        }
+      }
+      
+      tasks.push(task);
+    }
+
+    // Validate and optimize task sequence
+    const optimizedTasks = [];
+    for (const task of tasks) {
+      // Check for dependencies
+      if (task.type === 'delete_section') {
+        // Remove any tasks that modify the section being deleted
+        const tasksToRemove = optimizedTasks.filter(t => 
+          t.section === task.section && t.type !== 'delete_section'
+        );
+        optimizedTasks.splice(optimizedTasks.indexOf(tasksToRemove[0]), tasksToRemove.length);
+      }
+      
+      optimizedTasks.push(task);
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      original_message: user_message,
+      tasks: optimizedTasks,
+      total_tasks: optimizedTasks.length,
+      message: `Parsed ${optimizedTasks.length} task(s) from the request`
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+
+  } catch (error) {
+    console.error('Multi-task parsing error:', error);
+    return new Response(JSON.stringify({ 
+      error: 'Failed to parse multi-task request',
+      details: error.message
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+}
+
+// Handle code analysis for targeted changes
+async function handleAnalyzeCode(request, env, corsHeaders) {
+  try {
+    const { current_files, target_section } = await request.json();
+    
+    if (!current_files || !current_files['src/App.jsx']) {
+      return new Response(JSON.stringify({ error: 'No App.jsx file found' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    const appCode = current_files['src/App.jsx'];
+    
+    // Analyze existing code structure
+    const analysis = {
+      sections: [],
+      existing_images: [],
+      image_placeholders: [],
+      section_boundaries: {},
+      code_structure: {}
+    };
+
+    // Find all sections in the code
+    const sectionMatches = appCode.match(/<section[^>]*className="[^"]*([^"]*section[^"]*)"[^>]*>/gi);
+    if (sectionMatches) {
+      sectionMatches.forEach((match, index) => {
+        const sectionName = match.match(/className="[^"]*([^"]*section[^"]*)"[^>]*>/i)?.[1] || `section_${index}`;
+        analysis.sections.push(sectionName);
+      });
+    }
+
+    // Find existing image URLs (non-placeholder)
+    const imageUrlMatches = appCode.match(/src="([^"]*\.(jpg|jpeg|png|gif|webp))"/gi);
+    if (imageUrlMatches) {
+      imageUrlMatches.forEach(match => {
+        const url = match.match(/src="([^"]*)"/i)?.[1];
+        if (url && !url.includes('GENERATED_IMAGE_URL')) {
+          analysis.existing_images.push(url);
+        }
+      });
+    }
+
+    // Find image placeholders
+    const placeholderMatches = appCode.match(/\{GENERATED_IMAGE_URL_[^}]+\}/g);
+    if (placeholderMatches) {
+      analysis.image_placeholders = placeholderMatches;
+    }
+
+    // Find section boundaries for targeted editing
+    const lines = appCode.split('\n');
+    let currentSection = null;
+    let sectionStart = 0;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      // Detect section start
+      if (line.includes('<section') && line.includes('className')) {
+        const sectionMatch = line.match(/className="[^"]*([^"]*section[^"]*)"[^>]*>/i);
+        if (sectionMatch) {
+          if (currentSection) {
+            // End previous section
+            analysis.section_boundaries[currentSection] = {
+              start: sectionStart,
+              end: i - 1
+            };
+          }
+          currentSection = sectionMatch[1];
+          sectionStart = i;
+        }
+      }
+      
+      // Detect section end
+      if (line.includes('</section>') && currentSection) {
+        analysis.section_boundaries[currentSection] = {
+          start: sectionStart,
+          end: i
+        };
+        currentSection = null;
+      }
+    }
+
+    // Find target section specifically
+    if (target_section) {
+      const targetSectionLower = target_section.toLowerCase();
+      analysis.target_section = {
+        name: target_section,
+        boundaries: null,
+        current_content: null,
+        has_image: false,
+        image_placeholder: null
+      };
+
+      // Find the target section boundaries
+      for (const [sectionName, boundaries] of Object.entries(analysis.section_boundaries)) {
+        if (sectionName.toLowerCase().includes(targetSectionLower) || 
+            targetSectionLower.includes(sectionName.toLowerCase())) {
+          analysis.target_section.boundaries = boundaries;
+          analysis.target_section.current_content = lines.slice(boundaries.start, boundaries.end + 1).join('\n');
+          
+          // Check if section already has an image
+          const hasImage = analysis.target_section.current_content.includes('<img') || 
+                          analysis.target_section.current_content.includes('{GENERATED_IMAGE_URL');
+          analysis.target_section.has_image = hasImage;
+          
+          // Find existing placeholder in this section
+          const placeholderMatch = analysis.target_section.current_content.match(/\{GENERATED_IMAGE_URL_[^}]+\}/);
+          if (placeholderMatch) {
+            analysis.target_section.image_placeholder = placeholderMatch[0];
+          }
+          
+          break;
+        }
+      }
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      analysis: analysis,
+      message: `Analyzed ${analysis.sections.length} sections, found ${analysis.existing_images.length} existing images, ${analysis.image_placeholders.length} placeholders`
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+
+  } catch (error) {
+    console.error('Code analysis error:', error);
+    return new Response(JSON.stringify({ 
+      error: 'Failed to analyze code',
+      details: error.message
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+}
+
+// Handle smart placeholder generation
+async function handleGeneratePlaceholders(request, env, corsHeaders) {
+  try {
+    const { user_message, current_files } = await request.json();
+    
+    if (!user_message) {
+      return new Response(JSON.stringify({ error: 'user_message is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    // Detect sections from user message
+    const sectionKeywords = {
+      'hero': ['hero', 'main', 'header', 'banner'],
+      'about': ['about', 'about us', 'about section'],
+      'features': ['feature', 'features', 'feature section'],
+      'contact': ['contact', 'contact us', 'contact section'],
+      'gallery': ['gallery', 'photos', 'images'],
+      'logo': ['logo', 'brand', 'branding']
+    };
+    
+    let requestedSections = [];
+    const userMessageLower = user_message.toLowerCase();
+    
+    for (const [section, keywords] of Object.entries(sectionKeywords)) {
+      if (keywords.some(keyword => userMessageLower.includes(keyword))) {
+        requestedSections.push(section);
+      }
+    }
+    
+    // If no specific section mentioned, try to infer custom sections
+    if (requestedSections.length === 0) {
+      // Look for custom section names in the user message
+      const customSectionMatch = userMessageLower.match(/(?:create|add|new)\s+(?:a\s+)?(?:new\s+)?(?:section\s+)?(?:called\s+)?([a-zA-Z]+)/);
+      if (customSectionMatch) {
+        requestedSections = [customSectionMatch[1].toLowerCase()];
+      }
+    }
+    
+    // Generate placeholders
+    const generatePlaceholders = (sections) => {
+      const placeholders = [];
+      sections.forEach(section => {
+        switch(section) {
+          case 'hero':
+            placeholders.push({
+              placeholder: '{GENERATED_IMAGE_URL_HERO}',
+              section: 'hero',
+              description: 'Hero section background image',
+              aspect_ratio: '16:9'
+            });
+            break;
+          case 'logo':
+            placeholders.push({
+              placeholder: '{GENERATED_IMAGE_URL_LOGO}',
+              section: 'logo',
+              description: 'Logo image',
+              aspect_ratio: '1:1'
+            });
+            break;
+          case 'about':
+            placeholders.push({
+              placeholder: '{GENERATED_IMAGE_URL_ABOUT}',
+              section: 'about',
+              description: 'About section image',
+              aspect_ratio: '4:3'
+            });
+            break;
+          case 'contact':
+            placeholders.push({
+              placeholder: '{GENERATED_IMAGE_URL_CONTACT}',
+              section: 'contact',
+              description: 'Contact section image',
+              aspect_ratio: '4:3'
+            });
+            break;
+          case 'gallery':
+            placeholders.push({
+              placeholder: '{GENERATED_IMAGE_URL_GALLERY}',
+              section: 'gallery',
+              description: 'Gallery section image',
+              aspect_ratio: '4:3'
+            });
+            break;
+          case 'features':
+            placeholders.push(
+              {
+                placeholder: '{GENERATED_IMAGE_URL_FEATURE_1}',
+                section: 'feature_1',
+                description: 'First feature image',
+                aspect_ratio: '4:3'
+              },
+              {
+                placeholder: '{GENERATED_IMAGE_URL_FEATURE_2}',
+                section: 'feature_2',
+                description: 'Second feature image',
+                aspect_ratio: '4:3'
+              },
+              {
+                placeholder: '{GENERATED_IMAGE_URL_FEATURE_3}',
+                section: 'feature_3',
+                description: 'Third feature image',
+                aspect_ratio: '4:3'
+              }
+            );
+            break;
+          default:
+            // For custom sections, create a custom placeholder
+            const customPlaceholder = `{GENERATED_IMAGE_URL_${section.toUpperCase()}}`;
+            placeholders.push({
+              placeholder: customPlaceholder,
+              section: section,
+              description: `${section.charAt(0).toUpperCase() + section.slice(1)} section image`,
+              aspect_ratio: '4:3',
+              is_custom: true
+            });
+        }
+      });
+      return placeholders;
+    };
+    
+    const placeholders = generatePlaceholders(requestedSections);
+    
+    return new Response(JSON.stringify({
+      success: true,
+      user_message: user_message,
+      requested_sections: requestedSections,
+      placeholders: placeholders,
+      message: `Generated ${placeholders.length} placeholder(s) for section(s): ${requestedSections.join(', ')}`
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+
+  } catch (error) {
+    console.error('Placeholder generation error:', error);
+    return new Response(JSON.stringify({ 
+      error: 'Failed to generate placeholders',
+      details: error.message
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
