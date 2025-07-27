@@ -183,6 +183,21 @@ export default {
         return new Response(null, { status: 200, headers: corsHeaders });
       }
 
+      // --- File History & Restore API ---
+      if (path === '/api/restore-web' && request.method === 'POST') {
+        return await handleRestoreWeb(request, env, corsHeaders);
+      }
+      if (path === '/api/restore-web' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
+      if (path === '/api/backups' && request.method === 'GET') {
+        return await handleGetBackups(request, env, corsHeaders);
+      }
+      if (path === '/api/backups' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
       // Serve static files
       return await serveStaticFiles(request, env);
 
@@ -1106,7 +1121,17 @@ async function handleLLMOrchestration(request, env, corsHeaders) {
       }
     }
 
-
+    // === FILE HISTORY SYSTEM ===
+    // Create a backup of current files before making changes
+    const backupFiles = JSON.parse(JSON.stringify(projectFiles));
+    const backupTimestamp = new Date().toISOString();
+    const backupId = generateBackupId();
+    
+    // Store backup in database
+    await storeFileBackup(project_id, backupId, backupFiles, backupTimestamp, user_message, env);
+    
+    // === INTELLIGENT SECTION DETECTION ===
+    const sectionAnalysis = analyzeUserRequest(user_message, projectFiles);
     
     // Smart image generation logic - treat as initial prompt if only basic files exist
     const isInitialPrompt = !projectFiles || 
@@ -1169,224 +1194,120 @@ async function handleLLMOrchestration(request, env, corsHeaders) {
           case 'about':
             placeholders.push('{GENERATED_IMAGE_URL_ABOUT}');
             break;
+          case 'features':
+            placeholders.push('{GENERATED_IMAGE_URL_FEATURE_1}', '{GENERATED_IMAGE_URL_FEATURE_2}', '{GENERATED_IMAGE_URL_FEATURE_3}');
+            break;
           case 'contact':
             placeholders.push('{GENERATED_IMAGE_URL_CONTACT}');
             break;
           case 'gallery':
             placeholders.push('{GENERATED_IMAGE_URL_GALLERY}');
             break;
-          case 'features':
-            placeholders.push('{GENERATED_IMAGE_URL_FEATURE_1}', '{GENERATED_IMAGE_URL_FEATURE_2}', '{GENERATED_IMAGE_URL_FEATURE_3}');
-            break;
           default:
-            // For custom sections, create a custom placeholder
-            const customPlaceholder = `{GENERATED_IMAGE_URL_${section.toUpperCase()}}`;
-            placeholders.push(customPlaceholder);
+            placeholders.push(`{GENERATED_IMAGE_URL_${section.toUpperCase()}}`);
         }
       });
       return placeholders;
     };
-    
-    const smartPlaceholders = generateSmartPlaceholders(requestedSections);
-    
-    // Stage 1: Use GPT-4.1-nano for task parsing and preprocessing
-    let nanoAnalysis = null;
-    let processedUserMessage = user_message; // Initialize with original message
-    
-    try {
-      // Check if GPT-4.1-nano is available (optional check)
-      if (!env.OPENAI_API_KEY) {
-        throw new Error('OpenAI API key not available');
-      }
-      
-      nanoAnalysis = await callOpenAINano(user_message, env);
-      
-      // Use the processed prompt from nano for stage 2
-      processedUserMessage = nanoAnalysis.processed_prompt || user_message;
-      
-    } catch (error) {
-      // Don't fallback - fail the entire request if Stage 1 fails
-      // This ensures we get proper task parsing or fail fast
-      throw new Error(`Stage 1 task parsing failed: ${error.message}`);
-    }
-    
-    // Legacy multi-step detection (fallback)
-    let multiTaskAnalysis = null;
-    let isMultiStepRequest = nanoAnalysis?.is_multi_step || false;
-    
-    if (!nanoAnalysis && isMultiStepRequest) {
-      try {
-        const multiTaskResponse = await fetch(`${new URL(request.url).origin}/api/parse-multi-task`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_message })
-        });
-        
-        if (multiTaskResponse.ok) {
-          const multiTaskResult = await multiTaskResponse.json();
-          multiTaskAnalysis = multiTaskResult;
-        }
-      } catch (error) {
-        // Legacy multi-task parsing failed, continue without it
-      }
-    }
-    
-    // For targeted changes, analyze the current code structure first
-    let codeAnalysis = null;
-    if (!isInitialPrompt && requestedSections.length > 0) {
-      try {
-        const analysisResponse = await fetch(`${new URL(request.url).origin}/api/analyze-code`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            current_files: projectFiles,
-            target_section: requestedSections[0]
-          })
-        });
-        
-        if (analysisResponse.ok) {
-          const analysisResult = await analysisResponse.json();
-          codeAnalysis = analysisResult.analysis;
-        }
-      } catch (error) {
-        // Code analysis failed, continue without it
-      }
-    }
-    
-    // Now call OpenAI with all the prepared variables
-    const response = await callOpenAI(processedUserMessage, projectFiles, { ...env, OPENAI_API_KEY: apiKey }, codeAnalysis, nanoAnalysis, multiTaskAnalysis);
-    
-    // Force image generation for initial prompts if AI didn't generate any
-    if (isInitialPrompt && (!response.image_requests || response.image_requests.length === 0)) {
-      response.image_requests = [
-        {
-          prompt: "A stunning hero image for a beach bar website with vibrant colors and tropical atmosphere",
-          aspect_ratio: "16:9",
-          placement: "hero"
-        },
-        {
-          prompt: "A professional logo for a beach bar with modern design and tropical elements",
-          aspect_ratio: "1:1",
-          placement: "logo"
-        },
-        {
-          prompt: "A feature image showing people enjoying drinks at a beach bar",
-          aspect_ratio: "4:3",
-          placement: "feature_1"
-        },
-        {
-          prompt: "A feature image showing the beautiful beach bar atmosphere and decor",
-          aspect_ratio: "4:3",
-          placement: "feature_2"
-        },
-        {
-          prompt: "A feature image showing delicious cocktails and drinks at the beach bar",
-          aspect_ratio: "4:3",
-          placement: "feature_3"
-        }
-      ];
-    }
-    
-    if (response.image_requests && response.image_requests.length > 0) {
-        if (isInitialPrompt || isImageRequest) {
-          // Filter image requests based on detected sections
-          let filteredImageRequests = response.image_requests;
-          
-          if (!isInitialPrompt && requestedSections.length > 0) {
-            // For non-initial prompts, only generate images for requested sections
-            filteredImageRequests = response.image_requests.filter(request => {
-              const requestPlacement = request.placement?.toLowerCase();
-              return requestedSections.some(section => 
-                requestPlacement?.includes(section) || 
-                requestPlacement === section
-              );
-            });
-            
-            if (filteredImageRequests.length === 0) {
-              // If no matching requests found, create a new request for the first requested section
-              const firstSection = requestedSections[0];
-              filteredImageRequests = [{
-                prompt: `A professional image for the ${firstSection} section of a beach bar website`,
-                aspect_ratio: '4:3',
-                placement: firstSection
-              }];
-            }
-          }
-          
 
-          
-          const generatedImages = [];
-          
-          for (const imageRequest of filteredImageRequests) {
-          try {
-            const imageResponse = await fetch(`${new URL(request.url).origin}/api/generate-image`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                project_id: project_id,
-                prompt: imageRequest.prompt,
-                aspect_ratio: imageRequest.aspect_ratio || '1:1',
-                number_of_images: 1
-              })
-            });
-            
-            if (imageResponse.ok) {
-              const imageResult = await imageResponse.json();
-              if (imageResult.success && imageResult.images.length > 0) {
-                generatedImages.push({
-                  ...imageResult.images[0],
-                  placement: imageRequest.placement
-                });
-                
-                // Update the code to use the generated image
-                if (imageRequest.placement && response.updated_files) {
-                  const imageId = imageResult.images[0].image_id;
-                  const imageUrl = imageResult.images[0].url;
-                  
-                  for (const [filename, content] of Object.entries(response.updated_files)) {
-                    let updatedContent = content;
-                    
-                    // Replace specific placeholders based on placement
-                    const specificPlaceholder = new RegExp(`\\{GENERATED_IMAGE_URL_${imageRequest.placement.toUpperCase()}\\}`);
-                    if (specificPlaceholder.test(updatedContent)) {
-                      updatedContent = updatedContent.replace(specificPlaceholder, imageUrl);
-                    }
-                    
-                    // Replace generic placeholders (first occurrence only)
-                    const placeholderRegex = new RegExp(`\\{GENERATED_IMAGE_URL\\}`);
-                    if (placeholderRegex.test(updatedContent)) {
-                      updatedContent = updatedContent.replace(placeholderRegex, imageUrl);
-                    }
-                    
-                    // Also replace any remaining generic placeholders (first occurrence only)
-                    const imageIdRegex = new RegExp(`/api/images/\\{IMAGE_ID\\}`);
-                    if (imageIdRegex.test(updatedContent)) {
-                      updatedContent = updatedContent.replace(imageIdRegex, imageUrl);
-                    }
-                    
-                    // Replace any remaining API endpoints with direct URLs (first occurrence only)
-                    const generatedImageIdRegex = new RegExp(`/api/images/\\{GENERATED_IMAGE_ID\\}`);
-                    if (generatedImageIdRegex.test(updatedContent)) {
-                      updatedContent = updatedContent.replace(generatedImageIdRegex, imageUrl);
-                    }
-                    
-                    response.updated_files[filename] = updatedContent;
-                  }
-                }
-              }
-            }
-          } catch (error) {
-            console.error('Failed to generate image:', error);
-            // Continue with other images even if one fails
-          }
+    // === ENHANCED PROMPT ENGINEERING USING ACE METHOD ===
+    // Approach: Visualize targeted changes only
+    // Instructions: Clear, specific section targeting
+    // Requirements: Non-negotiable preservation rules
+    
+    const enhancedPrompt = buildEnhancedPrompt(user_message, projectFiles, sectionAnalysis, isInitialPrompt);
+    
+    // Call OpenAI with enhanced prompt
+    const response = await callOpenAI(user_message, projectFiles, { ...env, OPENAI_API_KEY: apiKey }, null, null, null, enhancedPrompt);
+    
+    // === TARGETED CODE UPDATES ===
+    if (response.updated_files) {
+      response.updated_files = await applyTargetedUpdates(response.updated_files, projectFiles, sectionAnalysis, env);
+    }
+    
+    // === INTELLIGENT IMAGE GENERATION ===
+    if (response.image_requests && response.image_requests.length > 0) {
+      if (isInitialPrompt) {
+        console.log('🎨 Generating images for initial prompt:', response.image_requests.length, 'images');
+      } else {
+        // Filter image requests to only target requested sections
+        let filteredImageRequests = response.image_requests.filter(request => {
+          const requestPlacement = request.placement?.toLowerCase();
+          return requestedSections.length === 0 || 
+                 requestedSections.some(section => 
+                   requestPlacement?.includes(section) || 
+                   requestPlacement === section
+                 );
+        });
+        
+        if (filteredImageRequests.length === 0) {
+          // If no matching requests found, create a new request for the first requested section
+          const firstSection = requestedSections[0];
+          filteredImageRequests = [{
+            prompt: `A professional image for the ${firstSection} section of a beach bar website`,
+            aspect_ratio: '4:3',
+            placement: firstSection
+          }];
         }
         
-        response.generated_images = generatedImages;
-      } else {
-        // Clear image requests to prevent generation
-        response.image_requests = [];
+        response.image_requests = filteredImageRequests;
+        console.log('🎨 Generating targeted images for sections:', requestedSections);
       }
+      
+      const generatedImages = [];
+      
+      for (const imageRequest of response.image_requests) {
+        try {
+          const imageResponse = await fetch(`${new URL(request.url).origin}/api/generate-image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              project_id: project_id,
+              prompt: imageRequest.prompt,
+              aspect_ratio: imageRequest.aspect_ratio || '1:1',
+              number_of_images: 1
+            })
+          });
+          
+          if (imageResponse.ok) {
+            const imageResult = await imageResponse.json();
+            if (imageResult.success && imageResult.images.length > 0) {
+              generatedImages.push({
+                ...imageResult.images[0],
+                placement: imageRequest.placement
+              });
+              
+                  // === INTELLIGENT IMAGE PLACEMENT ===
+    if (imageRequest.placement && response.updated_files) {
+      console.log(`🎯 Attempting to place image for: ${imageRequest.placement}`);
+      console.log(`📄 Generated code preview:`, response.updated_files['src/App.jsx']?.substring(0, 1000));
+      await replaceImageInSection(response.updated_files, imageRequest.placement, imageResult.images[0].url, projectFiles);
     }
+            }
+          }
+        } catch (error) {
+          console.error('Failed to generate image:', error);
+          // Continue with other images even if one fails
+        }
+      }
+      
+      response.generated_images = generatedImages;
+    } else if (!isInitialPrompt) {
+      console.log('🎨 No image requests - keeping existing images');
+    }
+    
+    // Add backup information to response
+    response.backup_id = backupId;
+    response.backup_timestamp = backupTimestamp;
+    response.can_restore = true;
+    
+    // Log business info if available
+    if (response.business_info) {
+      console.log('🏢 Business info updated:', response.business_info);
+    }
+    
+    // Log total cost for this request
+    logTotalCost();
     
     return new Response(JSON.stringify(response), {
       status: 200,
@@ -1433,7 +1354,6 @@ function calculateCost(inputTokens, outputTokens, model) {
 // Log total cost
 function logTotalCost() {
   console.log('💰 COST BREAKDOWN:');
-  console.log(`   GPT-4.1-nano: ${totalCost.nano.input_tokens} input + ${totalCost.nano.output_tokens} output tokens = $${totalCost.nano.cost.toFixed(6)}`);
   console.log(`   GPT-4o-mini: ${totalCost.mini.input_tokens} input + ${totalCost.mini.output_tokens} output tokens = $${totalCost.mini.cost.toFixed(6)}`);
   console.log(`   TOTAL COST: $${totalCost.total.toFixed(6)}`);
 }
@@ -1646,11 +1566,11 @@ Parse this request and return ONLY the JSON object.`;
 }
 
 // Stage 2: GPT-4o-mini for complex reasoning and code generation
-async function callOpenAI(userMessage, currentFiles, env, codeAnalysis = null, nanoAnalysis = null, multiTaskAnalysis = null) {
+async function callOpenAI(userMessage, currentFiles, env, codeAnalysis = null, nanoAnalysis = null, multiTaskAnalysis = null, enhancedPrompt = null) {
   const openaiUrl = 'https://api.openai.com/v1/chat/completions';
   
-  // Enhanced system prompt for beautiful landing page generation
-  const systemPrompt = `You are an expert React developer, UI/UX designer, and business strategist. Your task is to create stunning, conversion-optimized landing pages that generate leads and drive business growth.
+  // Use enhanced prompt if provided, otherwise use default system prompt
+  const systemPrompt = enhancedPrompt || `You are an expert React developer, UI/UX designer, and business strategist. Your task is to create stunning, conversion-optimized landing pages that generate leads and drive business growth.
 
 ${codeAnalysis ? `
 CURRENT CODE ANALYSIS:
@@ -2105,8 +2025,30 @@ Return only the JSON response with assistant_message, updated_files, image_reque
     };
   } catch (parseError) {
     console.error('Failed to parse LLM response:', parseError);
-    // Fallback: extract code from the response
-    return extractCodeFromResponse(content, currentFiles);
+    console.error('Raw response content (first 500 chars):', content.substring(0, 500));
+    console.error('Raw response content (last 500 chars):', content.substring(content.length - 500));
+    
+    // Try to fix common JSON issues
+    let fixedContent = content;
+    
+    // Remove any trailing commas before closing braces/brackets
+    fixedContent = fixedContent.replace(/,(\s*[}\]])/g, '$1');
+    
+    // Try parsing again with fixed content
+    try {
+      const parsedResponse = JSON.parse(fixedContent);
+      console.log('✅ Successfully parsed after fixing JSON syntax');
+      return {
+        assistant_message: parsedResponse.assistant_message,
+        updated_files: parsedResponse.updated_files,
+        image_requests: parsedResponse.image_requests || [],
+        business_info: parsedResponse.business_info || {}
+      };
+    } catch (secondParseError) {
+      console.error('Still failed to parse after JSON fixes:', secondParseError);
+      // Fallback: extract code from the response
+      return extractCodeFromResponse(content, currentFiles);
+    }
   }
 }
 
@@ -3314,3 +3256,358 @@ async function handleServeImage(request, env, corsHeaders) {
     });
   }
 } 
+
+// === FILE HISTORY SYSTEM FUNCTIONS ===
+
+// Generate unique backup ID
+function generateBackupId() {
+  return `backup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// Store file backup in database
+async function storeFileBackup(projectId, backupId, files, timestamp, userMessage, env) {
+  try {
+    const stmt = env.DB.prepare(`
+      INSERT INTO file_backups (project_id, backup_id, files, timestamp, user_message)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    
+    await stmt.bind(projectId, backupId, JSON.stringify(files), timestamp, userMessage).run();
+    console.log('💾 File backup stored:', backupId);
+  } catch (error) {
+    console.error('Failed to store file backup:', error);
+  }
+}
+
+// Analyze user request for section targeting
+function analyzeUserRequest(userMessage, projectFiles) {
+  const analysis = {
+    targetSections: [],
+    operationType: 'modify', // 'create', 'modify', 'delete'
+    imageOperation: false,
+    textOperation: false,
+    styleOperation: false,
+    specificTargets: []
+  };
+  
+  const messageLower = userMessage.toLowerCase();
+  
+  // Detect target sections
+  const sectionPatterns = {
+    'hero': ['hero', 'main', 'header', 'banner'],
+    'about': ['about', 'about us'],
+    'features': ['feature', 'features'],
+    'contact': ['contact', 'contact us'],
+    'gallery': ['gallery', 'photos', 'images'],
+    'logo': ['logo', 'brand']
+  };
+  
+  for (const [section, keywords] of Object.entries(sectionPatterns)) {
+    if (keywords.some(keyword => messageLower.includes(keyword))) {
+      analysis.targetSections.push(section);
+    }
+  }
+  
+  // Detect operation types
+  if (messageLower.includes('image') || messageLower.includes('photo') || messageLower.includes('picture')) {
+    analysis.imageOperation = true;
+  }
+  
+  if (messageLower.includes('text') || messageLower.includes('content') || messageLower.includes('title') || messageLower.includes('description')) {
+    analysis.textOperation = true;
+  }
+  
+  if (messageLower.includes('color') || messageLower.includes('style') || messageLower.includes('font') || messageLower.includes('layout')) {
+    analysis.styleOperation = true;
+  }
+  
+  // Detect specific targets
+  const specificMatches = messageLower.match(/(?:in|for|to|the)\s+([a-zA-Z\s]+)\s+(?:section|area|part)/g);
+  if (specificMatches) {
+    analysis.specificTargets = specificMatches.map(match => match.replace(/(?:in|for|to|the)\s+/, '').replace(/\s+(?:section|area|part)/, '').trim());
+  }
+  
+  return analysis;
+}
+
+// Build enhanced prompt using ACE method
+function buildEnhancedPrompt(userMessage, projectFiles, sectionAnalysis, isInitialPrompt) {
+  const { targetSections, imageOperation, textOperation, styleOperation } = sectionAnalysis;
+  
+  let prompt = `You are an expert React developer specializing in targeted website modifications. 
+
+APPROACH (A):
+- Visualize ONLY the specific changes requested
+- Preserve ALL existing code not related to the target sections
+- Maintain exact structure and styling of untouched sections
+
+INSTRUCTIONS (C):
+- Make ONLY the requested changes to the specified sections
+- Do NOT modify business names, hero text, or other content unless explicitly requested
+- Do NOT regenerate entire components unless specifically asked
+- Preserve all existing images and placeholders in non-target sections
+
+REQUIREMENTS (E):
+- NON-NEGOTIABLE: Keep all existing code structure intact
+- NON-NEGOTIABLE: Only modify the sections explicitly mentioned in the user request
+- NON-NEGOTIABLE: Preserve all existing images and their URLs in non-target sections
+- NON-NEGOTIABLE: Maintain exact component structure and props
+
+USER REQUEST: "${userMessage}"
+
+TARGET SECTIONS: ${targetSections.join(', ') || 'None specified'}
+OPERATION TYPES: ${[
+  imageOperation && 'Image modification',
+  textOperation && 'Text modification', 
+  styleOperation && 'Style modification'
+].filter(Boolean).join(', ') || 'General modification'}
+
+CURRENT FILES:
+${JSON.stringify(projectFiles, null, 2)}
+
+CRITICAL RULES:
+1. ONLY modify the sections mentioned in the user request
+2. Preserve ALL existing code in non-target sections
+3. Keep all existing image URLs and placeholders intact
+4. Do NOT change business names or hero content unless explicitly requested
+5. Maintain exact component structure and styling
+6. If adding images, only add them to the specified sections
+7. Use existing image placeholders when available
+
+Return ONLY the JSON response with updated_files containing ONLY the modified files.
+
+CRITICAL JSON FORMATTING RULES:
+- Use double quotes for all property names and string values
+- No trailing commas before closing braces or brackets
+- No comments or explanations outside the JSON
+- Ensure all strings are properly escaped
+- The response must be valid JSON that can be parsed by JSON.parse()
+
+Example valid response format:
+{
+  "assistant_message": "I've updated the contact section with a new image.",
+  "updated_files": {
+    "src/App.jsx": "// Updated JSX code here"
+  },
+  "image_requests": [
+    {
+      "prompt": "A professional contact section image",
+      "aspect_ratio": "4:3",
+      "placement": "contact"
+    }
+  ],
+  "business_info": {
+    "name": "Business Name",
+    "tagline": "Business Tagline"
+  }
+}`;
+
+  return prompt;
+}
+
+// Apply targeted updates to preserve existing code
+async function applyTargetedUpdates(updatedFiles, originalFiles, sectionAnalysis, env) {
+  const { targetSections } = sectionAnalysis;
+  
+  // If no specific sections targeted, return original files with minimal changes
+  if (targetSections.length === 0) {
+    return updatedFiles;
+  }
+  
+  const result = {};
+  
+  for (const [filename, newContent] of Object.entries(updatedFiles)) {
+    if (originalFiles[filename]) {
+      // Merge changes intelligently
+      result[filename] = await mergeTargetedChanges(filename, originalFiles[filename], newContent, targetSections);
+    } else {
+      // New file, use as is
+      result[filename] = newContent;
+    }
+  }
+  
+  return result;
+}
+
+// Merge targeted changes while preserving existing code
+async function mergeTargetedChanges(filename, originalContent, newContent, targetSections) {
+  // For now, use a simple approach - preserve original content and only apply specific section changes
+  // This can be enhanced with more sophisticated diffing algorithms
+  
+  if (filename.includes('App.jsx') || filename.includes('main.jsx')) {
+    return await mergeJSXChanges(originalContent, newContent, targetSections);
+  }
+  
+  // For other files, preserve original content
+  return originalContent;
+}
+
+// Merge JSX changes intelligently
+async function mergeJSXChanges(originalContent, newContent, targetSections) {
+  // Simple approach: extract target sections from new content and merge with original
+  // This is a basic implementation that can be enhanced
+  
+  let mergedContent = originalContent;
+  
+  // For each target section, find and replace the corresponding section in original content
+  for (const section of targetSections) {
+    const sectionRegex = new RegExp(`<div[^>]*className="[^"]*${section}[^"]*"[^>]*>.*?</div>`, 'gs');
+    const newSectionMatch = newContent.match(sectionRegex);
+    
+    if (newSectionMatch) {
+      mergedContent = mergedContent.replace(sectionRegex, newSectionMatch[0]);
+    }
+  }
+  
+  return mergedContent;
+}
+
+// Replace image in specific section
+async function replaceImageInSection(updatedFiles, placement, imageUrl, originalFiles) {
+  console.log(`🖼️ Replacing image for placement: ${placement} with URL: ${imageUrl}`);
+  
+  for (const [filename, content] of Object.entries(updatedFiles)) {
+    if (filename.includes('App.jsx') || filename.includes('main.jsx')) {
+      let updatedContent = content;
+      let replacementsMade = 0;
+      
+      // Handle different placement formats
+      const placementVariations = [
+        placement.toUpperCase(), // e.g., "HERO"
+        placement.toLowerCase(), // e.g., "hero"
+        placement.charAt(0).toUpperCase() + placement.slice(1).toLowerCase() // e.g., "Hero"
+      ];
+      
+      // Try to replace specific placeholders first
+      for (const placementVar of placementVariations) {
+        const specificPlaceholder = new RegExp(`\\{GENERATED_IMAGE_URL_${placementVar}\\}`, 'g');
+        if (specificPlaceholder.test(updatedContent)) {
+          updatedContent = updatedContent.replace(specificPlaceholder, imageUrl);
+          replacementsMade++;
+          console.log(`✅ Replaced {GENERATED_IMAGE_URL_${placementVar}} with image URL`);
+        }
+      }
+      
+      // Handle special cases for feature images
+      if (placement.startsWith('feature_')) {
+        const featureNumber = placement.split('_')[1];
+        const featurePlaceholder = new RegExp(`\\{GENERATED_IMAGE_URL_FEATURE_${featureNumber}\\}`, 'g');
+        if (featurePlaceholder.test(updatedContent)) {
+          updatedContent = updatedContent.replace(featurePlaceholder, imageUrl);
+          replacementsMade++;
+          console.log(`✅ Replaced {GENERATED_IMAGE_URL_FEATURE_${featureNumber}} with image URL`);
+        }
+      }
+      
+      // If no specific placeholders found, try generic placeholder
+      if (replacementsMade === 0) {
+        const genericPlaceholder = new RegExp(`\\{GENERATED_IMAGE_URL\\}`, 'g');
+        if (genericPlaceholder.test(updatedContent)) {
+          updatedContent = updatedContent.replace(genericPlaceholder, imageUrl);
+          replacementsMade++;
+          console.log(`✅ Replaced generic {GENERATED_IMAGE_URL} with image URL`);
+        }
+      }
+      
+      if (replacementsMade > 0) {
+        updatedFiles[filename] = updatedContent;
+        console.log(`✅ Updated ${filename} with ${replacementsMade} image replacement(s)`);
+      } else {
+        console.log(`⚠️ No placeholders found for placement: ${placement} in ${filename}`);
+        // Log the content to debug
+        console.log(`📄 Content preview:`, updatedContent.substring(0, 500));
+      }
+    }
+  }
+}
+
+// === RESTORE WEB FUNCTIONALITY ===
+
+// Add restore web endpoint
+async function handleRestoreWeb(request, env, corsHeaders) {
+  try {
+    const { project_id, backup_id } = await request.json();
+    
+    if (!project_id || !backup_id) {
+      return new Response(JSON.stringify({ error: 'project_id and backup_id are required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+    
+    // Fetch backup from database
+    const stmt = env.DB.prepare('SELECT files FROM file_backups WHERE project_id = ? AND backup_id = ?');
+    const result = await stmt.bind(project_id, backup_id).first();
+    
+    if (!result) {
+      return new Response(JSON.stringify({ error: 'Backup not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+    
+    const backupFiles = JSON.parse(result.files);
+    
+    // Update project with backup files
+    const updateStmt = env.DB.prepare('UPDATE projects SET files = ? WHERE id = ?');
+    await updateStmt.bind(JSON.stringify(backupFiles), project_id).run();
+    
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Website restored successfully',
+      files: backupFiles
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+    
+  } catch (error) {
+    return new Response(JSON.stringify({ 
+      error: 'Failed to restore website',
+      details: error.message
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+}
+
+// Get backup history for a project
+async function handleGetBackups(request, env, corsHeaders) {
+  try {
+    const { project_id } = await request.json();
+    
+    if (!project_id) {
+      return new Response(JSON.stringify({ error: 'project_id is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+    
+    const stmt = env.DB.prepare(`
+      SELECT backup_id, timestamp, user_message 
+      FROM file_backups 
+      WHERE project_id = ? 
+      ORDER BY timestamp DESC
+    `);
+    
+    const backups = await stmt.bind(project_id).all();
+    
+    return new Response(JSON.stringify({
+      success: true,
+      backups: backups.results
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+    
+  } catch (error) {
+    return new Response(JSON.stringify({ 
+      error: 'Failed to get backups',
+      details: error.message
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+}

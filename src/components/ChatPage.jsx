@@ -187,12 +187,14 @@ const ChatPage = ({ onBackToHome }) => {
             files: result.updated_files
           }));
         }
-        // 4. Add assistant response to chat
+        // 4. Add assistant response to chat with backup information
         const assistantMessage = {
           id: Date.now() + 1,
           role: 'assistant',
           message: result.assistant_message,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          backup_id: result.backup_id,
+          can_restore: result.can_restore
         };
         await fetch('/api/chat_messages', {
           method: 'POST',
@@ -200,7 +202,8 @@ const ChatPage = ({ onBackToHome }) => {
           body: JSON.stringify({
             project_id: currentProject.id,
             role: 'assistant',
-            message: result.assistant_message
+            message: result.assistant_message,
+            backup_id: result.backup_id
           })
         });
         setMessages(prev => [...prev, assistantMessage]);
@@ -234,6 +237,46 @@ const ChatPage = ({ onBackToHome }) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
+    }
+  };
+
+  const handleRestoreWeb = async (backupId) => {
+    if (!currentProject?.id) {
+      console.error('No current project to restore');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/restore-web', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: currentProject.id,
+          backup_id: backupId
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        
+        // Update current project with restored files
+        setCurrentProject(prev => ({
+          ...prev,
+          files: result.files
+        }));
+
+        // Refresh the preview
+        setPreviewLoading(true);
+        
+        // Show success message
+        alert('Website restored successfully!');
+      } else {
+        const error = await response.json();
+        alert(`Failed to restore website: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error restoring website:', error);
+      alert('Failed to restore website. Please try again.');
     }
   };
 
@@ -506,7 +549,7 @@ const ChatPage = ({ onBackToHome }) => {
               messages.map((message) => (
                 <div
                   key={message.id}
-                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}
                 >
                   <div
                     className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
@@ -522,6 +565,22 @@ const ChatPage = ({ onBackToHome }) => {
                       {new Date(message.timestamp).toLocaleTimeString()}
                     </p>
                   </div>
+                  
+                  {/* Restore Web Button for Assistant Messages */}
+                  {message.role === 'assistant' && message.backup_id && (
+                    <div className="mt-2">
+                      <button
+                        onClick={() => handleRestoreWeb(message.backup_id)}
+                        className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-800 transition-colors"
+                        title="Restore website to this version"
+                      >
+                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                        </svg>
+                        Restore Web
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))
             )}
