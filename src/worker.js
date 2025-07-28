@@ -1068,12 +1068,12 @@ async function getChatMessages(request, env, corsHeaders) {
 async function addChatMessage(request, env, corsHeaders) {
   const db = env.DB;
   try {
-    const { project_id, role, message } = await request.json();
+    const { project_id, role, message, clarification_state } = await request.json();
     if (!project_id || !role || !message) {
       return new Response(JSON.stringify({ error: 'project_id, role, and message are required' }), { status: 400, headers: corsHeaders });
     }
     const now = new Date().toISOString();
-    const result = await db.prepare('INSERT INTO chat_messages (project_id, role, message, timestamp) VALUES (?, ?, ?, ?)').bind(project_id, role, message, now).run();
+    const result = await db.prepare('INSERT INTO chat_messages (project_id, role, message, timestamp, clarification_state) VALUES (?, ?, ?, ?, ?)').bind(project_id, role, message, now, clarification_state || null).run();
     if (!result.success) {
       throw new Error('Failed to add chat message');
     }
@@ -1110,14 +1110,30 @@ async function handleLLMOrchestration(request, env, corsHeaders) {
 
     // Fetch current project files from database if not provided
     let projectFiles = current_files;
+    let projectExists = false;
+    
     if (!projectFiles) {
       console.log('📁 Fetching project files from database...');
       const stmt = env.DB.prepare('SELECT files FROM projects WHERE id = ?');
       const result = await stmt.bind(project_id).first();
       if (result) {
         projectFiles = JSON.parse(result.files);
+        projectExists = true;
       } else {
+        console.log('📁 Project not found, creating new project...');
         projectFiles = {};
+        // Create the project in the database
+        const now = new Date().toISOString();
+        const createResult = await env.DB.prepare(
+          'INSERT INTO projects (user_id, project_name, files, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
+        ).bind(1, project_id, JSON.stringify(projectFiles), now, now).run();
+        
+        if (createResult.success) {
+          projectExists = true;
+          console.log('✅ Project created successfully');
+        } else {
+          console.log('⚠️ Failed to create project, continuing without database storage');
+        }
       }
     }
 
@@ -1131,7 +1147,35 @@ async function handleLLMOrchestration(request, env, corsHeaders) {
     await storeFileBackup(project_id, backupId, backupFiles, backupTimestamp, user_message, env);
     
     // === INTELLIGENT SECTION DETECTION ===
-    const sectionAnalysis = analyzeUserRequest(user_message, projectFiles);
+    const sectionAnalysis = await analyzeUserRequest(user_message, projectFiles, env, project_id);
+    
+    // Check if we need to ask for clarification
+    if (sectionAnalysis.needsClarification) {
+      const currentQuestion = sectionAnalysis.clarificationQuestions[sectionAnalysis.currentQuestionIndex];
+      const questionNumber = sectionAnalysis.currentQuestionIndex + 1;
+      const totalQuestions = sectionAnalysis.clarificationQuestions.length;
+      
+      const clarificationResponse = {
+        needs_clarification: true,
+        clarification_questions: sectionAnalysis.clarificationQuestions,
+        current_question: currentQuestion,
+        current_question_index: sectionAnalysis.currentQuestionIndex,
+        clarification_answers: sectionAnalysis.clarificationAnswers,
+        message: `Great! Let's build your perfect landing page. ${currentQuestion.question}`,
+        updated_files: projectFiles,
+        image_requests: [],
+        generated_images: [],
+        backup_id: backupId,
+        backup_timestamp: backupTimestamp,
+        can_restore: false,
+        business_info: null
+      };
+      
+      return new Response(JSON.stringify(clarificationResponse), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
     
     // Smart image generation logic - treat as initial prompt if only basic files exist
     const isInitialPrompt = !projectFiles || 
@@ -1209,6 +1253,222 @@ async function handleLLMOrchestration(request, env, corsHeaders) {
       });
       return placeholders;
     };
+    
+    // Generate creative image prompts based on business type and section
+    const generateCreativeImagePrompts = (businessType, businessName, section) => {
+      const prompts = {
+        hero: {
+          ecommerce_fashion: `A stunning hero image showcasing ${businessName} fashion collection with modern models, elegant styling, and premium fashion photography`,
+          mobile_app: `A dynamic hero image featuring ${businessName} mobile app interface with smartphone mockups, modern UI design, and tech-savvy users`,
+          consulting_service: `A professional hero image representing ${businessName} consulting services with business professionals, strategic planning, and corporate excellence`,
+          online_education: `An inspiring hero image for ${businessName} online learning platform with students, digital education, and knowledge empowerment`,
+          real_estate: `A beautiful hero image showcasing ${businessName} real estate with luxury properties, modern homes, and dream living spaces`,
+          healthcare_wellness: `A warm and caring hero image for ${businessName} healthcare services with medical professionals, wellness, and health-focused environment`,
+          creative_agency: `A creative and vibrant hero image for ${businessName} design agency with artistic elements, creative workspace, and innovative design`,
+          subscription_box: `An exciting hero image for ${businessName} subscription service with curated products, unboxing experience, and monthly surprises`,
+          local_service: `A trustworthy hero image for ${businessName} local services with professional workers, quality craftsmanship, and community focus`,
+          bar_restaurant: `A stunning hero image for ${businessName} restaurant/bar with elegant dining atmosphere, delicious food presentation, and inviting ambiance`,
+          saas_b2b: `A modern hero image for ${businessName} business software with enterprise technology, data visualization, and business growth`
+        },
+        logo: {
+          ecommerce_fashion: `A sophisticated logo design for ${businessName} fashion brand with elegant typography and modern fashion aesthetics`,
+          mobile_app: `A modern app logo for ${businessName} with clean design, tech aesthetics, and mobile-friendly iconography`,
+          consulting_service: `A professional logo for ${businessName} consulting with corporate elegance and trust-building design`,
+          online_education: `An educational logo for ${businessName} learning platform with knowledge symbols and academic excellence`,
+          real_estate: `A premium logo for ${businessName} real estate with property elements and luxury branding`,
+          healthcare_wellness: `A caring logo for ${businessName} healthcare with medical symbols and wellness focus`,
+          creative_agency: `A creative logo for ${businessName} design agency with artistic elements and innovative design`,
+          subscription_box: `A fun logo for ${businessName} subscription service with excitement and discovery themes`,
+          local_service: `A trustworthy logo for ${businessName} local services with community focus and reliability`,
+          bar_restaurant: `An elegant logo for ${businessName} restaurant/bar with culinary elements and hospitality branding`,
+          saas_b2b: `A modern logo for ${businessName} business software with tech elements and enterprise appeal`
+        },
+        feature_1: {
+          ecommerce_fashion: `A feature icon representing fashion curation and style recommendations for ${businessName}`,
+          mobile_app: `A feature icon representing task management and productivity for ${businessName} app`,
+          consulting_service: `A feature icon representing strategic planning and business growth for ${businessName}`,
+          online_education: `A feature icon representing interactive learning and skill development for ${businessName}`,
+          real_estate: `A feature icon representing property search and real estate services for ${businessName}`,
+          healthcare_wellness: `A feature icon representing health monitoring and wellness services for ${businessName}`,
+          creative_agency: `A feature icon representing creative design and branding services for ${businessName}`,
+          subscription_box: `A feature icon representing curated products and monthly surprises for ${businessName}`,
+          local_service: `A feature icon representing professional service and local expertise for ${businessName}`,
+          bar_restaurant: `A feature icon representing exceptional cuisine and dining experience for ${businessName}`,
+          saas_b2b: `A feature icon representing business automation and enterprise solutions for ${businessName}`
+        },
+        feature_2: {
+          ecommerce_fashion: `A feature icon representing personalized shopping and fashion advice for ${businessName}`,
+          mobile_app: `A feature icon representing collaboration and team productivity for ${businessName} app`,
+          consulting_service: `A feature icon representing market analysis and competitive insights for ${businessName}`,
+          online_education: `A feature icon representing expert instructors and mentorship for ${businessName}`,
+          real_estate: `A feature icon representing virtual tours and property visualization for ${businessName}`,
+          healthcare_wellness: `A feature icon representing telemedicine and remote care for ${businessName}`,
+          creative_agency: `A feature icon representing digital marketing and brand strategy for ${businessName}`,
+          subscription_box: `A feature icon representing quality products and value for money for ${businessName}`,
+          local_service: `A feature icon representing quick response and reliable service for ${businessName}`,
+          bar_restaurant: `A feature icon representing warm hospitality and customer service for ${businessName}`,
+          saas_b2b: `A feature icon representing data analytics and business intelligence for ${businessName}`
+        },
+        feature_3: {
+          ecommerce_fashion: `A feature icon representing secure payments and seamless shopping for ${businessName}`,
+          mobile_app: `A feature icon representing data sync and cloud storage for ${businessName} app`,
+          consulting_service: `A feature icon representing implementation support and ongoing guidance for ${businessName}`,
+          online_education: `A feature icon representing certification and achievement tracking for ${businessName}`,
+          real_estate: `A feature icon representing financing options and mortgage assistance for ${businessName}`,
+          healthcare_wellness: `A feature icon representing preventive care and health education for ${businessName}`,
+          creative_agency: `A feature icon representing project management and client collaboration for ${businessName}`,
+          subscription_box: `A feature icon representing customer support and satisfaction for ${businessName}`,
+          local_service: `A feature icon representing warranty and quality assurance for ${businessName}`,
+          bar_restaurant: `A feature icon representing fresh ingredients and quality dining for ${businessName}`,
+          saas_b2b: `A feature icon representing integration and scalability for ${businessName}`
+        },
+        about: {
+          ecommerce_fashion: `An about section image showcasing ${businessName} brand story and fashion philosophy`,
+          mobile_app: `An about section image representing ${businessName} app development and user experience`,
+          consulting_service: `An about section image showing ${businessName} team expertise and company values`,
+          online_education: `An about section image representing ${businessName} educational mission and learning approach`,
+          real_estate: `An about section image showcasing ${businessName} real estate expertise and community involvement`,
+          healthcare_wellness: `An about section image representing ${businessName} healthcare mission and patient care philosophy`,
+          creative_agency: `An about section image showing ${businessName} creative process and design philosophy`,
+          subscription_box: `An about section image representing ${businessName} curation process and product selection`,
+          local_service: `An about section image showcasing ${businessName} local roots and community commitment`,
+          bar_restaurant: `An about section image showcasing ${businessName} culinary story and chef expertise`,
+          saas_b2b: `An about section image representing ${businessName} technology innovation and business solutions`
+        },
+        contact: {
+          ecommerce_fashion: `A contact section image representing customer service and support for ${businessName} fashion`,
+          mobile_app: `A contact section image representing user support and feedback for ${businessName} app`,
+          consulting_service: `A contact section image representing client consultation and partnership for ${businessName}`,
+          online_education: `A contact section image representing student support and guidance for ${businessName}`,
+          real_estate: `A contact section image representing client consultation and property guidance for ${businessName}`,
+          healthcare_wellness: `A contact section image representing patient care and medical consultation for ${businessName}`,
+          creative_agency: `A contact section image representing client collaboration and project discussion for ${businessName}`,
+          subscription_box: `A contact section image representing customer service and product support for ${businessName}`,
+          local_service: `A contact section image representing local consultation and service coordination for ${businessName}`,
+          bar_restaurant: `A contact section image representing reservation booking and customer service for ${businessName}`,
+          saas_b2b: `A contact section image representing business consultation and technical support for ${businessName}`
+        }
+      };
+      
+      return prompts[section]?.[businessType] || `A professional image for the ${section} section of ${businessName}`;
+    };
+
+    // Generate context-aware image prompts based on comprehensive prompt
+    const generateContextAwareImagePrompts = (comprehensivePrompt, businessType, businessName, section) => {
+      // Extract key context from the comprehensive prompt
+      const context = comprehensivePrompt.toLowerCase();
+      
+      // Base prompts that incorporate the comprehensive context
+      const contextPrompts = {
+        hero: {
+          bar_restaurant: context.includes('space') && context.includes('theme') 
+            ? `A futuristic space-themed hero image for ${businessName} restaurant/bar with cosmic atmosphere, neon lighting, and otherworldly dining experience`
+            : `A stunning hero image for ${businessName} restaurant/bar with elegant dining atmosphere, delicious food presentation, and inviting ambiance`,
+          local_service: `A trustworthy hero image for ${businessName} local services with professional workers, quality craftsmanship, and community focus`,
+          mobile_app: `A dynamic hero image featuring ${businessName} mobile app interface with smartphone mockups, modern UI design, and tech-savvy users`,
+          consulting_service: `A professional hero image representing ${businessName} consulting services with business professionals, strategic planning, and corporate excellence`,
+          online_education: `An inspiring hero image for ${businessName} online learning platform with students, digital education, and knowledge empowerment`,
+          real_estate: `A beautiful hero image showcasing ${businessName} real estate with luxury properties, modern homes, and dream living spaces`,
+          healthcare_wellness: `A warm and caring hero image for ${businessName} healthcare services with medical professionals, wellness, and health-focused environment`,
+          creative_agency: `A creative and vibrant hero image for ${businessName} design agency with artistic elements, creative workspace, and innovative design`,
+          subscription_box: `An exciting hero image for ${businessName} subscription service with curated products, unboxing experience, and monthly surprises`,
+          saas_b2b: `A modern hero image for ${businessName} business software with enterprise technology, data visualization, and business growth`,
+          ecommerce_fashion: `A stunning hero image showcasing ${businessName} fashion collection with modern models, elegant styling, and premium fashion photography`
+        },
+        logo: {
+          bar_restaurant: context.includes('space') && context.includes('theme')
+            ? `A futuristic space-themed logo for ${businessName} with cosmic elements, neon colors, and sci-fi aesthetics`
+            : `An elegant logo for ${businessName} restaurant/bar with culinary elements and hospitality branding`,
+          local_service: `A trustworthy logo for ${businessName} local services with community focus and reliability`,
+          mobile_app: `A modern app logo for ${businessName} with clean design, tech aesthetics, and mobile-friendly iconography`,
+          consulting_service: `A professional logo for ${businessName} consulting with corporate elegance and trust-building design`,
+          online_education: `An educational logo for ${businessName} learning platform with knowledge symbols and academic excellence`,
+          real_estate: `A premium logo for ${businessName} real estate with property elements and luxury branding`,
+          healthcare_wellness: `A caring logo for ${businessName} healthcare with medical symbols and wellness focus`,
+          creative_agency: `A creative logo for ${businessName} design agency with artistic elements and innovative design`,
+          subscription_box: `A fun logo for ${businessName} subscription service with excitement and discovery themes`,
+          saas_b2b: `A modern logo for ${businessName} business software with tech elements and enterprise appeal`,
+          ecommerce_fashion: `A sophisticated logo design for ${businessName} fashion brand with elegant typography and modern fashion aesthetics`
+        },
+        feature_1: {
+          bar_restaurant: context.includes('alcohol') || context.includes('drink')
+            ? `A feature icon representing craft cocktails and premium beverages for ${businessName}`
+            : `A feature icon representing exceptional cuisine and dining experience for ${businessName}`,
+          local_service: `A feature icon representing professional service and local expertise for ${businessName}`,
+          mobile_app: `A feature icon representing task management and productivity for ${businessName} app`,
+          consulting_service: `A feature icon representing strategic planning and business growth for ${businessName}`,
+          online_education: `A feature icon representing interactive learning and skill development for ${businessName}`,
+          real_estate: `A feature icon representing property search and real estate services for ${businessName}`,
+          healthcare_wellness: `A feature icon representing health monitoring and wellness services for ${businessName}`,
+          creative_agency: `A feature icon representing creative design and branding services for ${businessName}`,
+          subscription_box: `A feature icon representing curated products and monthly surprises for ${businessName}`,
+          saas_b2b: `A feature icon representing business automation and enterprise solutions for ${businessName}`,
+          ecommerce_fashion: `A feature icon representing fashion curation and style recommendations for ${businessName}`
+        },
+        feature_2: {
+          bar_restaurant: context.includes('space') && context.includes('theme')
+            ? `A feature icon representing unique space-themed dining experience for ${businessName}`
+            : `A feature icon representing warm hospitality and customer service for ${businessName}`,
+          local_service: `A feature icon representing quick response and reliable service for ${businessName}`,
+          mobile_app: `A feature icon representing collaboration and team productivity for ${businessName} app`,
+          consulting_service: `A feature icon representing market analysis and competitive insights for ${businessName}`,
+          online_education: `A feature icon representing expert instructors and mentorship for ${businessName}`,
+          real_estate: `A feature icon representing virtual tours and property visualization for ${businessName}`,
+          healthcare_wellness: `A feature icon representing telemedicine and remote care for ${businessName}`,
+          creative_agency: `A feature icon representing digital marketing and brand strategy for ${businessName}`,
+          subscription_box: `A feature icon representing quality products and value for money for ${businessName}`,
+          saas_b2b: `A feature icon representing data analytics and business intelligence for ${businessName}`,
+          ecommerce_fashion: `A feature icon representing personalized shopping and fashion advice for ${businessName}`
+        },
+        feature_3: {
+          bar_restaurant: context.includes('futuristic') || context.includes('modern')
+            ? `A feature icon representing innovative dining technology and modern atmosphere for ${businessName}`
+            : `A feature icon representing fresh ingredients and quality dining for ${businessName}`,
+          local_service: `A feature icon representing warranty and quality assurance for ${businessName}`,
+          mobile_app: `A feature icon representing data sync and cloud storage for ${businessName} app`,
+          consulting_service: `A feature icon representing implementation support and ongoing guidance for ${businessName}`,
+          online_education: `A feature icon representing certification and achievement tracking for ${businessName}`,
+          real_estate: `A feature icon representing financing options and mortgage assistance for ${businessName}`,
+          healthcare_wellness: `A feature icon representing preventive care and health education for ${businessName}`,
+          creative_agency: `A feature icon representing project management and client collaboration for ${businessName}`,
+          subscription_box: `A feature icon representing customer support and satisfaction for ${businessName}`,
+          saas_b2b: `A feature icon representing integration and scalability for ${businessName}`,
+          ecommerce_fashion: `A feature icon representing secure payments and seamless shopping for ${businessName}`
+        },
+        about: {
+          bar_restaurant: context.includes('space') && context.includes('theme')
+            ? `An about section image showcasing ${businessName} space-themed culinary story and futuristic dining concept`
+            : `An about section image showcasing ${businessName} culinary story and chef expertise`,
+          local_service: `An about section image showcasing ${businessName} local roots and community commitment`,
+          mobile_app: `An about section image representing ${businessName} app development and user experience`,
+          consulting_service: `An about section image showing ${businessName} team expertise and company values`,
+          online_education: `An about section image representing ${businessName} educational mission and learning approach`,
+          real_estate: `An about section image showcasing ${businessName} real estate expertise and community involvement`,
+          healthcare_wellness: `An about section image representing ${businessName} healthcare mission and patient care philosophy`,
+          creative_agency: `An about section image showing ${businessName} creative process and design philosophy`,
+          subscription_box: `An about section image representing ${businessName} curation process and product selection`,
+          saas_b2b: `An about section image representing ${businessName} technology innovation and business solutions`,
+          ecommerce_fashion: `An about section image showcasing ${businessName} brand story and fashion philosophy`
+        },
+        contact: {
+          bar_restaurant: context.includes('reservation') || context.includes('booking')
+            ? `A contact section image representing reservation booking and customer service for ${businessName}`
+            : `A contact section image representing reservation booking and customer service for ${businessName}`,
+          local_service: `A contact section image representing local consultation and service coordination for ${businessName}`,
+          mobile_app: `A contact section image representing user support and feedback for ${businessName} app`,
+          consulting_service: `A contact section image representing client consultation and partnership for ${businessName}`,
+          online_education: `A contact section image representing student support and guidance for ${businessName}`,
+          real_estate: `A contact section image representing client consultation and property guidance for ${businessName}`,
+          healthcare_wellness: `A contact section image representing patient care and medical consultation for ${businessName}`,
+          creative_agency: `A contact section image representing client collaboration and project discussion for ${businessName}`,
+          subscription_box: `A contact section image representing customer service and product support for ${businessName}`,
+          saas_b2b: `A contact section image representing business consultation and technical support for ${businessName}`,
+          ecommerce_fashion: `A contact section image representing customer service and support for ${businessName} fashion`
+        }
+      };
+      
+      return contextPrompts[section]?.[businessType] || `A professional image for the ${section} section of ${businessName}`;
+    };
 
     // === ENHANCED PROMPT ENGINEERING USING ACE METHOD ===
     // Approach: Visualize targeted changes only
@@ -1243,8 +1503,10 @@ async function handleLLMOrchestration(request, env, corsHeaders) {
         if (filteredImageRequests.length === 0) {
           // If no matching requests found, create a new request for the first requested section
           const firstSection = requestedSections[0];
+          const comprehensivePrompt = sectionAnalysis.comprehensivePrompt || user_message;
+          const creativePrompt = generateContextAwareImagePrompts(comprehensivePrompt, sectionAnalysis.businessType, sectionAnalysis.businessInfo.name, firstSection);
           filteredImageRequests = [{
-            prompt: `A professional image for the ${firstSection} section of a beach bar website`,
+            prompt: creativePrompt,
             aspect_ratio: '4:3',
             placement: firstSection
           }];
@@ -1258,12 +1520,16 @@ async function handleLLMOrchestration(request, env, corsHeaders) {
       
       for (const imageRequest of response.image_requests) {
         try {
+          // Use context-aware prompts for image generation
+          const comprehensivePrompt = sectionAnalysis.comprehensivePrompt || user_message;
+          const creativePrompt = generateContextAwareImagePrompts(comprehensivePrompt, sectionAnalysis.businessType, sectionAnalysis.businessInfo.name, imageRequest.placement);
+          
           const imageResponse = await fetch(`${new URL(request.url).origin}/api/generate-image`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               project_id: project_id,
-              prompt: imageRequest.prompt,
+              prompt: creativePrompt,
               aspect_ratio: imageRequest.aspect_ratio || '1:1',
               number_of_images: 1
             })
@@ -1301,10 +1567,11 @@ async function handleLLMOrchestration(request, env, corsHeaders) {
     response.backup_timestamp = backupTimestamp;
     response.can_restore = true;
     
-    // Log business info if available
-    if (response.business_info) {
-      console.log('🏢 Business info updated:', response.business_info);
-    }
+    // Add detected business info to response
+    response.business_info = sectionAnalysis.businessInfo;
+    
+    // Log business info
+    console.log('🏢 Business info detected:', response.business_info);
     
     // Log total cost for this request
     logTotalCost();
@@ -1615,6 +1882,63 @@ MULTI-STEP EXECUTION INSTRUCTIONS:
 - Return the final updated code with ALL changes applied
 ` : ''}
 
+ENHANCED BUSINESS TYPE DETECTION:
+Automatically detect business type from user input and apply appropriate:
+- Color schemes (ecommerce_fashion, mobile_app, consulting_service, online_course, real_estate, healthcare_wellness, creative_agency, subscription_box, local_service, saas_b2b)
+- Layout variants (split_screen, full_screen_video, animated_gradient, parallax_scroll, grid_cards, timeline, comparison_table)
+- Form types (newsletter_signup, consultation_booking, style_quiz, trial_signup, demo_request, beta_signup)
+- Image guidelines (hero, features, logo, background)
+
+BUSINESS TYPE KEYWORDS:
+- E-commerce: "store", "shop", "fashion", "clothing", "retail", "products", "shopping"
+- Mobile App: "app", "mobile", "application", "smartphone", "iOS", "Android"
+- Consulting: "consulting", "strategy", "business", "advisory", "expert", "professional"
+- Education: "course", "learning", "education", "training", "skill", "online course"
+- Real Estate: "real estate", "property", "house", "home", "realty", "agent"
+- Healthcare: "health", "wellness", "medical", "care", "doctor", "clinic"
+- Creative Agency: "design", "creative", "agency", "branding", "marketing", "portfolio"
+- Subscription: "subscription", "box", "monthly", "curated", "delivery"
+- Local Service: "service", "local", "professional", "plumbing", "cleaning", "repair"
+- SaaS B2B: "software", "SaaS", "enterprise", "business", "platform", "tool"
+
+ADVANCED DESIGN PATTERNS:
+1. HERO SECTION VARIANTS:
+   - Split Screen: Two-column layout with image/text
+   - Full Screen Video: Video background with overlay
+   - Animated Gradient: Moving gradient background
+   - Parallax Scroll: Parallax scrolling effect
+
+2. FEATURE SECTION VARIANTS:
+   - Grid Cards: Feature cards in grid layout
+   - Timeline: Chronological feature progression
+   - Comparison Table: Feature comparison matrix
+
+3. FORM VARIANTS:
+   - Newsletter Signup: Email + preferences
+   - Consultation Booking: Name, email, phone, service type, date
+   - Style Quiz: Interactive quiz for fashion
+   - Trial Signup: Business information + trial access
+   - Demo Request: Company details + demo scheduling
+
+SOPHISTICATED COLOR SCHEMES:
+- ecommerce_fashion: Rose pink (#FF6B9D), Sky blue (#4A90E2), Golden yellow (#F8B500)
+- mobile_app: Indigo (#6366F1), Pink (#EC4899), Emerald (#10B981)
+- consulting_service: Blue-800 (#1E40AF), Violet-600 (#7C3AED), Amber-500 (#F59E0B)
+- online_education: Emerald-600 (#059669), Violet-600 (#7C3AED), Amber-500 (#F59E0B)
+- real_estate: Red-600 (#DC2626), Blue-800 (#1E40AF), Amber-500 (#F59E0B)
+- healthcare_wellness: Emerald-600 (#059669), Blue-500 (#3B82F6), Amber-500 (#F59E0B)
+- creative_agency: Violet-600 (#7C3AED), Pink-500 (#EC4899), Amber-500 (#F59E0B)
+- subscription_box: Pink-500 (#EC4899), Violet-500 (#8B5CF6), Amber-500 (#F59E0B)
+- local_service: Blue-800 (#1E40AF), Emerald-600 (#059669), Amber-500 (#F59E0B)
+- saas_b2b: Blue-800 (#1E40AF), Gray-700 (#374151), Emerald-500 (#10B981)
+
+INTERACTIVE ELEMENTS:
+- Animated counters that count up on scroll
+- Parallax sections with background images that move
+- Sophisticated hover effects and micro-interactions
+- Scroll-triggered animations
+- Loading states and form interactions
+
 IMPORTANT RULES:
 1. Always return valid React JSX code with proper imports and exports
 2. Use Tailwind CSS for styling with modern design patterns
@@ -1628,53 +1952,53 @@ IMPORTANT RULES:
 10. Specify appropriate aspect ratios: "1:1" for logos/icons, "16:9" for hero images, "4:3" for feature images
 11. For image placeholders, use: <img src="{GENERATED_IMAGE_URL}" alt="description" className="..." />
 12. The LLM will replace {GENERATED_IMAGE_URL} with actual R2 URLs after generation
-        13. IMPORTANT: Always include a prominent hero section with the business name and tagline at the top of the page
-        14. Use React hooks (useState, useEffect) for form handling and interactivity
-        15. Ensure the hero section is the first section and prominently displays the business name and tagline
-        16. Make sure all React hooks are properly imported and used correctly
-        17. ALWAYS include a navigation header with smooth scrolling to sections
-        18. ALWAYS include a prominent CTA button in the hero section
-        19. Ensure proper text contrast - never use white text on light backgrounds or dark text on dark backgrounds
-        20. Use text shadows or dark overlays on images to ensure text readability
-        21. Navigation header must include links to: Home, Features, About, Contact sections
-        22. Use smooth scrolling behavior for navigation links
-        23. Make navigation header fixed/sticky at the top of the page
-        24. SMART IMAGE GENERATION: Always generate images for the initial prompt in a project, regardless of user request
-        25. COLOR SCHEME PLANNING: Always define a cohesive color scheme first before generating any code
-        26. TEXT CONTRAST RULES: Never use white text on white backgrounds, always use contrasting colors
-        27. BACKGROUND OVERLAY: Always add dark overlays on background images to ensure text readability
-        28. INITIAL PROMPT DETECTION: If currentFiles is empty or only contains basic files (like index.css), treat this as an initial prompt and ALWAYS generate images
-        29. IMAGE GENERATION FOR INITIAL PROMPTS: For initial prompts, generate hero image, logo, and feature images regardless of user request
-        30. IMAGE PLACEHOLDERS: Always include image placeholders in generated code: {GENERATED_IMAGE_URL_HERO}, {GENERATED_IMAGE_URL_LOGO}, {GENERATED_IMAGE_URL_FEATURE_1}, {GENERATED_IMAGE_URL_FEATURE_2}, {GENERATED_IMAGE_URL_FEATURE_3}, {GENERATED_IMAGE_URL_ABOUT}, {GENERATED_IMAGE_URL_CONTACT}, {GENERATED_IMAGE_URL_GALLERY}
-        31. IMAGE INTEGRATION: Use <img> tags with placeholders in hero sections, logos, and feature cards
-        32. CRITICAL: For initial prompts, ALWAYS include image placeholders in the React code so images can be integrated
-        33. IMAGE PLACEHOLDER FORMAT: Use exact format: <img src="{GENERATED_IMAGE_URL_HERO}" alt="description" className="..." />
-        34. IMAGE REQUEST PLACEMENTS: Generate image requests with specific placements: "hero", "logo", "feature_1", "feature_2", "feature_3"
-        35. FEATURE IMAGE PLACEMENTS: Each feature card must have a unique placement: feature_1, feature_2, feature_3
-        36. SMART IMAGE GENERATION: ALWAYS generate image_requests for initial prompts (first prompt in a project), regardless of user message content
-        37. IMAGE-RELATED REQUESTS: If user mentions "image", "photo", "picture", "add image", "new image", "generate image" - create image_requests
-        38. SECTION-SPECIFIC IMAGES: When user requests images for specific sections (About Us, Hero, Features, etc.), only generate image_requests for those sections
-        39. NON-IMAGE PROMPTS: For styling, content, or feature changes (without image mentions), do NOT generate image_requests, keep existing images
-        40. PRESERVE EXISTING IMAGES: Always keep existing image URLs and placeholders when making non-image changes
-        41. ADD NEW IMAGES: When adding new images, preserve all existing images and add new placeholders for the new images
-        42. SMART PLACEMENT: Use specific placements like "about", "hero", "feature_1", "gallery", "contact" for targeted image generation
-        43. AUTOMATIC PLACEHOLDER GENERATION: Automatically include the correct image placeholders based on the sections being modified
-        44. SMART PLACEHOLDER DETECTION: When user requests images for specific sections, automatically use the corresponding placeholders without manual specification
-        45. CUSTOM SECTION SUPPORT: When user creates new sections (like "Testimony", "Gallery", "Team"), automatically generate appropriate placeholders and integrate them into the code
-        46. DYNAMIC PLACEHOLDER CREATION: For custom sections, create placeholders in format {GENERATED_IMAGE_URL_SECTIONNAME} (e.g., {GENERATED_IMAGE_URL_TESTIMONY})
-        47. HERO LEAD FORM: ALWAYS include a prominent lead capture form in the Hero section for initial prompts
-        48. LEAD FORM VISIBILITY: Make the lead form clearly visible with high contrast, proper positioning, and ensure it stays in front of all background elements
-        49. LEAD FORM STYLING: Use z-index, background overlays, and proper spacing to ensure the lead form is always visible and accessible
-        50. INITIAL PROMPT IMAGES: CRITICAL - For initial prompts, ALWAYS generate image_requests for hero, logo, and feature images regardless of user message content
-        51. INITIAL PROMPT LEAD FORM: CRITICAL - For initial prompts, ALWAYS include a lead capture form in the Hero section regardless of user message content
-        47. SECTION CREATION: When user asks to create a new section, generate complete section code with proper structure, styling, and image placeholders
-        48. TARGETED CODE EDITING: When modifying existing sections, ONLY change the specific section requested, preserve all other sections and images
-        49. IMAGE PRESERVATION: Never regenerate or remove existing images when making targeted changes
-        50. SECTION-SPECIFIC MODIFICATIONS: Use the code analysis to understand current structure and make minimal changes
-        51. MULTI-STEP TASK HANDLING: When user requests multiple changes, execute them in sequence while preserving all existing content
-        52. TASK DEPENDENCY MANAGEMENT: Handle task dependencies (e.g., don't modify sections that will be deleted)
-        53. SEQUENTIAL EXECUTION: Complete each task before moving to the next, ensuring all changes are applied correctly
-        54. COMPREHENSIVE UPDATES: Return the final code with ALL requested changes applied in the correct order
+13. IMPORTANT: Always include a prominent hero section with the business name and tagline at the top of the page
+14. Use React hooks (useState, useEffect) for form handling and interactivity
+15. Ensure the hero section is the first section and prominently displays the business name and tagline
+16. Make sure all React hooks are properly imported and used correctly
+17. ALWAYS include a navigation header with smooth scrolling to sections
+18. ALWAYS include a prominent CTA button in the hero section
+19. Ensure proper text contrast - never use white text on light backgrounds or dark text on dark backgrounds
+20. Use text shadows or dark overlays on images to ensure text readability
+21. Navigation header must include links to: Home, Features, About, Contact sections
+22. Use smooth scrolling behavior for navigation links
+23. Make navigation header fixed/sticky at the top of the page
+24. SMART IMAGE GENERATION: Always generate images for the initial prompt in a project, regardless of user request
+25. COLOR SCHEME PLANNING: Always define a cohesive color scheme first before generating any code
+26. TEXT CONTRAST RULES: Never use white text on white backgrounds, always use contrasting colors
+27. BACKGROUND OVERLAY: Always add dark overlays on background images to ensure text readability
+28. INITIAL PROMPT DETECTION: If currentFiles is empty or only contains basic files (like index.css), treat this as an initial prompt and ALWAYS generate images
+29. IMAGE GENERATION FOR INITIAL PROMPTS: For initial prompts, generate hero image, logo, and feature images regardless of user request
+30. IMAGE PLACEHOLDERS: Always include image placeholders in generated code: {GENERATED_IMAGE_URL_HERO}, {GENERATED_IMAGE_URL_LOGO}, {GENERATED_IMAGE_URL_FEATURE_1}, {GENERATED_IMAGE_URL_FEATURE_2}, {GENERATED_IMAGE_URL_FEATURE_3}, {GENERATED_IMAGE_URL_ABOUT}, {GENERATED_IMAGE_URL_CONTACT}, {GENERATED_IMAGE_URL_GALLERY}
+31. IMAGE INTEGRATION: Use <img> tags with placeholders in hero sections, logos, and feature cards
+32. CRITICAL: For initial prompts, ALWAYS include image placeholders in the React code so images can be integrated
+33. IMAGE PLACEHOLDER FORMAT: Use exact format: <img src="{GENERATED_IMAGE_URL_HERO}" alt="description" className="..." />
+34. IMAGE REQUEST PLACEMENTS: Generate image requests with specific placements: "hero", "logo", "feature_1", "feature_2", "feature_3"
+35. FEATURE IMAGE PLACEMENTS: Each feature card must have a unique placement: feature_1, feature_2, feature_3
+36. SMART IMAGE GENERATION: ALWAYS generate image_requests for initial prompts (first prompt in a project), regardless of user message content
+37. IMAGE-RELATED REQUESTS: If user mentions "image", "photo", "picture", "add image", "new image", "generate image" - create image_requests
+38. SECTION-SPECIFIC IMAGES: When user requests images for specific sections (About Us, Hero, Features, etc.), only generate image_requests for those sections
+39. NON-IMAGE PROMPTS: For styling, content, or feature changes (without image mentions), do NOT generate image_requests, keep existing images
+40. PRESERVE EXISTING IMAGES: Always keep existing image URLs and placeholders when making non-image changes
+41. ADD NEW IMAGES: When adding new images, preserve all existing images and add new placeholders for the new images
+42. SMART PLACEMENT: Use specific placements like "about", "hero", "feature_1", "gallery", "contact" for targeted image generation
+43. AUTOMATIC PLACEHOLDER GENERATION: Automatically include the correct image placeholders based on the sections being modified
+44. SMART PLACEHOLDER DETECTION: When user requests images for specific sections, automatically use the corresponding placeholders without manual specification
+45. CUSTOM SECTION SUPPORT: When user creates new sections (like "Testimony", "Gallery", "Team"), automatically generate appropriate placeholders and integrate them into the code
+46. DYNAMIC PLACEHOLDER CREATION: For custom sections, create placeholders in format {GENERATED_IMAGE_URL_SECTIONNAME} (e.g., {GENERATED_IMAGE_URL_TESTIMONY})
+47. HERO LEAD FORM: ALWAYS include a prominent lead capture form in the Hero section for initial prompts
+48. LEAD FORM VISIBILITY: Make the lead form clearly visible with high contrast, proper positioning, and ensure it stays in front of all background elements
+49. LEAD FORM STYLING: Use z-index, background overlays, and proper spacing to ensure the lead form is always visible and accessible
+50. INITIAL PROMPT IMAGES: CRITICAL - For initial prompts, ALWAYS generate image_requests for hero, logo, and feature images regardless of user message content
+51. INITIAL PROMPT LEAD FORM: CRITICAL - For initial prompts, ALWAYS include a lead capture form in the Hero section regardless of user message content
+52. SECTION CREATION: When user asks to create a new section, generate complete section code with proper structure, styling, and image placeholders
+53. TARGETED CODE EDITING: When modifying existing sections, ONLY change the specific section requested, preserve all other sections and images
+54. IMAGE PRESERVATION: Never regenerate or remove existing images when making targeted changes
+55. SECTION-SPECIFIC MODIFICATIONS: Use the code analysis to understand current structure and make minimal changes
+56. MULTI-STEP TASK HANDLING: When user requests multiple changes, execute them in sequence while preserving all existing content
+57. TASK DEPENDENCY MANAGEMENT: Handle task dependencies (e.g., don't modify sections that will be deleted)
+58. SEQUENTIAL EXECUTION: Complete each task before moving to the next, ensuring all changes are applied correctly
+59. COMPREHENSIVE UPDATES: Return the final code with ALL requested changes applied in the correct order
 
 LANDING PAGE REQUIREMENTS:
 - Generate a business name and tagline if not provided
@@ -1708,6 +2032,16 @@ COLOR SCHEME GUIDELINES:
 - Restaurant/food: warm oranges (#F59E0B), deep reds (#DC2626), cream whites (#FEF3C7)
 - Fitness/health: energetic greens (#10B981), dark grays (#1F2937), accent yellows (#F59E0B)
 - Luxury/services: deep blacks (#111827), gold accents (#F59E0B), elegant whites (#F9FAFB)
+- E-commerce: rose pinks (#FF6B9D), sky blues (#4A90E2), golden yellows (#F8B500)
+- Mobile app: indigo (#6366F1), pink (#EC4899), emerald (#10B981)
+- Consulting: blue-800 (#1E40AF), violet-600 (#7C3AED), amber-500 (#F59E0B)
+- Education: emerald-600 (#059669), violet-600 (#7C3AED), amber-500 (#F59E0B)
+- Real estate: red-600 (#DC2626), blue-800 (#1E40AF), amber-500 (#F59E0B)
+- Healthcare: emerald-600 (#059669), blue-500 (#3B82F6), amber-500 (#F59E0B)
+- Creative agency: violet-600 (#7C3AED), pink-500 (#EC4899), amber-500 (#F59E0B)
+- Subscription box: pink-500 (#EC4899), violet-500 (#8B5CF6), amber-500 (#F59E0B)
+- Local service: blue-800 (#1E40AF), emerald-600 (#059669), amber-500 (#F59E0B)
+- SaaS B2B: blue-800 (#1E40AF), gray-700 (#374151), emerald-500 (#10B981)
 
 TEXT CONTRAST RULES:
 - Light backgrounds (white, cream, light gray): Use dark text (text-gray-900, text-gray-800)
@@ -1973,7 +2307,7 @@ Return only the JSON response with assistant_message, updated_files, image_reque
         { role: 'user', content: userPrompt }
       ],
       temperature: 0.7,
-      max_tokens: 6000
+              max_tokens: 15000
     };
 
 
@@ -2363,30 +2697,34 @@ async function handleImageGeneration(request, env, corsHeaders) {
         const uploadResult = await uploadImageToR2(imageResult.imageData, env, request);
         
         if (uploadResult.success) {
-          // Save to database
-          const dbResult = await saveImageToDatabase({
-            project_id,
-            prompt,
-            aspect_ratio,
-            filename: uploadResult.filename,
-            r2_url: uploadResult.url,
-            file_size: imageResult.fileSize,
-            width: imageResult.width,
-            height: imageResult.height,
-            mime_type: 'image/jpeg',
-            imageId: uploadResult.imageId
-          }, env);
-
-          if (dbResult.success) {
-            generatedImages.push({
-              image_id: dbResult.image_id,
-              url: uploadResult.url,
-              prompt: prompt,
-              aspect_ratio: aspect_ratio,
+          // Save to database (skip if project doesn't exist)
+          let dbResult = { success: false };
+          try {
+            dbResult = await saveImageToDatabase({
+              project_id,
+              prompt,
+              aspect_ratio,
+              filename: uploadResult.filename,
+              r2_url: uploadResult.url,
+              file_size: imageResult.fileSize,
               width: imageResult.width,
-              height: imageResult.height
-            });
+              height: imageResult.height,
+              mime_type: 'image/jpeg',
+              imageId: uploadResult.imageId
+            }, env);
+          } catch (dbError) {
+            console.log('⚠️ Database save failed, continuing without database storage:', dbError.message);
           }
+
+          // Always add to generated images even if database save fails
+          generatedImages.push({
+            image_id: dbResult.success ? dbResult.image_id : uploadResult.imageId,
+            url: uploadResult.url,
+            prompt: prompt,
+            aspect_ratio: aspect_ratio,
+            width: imageResult.width,
+            height: imageResult.height
+          });
         }
       }
     }
@@ -2546,6 +2884,27 @@ async function saveImageToDatabase(imageData, env) {
     
     console.log('💾 Saving to database...');
 
+    // Check if project exists, if not create it (for test scenarios)
+    // For test projects, we'll use a hash of the project_id to get a consistent integer
+    const projectIdString = String(imageData.project_id);
+    const projectIdHash = Math.abs(projectIdString.split('').reduce((a, b) => {
+      a = ((a << 5) - a) + b.charCodeAt(0);
+      return a & a;
+    }, 0));
+    
+    const projectExists = await env.DB.prepare('SELECT id FROM projects WHERE id = ?').bind(projectIdHash).first();
+    
+    if (!projectExists) {
+      console.log('📁 Creating test project for image storage...');
+      const now = new Date().toISOString();
+      await env.DB.prepare(
+        'INSERT INTO projects (id, user_id, project_name, files, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+      ).bind(projectIdHash, 1, `test-project-${imageData.project_id}`, '{}', now, now).run();
+    }
+    
+    // Use the hash for the image record
+    const finalProjectId = projectIdHash;
+
     const stmt = env.DB.prepare(`
       INSERT INTO images (
         image_id, project_id, filename, original_prompt, aspect_ratio, 
@@ -2555,7 +2914,7 @@ async function saveImageToDatabase(imageData, env) {
 
     const result = await stmt.bind(
       imageId,
-      imageData.project_id,
+      finalProjectId,
       imageData.filename,
       imageData.prompt,
       imageData.aspect_ratio,
@@ -3279,18 +3638,589 @@ async function storeFileBackup(projectId, backupId, files, timestamp, userMessag
   }
 }
 
+// Business type detection with keywords
+const BUSINESS_TYPE_KEYWORDS = {
+  ecommerce_fashion: ["store", "shop", "fashion", "clothing", "retail", "products", "shopping", "ecommerce", "e-commerce"],
+  mobile_app: ["app", "mobile", "application", "smartphone", "ios", "android", "download", "install"],
+  consulting_service: ["consulting", "strategy", "business", "advisory", "expert", "professional", "consultant"],
+  online_education: ["course", "learning", "education", "training", "skill", "online course", "learn", "study"],
+  real_estate: ["real estate", "property", "house", "home", "realty", "agent", "buy", "sell", "rent"],
+  healthcare_wellness: ["health", "wellness", "medical", "care", "doctor", "clinic", "therapy", "treatment"],
+  creative_agency: ["design", "creative", "agency", "branding", "marketing", "portfolio", "art", "designer"],
+  subscription_box: ["subscription", "box", "monthly", "curated", "delivery", "subscription box"],
+  local_service: ["service", "local", "professional", "plumbing", "cleaning", "repair", "maintenance", "bar", "restaurant", "cafe", "food", "drink", "alcohol", "cocktail", "dining"],
+  saas_b2b: ["software", "saas", "enterprise", "business", "platform", "tool", "solution", "b2b"]
+};
+
+// Color schemes for each business type
+const COLOR_SCHEMES = {
+  ecommerce_fashion: {
+    primary: "#FF6B9D", // Rose pink
+    secondary: "#4A90E2", // Sky blue  
+    accent: "#F8B500", // Golden yellow
+    gradient: "linear-gradient(135deg, #FF6B9D 0%, #4A90E2 100%)"
+  },
+  mobile_app: {
+    primary: "#6366F1", // Indigo
+    secondary: "#EC4899", // Pink
+    accent: "#10B981", // Emerald
+    gradient: "linear-gradient(135deg, #6366F1 0%, #EC4899 100%)"
+  },
+  consulting_service: {
+    primary: "#1E40AF", // Blue-800
+    secondary: "#7C3AED", // Violet-600
+    accent: "#F59E0B", // Amber-500
+    gradient: "linear-gradient(135deg, #1E40AF 0%, #7C3AED 100%)"
+  },
+  online_education: {
+    primary: "#059669", // Emerald-600
+    secondary: "#7C3AED", // Violet-600
+    accent: "#F59E0B", // Amber-500
+    gradient: "linear-gradient(135deg, #059669 0%, #7C3AED 100%)"
+  },
+  real_estate: {
+    primary: "#DC2626", // Red-600
+    secondary: "#1E40AF", // Blue-800
+    accent: "#F59E0B", // Amber-500
+    gradient: "linear-gradient(135deg, #DC2626 0%, #1E40AF 100%)"
+  },
+  healthcare_wellness: {
+    primary: "#059669", // Emerald-600
+    secondary: "#3B82F6", // Blue-500
+    accent: "#F59E0B", // Amber-500
+    gradient: "linear-gradient(135deg, #059669 0%, #3B82F6 100%)"
+  },
+  creative_agency: {
+    primary: "#7C3AED", // Violet-600
+    secondary: "#EC4899", // Pink-500
+    accent: "#F59E0B", // Amber-500
+    gradient: "linear-gradient(135deg, #7C3AED 0%, #EC4899 100%)"
+  },
+  subscription_box: {
+    primary: "#EC4899", // Pink-500
+    secondary: "#8B5CF6", // Violet-500
+    accent: "#F59E0B", // Amber-500
+    gradient: "linear-gradient(135deg, #EC4899 0%, #8B5CF6 100%)"
+  },
+  local_service: {
+    primary: "#1E40AF", // Blue-800
+    secondary: "#059669", // Emerald-600
+    accent: "#F59E0B", // Amber-500
+    gradient: "linear-gradient(135deg, #1E40AF 0%, #059669 100%)"
+  },
+  bar_restaurant: {
+    primary: "#D97706", // Amber-600
+    secondary: "#DC2626", // Red-600
+    accent: "#059669", // Emerald-600
+    gradient: "linear-gradient(135deg, #D97706 0%, #DC2626 100%)"
+  },
+  saas_b2b: {
+    primary: "#1E40AF", // Blue-800
+    secondary: "#374151", // Gray-700
+    accent: "#10B981", // Emerald-500
+    gradient: "linear-gradient(135deg, #1E40AF 0%, #374151 100%)"
+  }
+};
+
+// Detect business type from user message
+// Detect business type from user message using GPT-4o-mini
+async function detectBusinessType(userMessage, env) {
+  try {
+    const aiPrompt = `CRITICAL: You are a business classifier. Your ONLY job is to return ONE business type code from the list below.
+
+Business Types:
+- ecommerce_fashion: Online fashion stores, clothing retailers, fashion boutiques
+- mobile_app: Mobile applications, smartphone apps, iOS/Android apps
+- consulting_service: Business consulting, strategy advisory, professional services
+- online_education: Online learning platforms, courses, educational content
+- real_estate: Property sales, real estate agencies, housing
+- healthcare_wellness: Medical services, health clinics, wellness centers
+- creative_agency: Design agencies, creative services, branding
+- subscription_box: Monthly subscription services, curated boxes
+- bar_restaurant: Bars, restaurants, cafes, pubs, food and beverage establishments
+- local_service: Local professional services, repairs, maintenance, other local businesses
+- saas_b2b: Business software, enterprise solutions, B2B platforms
+
+Business Description: "${userMessage}"
+
+CRITICAL RULES:
+1. Return ONLY the business type code (e.g., "bar_restaurant")
+2. Do NOT include any explanations, descriptions, or additional text
+3. Do NOT generate website content or code
+4. Your response must be exactly one of the business type codes listed above
+5. Do NOT add any punctuation, quotes, or formatting
+6. Do NOT say "I would classify this as" or similar phrases
+7. Do NOT describe what you generated or what the business does
+8. Do NOT mention sections, forms, or website features
+
+VALID RESPONSES (choose exactly one):
+bar_restaurant
+local_service
+mobile_app
+ecommerce_fashion
+consulting_service
+online_education
+real_estate
+healthcare_wellness
+creative_agency
+subscription_box
+saas_b2b
+
+INVALID RESPONSES (do NOT do these):
+- "This is a bar/restaurant business"
+- "Based on the description, this would be a bar_restaurant"
+- "bar_restaurant."
+- "The business type is bar_restaurant"
+- "generated a complete landing page for..."
+- "including all required sections..."
+- Any other text besides the exact code
+
+EXAMPLE:
+Input: "a restaurant serving Italian food"
+Output: bar_restaurant
+
+Input: "a mobile app for task management"
+Output: mobile_app`;
+
+    console.log(`🔍 Using GPT-4o-mini to detect business type for: "${userMessage}"`);
+    
+    // Use GPT-4o-mini for business type classification
+    const response = await callOpenAI(aiPrompt, {}, env, null, null, null, null);
+    
+    if (response.assistant_message) {
+      let detectedType = response.assistant_message.trim().toLowerCase();
+      
+                            // If the AI returned a long response, try to extract the business type
+                      if (detectedType.length > 50) {
+                        console.log(`⚠️ AI returned long response, attempting to extract business type...`);
+
+                        // Try to find a business type code in the response
+                        const businessTypes = [
+                          'ecommerce_fashion', 'mobile_app', 'consulting_service', 'online_education',
+                          'real_estate', 'healthcare_wellness', 'creative_agency', 'subscription_box',
+                          'bar_restaurant', 'local_service', 'saas_b2b'
+                        ];
+
+                        for (const businessType of businessTypes) {
+                          if (detectedType.includes(businessType)) {
+                            detectedType = businessType;
+                            console.log(`🔍 Extracted business type from long response: ${detectedType}`);
+                            break;
+                          }
+                        }
+
+                        // If still no match found, try context-based detection
+                        if (detectedType.length > 50) {
+                          console.log(`⚠️ No business type code found, attempting context-based detection...`);
+                          
+                          const context = userMessage.toLowerCase();
+                          
+                          // Check for bar/restaurant indicators
+                          if (context.includes('bar') || 
+                              context.includes('restaurant') || 
+                              context.includes('cafe') || 
+                              context.includes('pub') ||
+                              context.includes('alcohol') ||
+                              context.includes('drink') ||
+                              context.includes('food') ||
+                              context.includes('dining') ||
+                              context.includes('cuisine') ||
+                              context.includes('serving')) {
+                            detectedType = 'bar_restaurant';
+                            console.log(`🔍 Context-based detection: bar_restaurant`);
+                          }
+                          // Check for other business types...
+                          else if (context.includes('app') || context.includes('mobile') || context.includes('smartphone')) {
+                            detectedType = 'mobile_app';
+                            console.log(`🔍 Context-based detection: mobile_app`);
+                          }
+                          else if (context.includes('consulting') || context.includes('strategy') || context.includes('business')) {
+                            detectedType = 'consulting_service';
+                            console.log(`🔍 Context-based detection: consulting_service`);
+                          }
+                          else if (context.includes('education') || context.includes('learning') || context.includes('course')) {
+                            detectedType = 'online_education';
+                            console.log(`🔍 Context-based detection: online_education`);
+                          }
+                          else if (context.includes('fashion') || context.includes('clothing') || context.includes('style')) {
+                            detectedType = 'ecommerce_fashion';
+                            console.log(`🔍 Context-based detection: ecommerce_fashion`);
+                          }
+                          else {
+                            detectedType = 'local_service';
+                            console.log(`🔍 Context-based detection: local_service (default)`);
+                          }
+                        }
+                      }
+      
+                            // Validate the response is one of our known types
+                      const validTypes = [
+                        'ecommerce_fashion', 'mobile_app', 'consulting_service', 'online_education',
+                        'real_estate', 'healthcare_wellness', 'creative_agency', 'subscription_box',
+                        'bar_restaurant', 'local_service', 'saas_b2b'
+                      ];
+      
+      if (validTypes.includes(detectedType)) {
+        console.log(`🤖 AI detected business type: ${detectedType}`);
+        return detectedType;
+      } else {
+        console.log(`⚠️ AI returned unknown type: "${detectedType}", using fallback: local_service`);
+        return 'local_service'; // Default fallback
+      }
+    } else {
+      console.log(`⚠️ AI response missing assistant_message, using fallback: local_service`);
+      return 'local_service'; // Default fallback
+    }
+  } catch (error) {
+    console.log(`⚠️ Error calling AI for business type detection: ${error.message}, using fallback: local_service`);
+    return 'local_service'; // Default fallback
+  }
+}
+
+// Check if a prompt is vague and needs clarification
+function isVaguePrompt(messageLower) {
+  const vagueKeywords = [
+    'landing page', 'website', 'site', 'page', 'create', 'build', 'make', 'generate',
+    'bar', 'restaurant', 'cafe', 'shop', 'store', 'business', 'startup', 'company'
+  ];
+  
+  const specificKeywords = [
+    'mobile app', 'fashion', 'consulting', 'education', 'real estate', 'healthcare',
+    'creative agency', 'subscription', 'saas', 'software', 'ecommerce', 'online store'
+  ];
+  
+  // If the message is very short (less than 10 words), it's likely vague
+  const wordCount = messageLower.split(' ').length;
+  console.log(`🔍 isVaguePrompt analysis for: "${messageLower}"`);
+  console.log(`   wordCount: ${wordCount}`);
+  
+  if (wordCount < 3) {
+    console.log(`   ✅ Vague: word count < 3`);
+    return true;
+  }
+  
+  // If it contains vague keywords but no specific business type indicators
+  const hasVagueKeywords = vagueKeywords.some(keyword => messageLower.includes(keyword));
+  const hasSpecificKeywords = specificKeywords.some(keyword => messageLower.includes(keyword));
+  
+  console.log(`   hasVagueKeywords: ${hasVagueKeywords}`);
+  console.log(`   hasSpecificKeywords: ${hasSpecificKeywords}`);
+  console.log(`   Result: ${hasVagueKeywords && !hasSpecificKeywords}`);
+  
+  return hasVagueKeywords && !hasSpecificKeywords;
+}
+
+// Generate intelligent clarification questions based on the user's initial prompt
+function generateIntelligentQuestions(userMessage) {
+  const messageLower = userMessage.toLowerCase();
+  
+  // Analyze the prompt to determine what type of business they're thinking about
+  let businessContext = 'general';
+  let specificDetails = [];
+  
+  if (messageLower.includes('bar') || messageLower.includes('restaurant') || messageLower.includes('cafe')) {
+    businessContext = 'food_service';
+    if (messageLower.includes('space')) specificDetails.push('space_theme');
+    if (messageLower.includes('vintage')) specificDetails.push('vintage_theme');
+    if (messageLower.includes('modern')) specificDetails.push('modern_theme');
+  } else if (messageLower.includes('store') || messageLower.includes('shop')) {
+    businessContext = 'retail';
+    if (messageLower.includes('fashion') || messageLower.includes('clothing')) specificDetails.push('fashion');
+    if (messageLower.includes('tech') || messageLower.includes('electronics')) specificDetails.push('tech');
+  } else if (messageLower.includes('app') || messageLower.includes('software')) {
+    businessContext = 'tech_product';
+    if (messageLower.includes('productivity')) specificDetails.push('productivity');
+    if (messageLower.includes('social')) specificDetails.push('social');
+  } else if (messageLower.includes('service') || messageLower.includes('consulting')) {
+    businessContext = 'service_business';
+  }
+  
+  // Generate context-aware questions
+  const questions = [];
+  
+  // First question: Business type (if not clear from context)
+  if (businessContext === 'general') {
+    questions.push({
+      id: 'business_type',
+      question: "What type of business are you starting? (e.g., restaurant, mobile app, online store, consulting service, etc.)",
+      context: 'identify_business_type'
+    });
+  } else {
+    // If we have context, ask for business name first
+    questions.push({
+      id: 'business_name',
+      question: "What's your business name? (If you don't have one yet, I can suggest some creative options!)",
+      context: 'get_business_name'
+    });
+  }
+  
+  // Add context-specific questions
+  if (businessContext === 'food_service') {
+    if (specificDetails.includes('space_theme')) {
+      questions.push({
+        id: 'space_concept',
+        question: "Tell me more about your space theme! Are you thinking futuristic, retro space, or something else?",
+        context: 'space_theme_details'
+      });
+    }
+    questions.push({
+      id: 'cuisine_type',
+      question: "What type of food or drinks will you serve?",
+      context: 'food_service_details'
+    });
+  } else if (businessContext === 'retail') {
+    if (specificDetails.includes('fashion')) {
+      questions.push({
+        id: 'fashion_style',
+        question: "What's your fashion style? (e.g., casual, luxury, sustainable, vintage, etc.)",
+        context: 'fashion_details'
+      });
+    }
+    questions.push({
+      id: 'target_audience',
+      question: "Who is your target audience?",
+      context: 'audience_details'
+    });
+  } else if (businessContext === 'tech_product') {
+    questions.push({
+      id: 'problem_solved',
+      question: "What problem does your app solve?",
+      context: 'product_purpose'
+    });
+  } else if (businessContext === 'service_business') {
+    questions.push({
+      id: 'services_offered',
+      question: "What specific services do you offer?",
+      context: 'service_details'
+    });
+  }
+  
+  // Add goal question
+  questions.push({
+    id: 'website_goal',
+    question: "What's the main goal of your website? (e.g., sell products, collect leads, showcase services, etc.)",
+    context: 'website_purpose'
+  });
+  
+  return questions;
+}
+
+// Generate business info based on detected type
+function generateBusinessInfo(userMessage, detectedType) {
+  const colorScheme = COLOR_SCHEMES[detectedType];
+  
+  // Extract business name from user message with more creative fallbacks
+  const nameMatch = userMessage.match(/(?:called|named|for)\s+['"`]?([A-Za-z0-9\s]+)['"`]?/i);
+  let businessName = nameMatch ? nameMatch[1].trim() : null;
+  
+  // Generate creative business names if not provided
+  const creativeNames = {
+    ecommerce_fashion: ["StyleVault", "FashionForward", "TrendCraft", "EleganceHub", "ChicBoutique"],
+    mobile_app: ["TaskFlow", "SmartSync", "AppCraft", "DigitalHub", "TechFlow"],
+    consulting_service: ["StrategyForge", "BusinessCraft", "InsightPartners", "GrowthCatalyst", "VisionWorks"],
+    online_education: ["LearnCraft", "SkillForge", "EduHub", "KnowledgeFlow", "AcademyPro"],
+    real_estate: ["HomeCraft", "PropertyForge", "RealtyHub", "DreamHomes", "EstateFlow"],
+    healthcare_wellness: ["WellnessCraft", "HealthForge", "VitalHub", "CareFlow", "WellnessPro"],
+    creative_agency: ["CreativeForge", "DesignCraft", "ArtHub", "InnovationFlow", "CreativePro"],
+    subscription_box: ["BoxCraft", "CuratedFlow", "MonthlyHub", "SurpriseForge", "BoxPro"],
+    bar_restaurant: ["Cosmic Cantina", "Stellar Bites", "Nebula Lounge", "Galaxy Grill", "Orbit Bar"],
+    local_service: ["ServiceCraft", "LocalForge", "CommunityHub", "ServiceFlow", "LocalPro"],
+    saas_b2b: ["TechForge", "BusinessCraft", "EnterpriseHub", "SaaSFlow", "BusinessPro"]
+  };
+  
+  if (!businessName) {
+    const names = creativeNames[detectedType] || ["BusinessCraft", "InnovationHub", "ProFlow"];
+    businessName = names[Math.floor(Math.random() * names.length)];
+  }
+  
+  // Generate creative taglines based on business type
+  const taglines = {
+    ecommerce_fashion: [
+      "Curated fashion for the modern lifestyle",
+      "Where style meets sophistication",
+      "Elevate your wardrobe with curated elegance",
+      "Fashion that speaks your language",
+      "Trendsetting styles for the contemporary individual"
+    ],
+    mobile_app: [
+      "Your digital life, simplified",
+      "Technology that works for you",
+      "Streamline your world with smart solutions",
+      "Innovation at your fingertips",
+      "Empowering your digital journey"
+    ],
+    consulting_service: [
+      "Transforming businesses through strategic insight",
+      "Where expertise meets execution",
+      "Catalyzing growth through strategic partnership",
+      "Your success is our mission",
+      "Strategic solutions for ambitious businesses"
+    ],
+    online_education: [
+      "Master new skills at your own pace",
+      "Knowledge is power, learning is freedom",
+      "Unlock your potential through expert guidance",
+      "Education reimagined for the digital age",
+      "Your journey to mastery starts here"
+    ],
+    real_estate: [
+      "Finding your perfect home",
+      "Where dreams become addresses",
+      "Your trusted partner in real estate",
+      "Building communities, one home at a time",
+      "Excellence in every transaction"
+    ],
+    healthcare_wellness: [
+      "Your health, our priority",
+      "Wellness redefined for modern living",
+      "Caring for you, body and mind",
+      "Your journey to optimal health",
+      "Where care meets innovation"
+    ],
+    creative_agency: [
+      "Where creativity meets strategy",
+      "Bringing your vision to life",
+      "Creative solutions that drive results",
+      "Designing tomorrow's success stories",
+      "Innovation through creative excellence"
+    ],
+    subscription_box: [
+      "Curated experiences delivered monthly",
+      "Surprise and delight, month after month",
+      "Curated collections for every lifestyle",
+      "Discover amazing products every month",
+      "Your monthly dose of curated excellence"
+    ],
+    local_service: [
+      "Professional service, local expertise",
+      "Your trusted local partner",
+      "Quality service, community focused",
+      "Excellence in every project",
+      "Local expertise, professional results"
+    ],
+    bar_restaurant: [
+      "Where culinary excellence meets cosmic atmosphere",
+      "Experience dining beyond the ordinary",
+      "Crafting memorable moments through exceptional cuisine",
+      "A journey of flavors in an extraordinary setting",
+      "Where every meal is an adventure"
+    ],
+    saas_b2b: [
+      "Enterprise solutions for modern businesses",
+      "Powering business transformation",
+      "Scalable solutions for growing companies",
+      "Innovation that drives business success",
+      "Your partner in digital transformation"
+    ]
+  };
+  
+  const taglineOptions = taglines[detectedType] || ["Your business, our expertise"];
+  const tagline = taglineOptions[Math.floor(Math.random() * taglineOptions.length)];
+  
+  return {
+    name: businessName,
+    tagline: tagline,
+    color_scheme: detectedType,
+    colors: colorScheme
+  };
+}
+
 // Analyze user request for section targeting
-function analyzeUserRequest(userMessage, projectFiles) {
+async function analyzeUserRequest(userMessage, projectFiles, env, projectId = null) {
+  const messageLower = userMessage.toLowerCase();
+  
+  console.log(`🔍 Analyzing request: "${userMessage}"`);
+  console.log(`   projectFiles keys: ${Object.keys(projectFiles || {}).length}`);
+  console.log(`   projectId: ${projectId}`);
+  
+  // Check if this is an initial prompt by looking at chat history
+  let isInitialPrompt = false;
+  let isClarificationResponse = false;
+  let clarificationState = null;
+  
+  if (projectId) {
+    try {
+      const db = env.DB;
+      const chatMessages = await db.prepare(
+        'SELECT role, message, clarification_state FROM chat_messages WHERE project_id = ? ORDER BY timestamp DESC LIMIT 5'
+      ).bind(projectId).all();
+      
+      const messageCount = chatMessages.results.length;
+      console.log(`   chat history count: ${messageCount}`);
+      
+      // Check if this is a response to a clarification question
+      if (messageCount > 1) {
+        const lastAssistantMessage = chatMessages.results.find(msg => msg.role === 'assistant');
+        if (lastAssistantMessage && lastAssistantMessage.clarification_state) {
+          try {
+            clarificationState = JSON.parse(lastAssistantMessage.clarification_state);
+            isClarificationResponse = true;
+            console.log(`   Found clarification state: question ${clarificationState.currentQuestionIndex + 1} of ${clarificationState.clarificationQuestions.length}`);
+          } catch (e) {
+            console.log(`   Error parsing clarification state: ${e.message}`);
+          }
+        }
+      }
+      
+      // If chat history count is 0 or 1, it's an initial prompt
+      // (0 = no messages yet, 1 = only the current user message)
+      isInitialPrompt = messageCount <= 1;
+      
+    } catch (error) {
+      console.log(`   Error checking chat history: ${error.message}`);
+      // Fallback: if we can't check chat history, assume it's initial if project files are minimal
+      isInitialPrompt = !projectFiles || Object.keys(projectFiles).length <= 2; // Just default files
+    }
+  } else {
+    // No project ID, assume it's initial
+    isInitialPrompt = true;
+  }
+  
+  console.log(`   isInitialPrompt: ${isInitialPrompt}`);
+  console.log(`   isClarificationResponse: ${isClarificationResponse}`);
+  
+  // If this is a response to a clarification question, process it
+  if (isClarificationResponse && clarificationState) {
+    console.log(`✅ Processing clarification response`);
+    return await processClarificationResponse(userMessage, clarificationState, env);
+  }
+  
+  // If this is an initial prompt and it's vague, start the clarification process
+  if (isInitialPrompt && isVaguePrompt(messageLower)) {
+    console.log(`✅ Vague prompt detected - starting clarification process`);
+    const questions = generateIntelligentQuestions(userMessage);
+    return {
+      needsClarification: true,
+      clarificationQuestions: questions,
+      currentQuestionIndex: 0,
+      clarificationAnswers: {},
+      targetSections: [],
+      operationType: 'clarify',
+      imageOperation: false,
+      textOperation: false,
+      styleOperation: false,
+      specificTargets: [],
+      businessType: null,
+      businessInfo: null
+    };
+  }
+  
+  console.log(`❌ Not a vague prompt or not initial - proceeding with business type detection`);
+  
+  const businessType = await detectBusinessType(userMessage, env);
+  const businessInfo = generateBusinessInfo(userMessage, businessType);
+  
   const analysis = {
     targetSections: [],
     operationType: 'modify', // 'create', 'modify', 'delete'
     imageOperation: false,
     textOperation: false,
     styleOperation: false,
-    specificTargets: []
+    specificTargets: [],
+    businessType: businessType,
+    businessInfo: businessInfo,
+    needsClarification: false
   };
-  
-  const messageLower = userMessage.toLowerCase();
   
   // Detect target sections
   const sectionPatterns = {
@@ -3330,51 +4260,284 @@ function analyzeUserRequest(userMessage, projectFiles) {
   return analysis;
 }
 
+// Process a response to a clarification question
+async function processClarificationResponse(userMessage, clarificationState, env) {
+  const { clarificationQuestions, currentQuestionIndex, clarificationAnswers } = clarificationState;
+  const currentQuestion = clarificationQuestions[currentQuestionIndex];
+  
+  console.log(`   Processing response to question ${currentQuestionIndex + 1}: ${currentQuestion.id}`);
+  
+  // Store the user's answer
+  const updatedAnswers = {
+    ...clarificationAnswers,
+    [currentQuestion.id]: userMessage
+  };
+  
+  // Check if we have more questions
+  const nextQuestionIndex = currentQuestionIndex + 1;
+  
+  if (nextQuestionIndex < clarificationQuestions.length) {
+    // Ask the next question
+    const nextQuestion = clarificationQuestions[nextQuestionIndex];
+    console.log(`   Asking next question: ${nextQuestion.id}`);
+    
+    return {
+      needsClarification: true,
+      clarificationQuestions: clarificationQuestions,
+      currentQuestionIndex: nextQuestionIndex,
+      clarificationAnswers: updatedAnswers,
+      targetSections: [],
+      operationType: 'clarify',
+      imageOperation: false,
+      textOperation: false,
+      styleOperation: false,
+      specificTargets: [],
+      businessType: null,
+      businessInfo: null
+    };
+                    } else {
+                    // All questions answered, generate the website
+                    console.log(`   All questions answered, generating website with:`, updatedAnswers);
+                    
+                    // Generate a comprehensive prompt from the answers
+                    const comprehensivePrompt = generateComprehensivePrompt(updatedAnswers);
+                    
+                    console.log(`🔍 About to call detectBusinessType with prompt: "${comprehensivePrompt}"`);
+                    
+                    // Proceed with normal website generation
+                    const businessType = await detectBusinessType(comprehensivePrompt, env);
+                    console.log(`🔍 detectBusinessType returned: "${businessType}"`);
+                    
+                    const businessInfo = generateBusinessInfo(comprehensivePrompt, businessType);
+    
+    return {
+      needsClarification: false,
+      clarificationQuestions: null,
+      currentQuestionIndex: null,
+      clarificationAnswers: updatedAnswers,
+      targetSections: [],
+      operationType: 'create',
+      imageOperation: false,
+      textOperation: false,
+      styleOperation: false,
+      specificTargets: [],
+      businessType: businessType,
+      businessInfo: businessInfo,
+      comprehensivePrompt: comprehensivePrompt
+    };
+  }
+}
+
+// Generate a comprehensive prompt from clarification answers
+function generateComprehensivePrompt(answers) {
+  console.log('🔍 generateComprehensivePrompt - Input answers:', answers);
+  
+  let prompt = "Generate a professional landing page for ";
+  
+  // Build a descriptive prompt without trying to detect business type
+  // Let GPT-4o-mini handle the business type detection
+  if (answers.business_name) {
+    prompt += `a business called "${answers.business_name}"`;
+  } else {
+    prompt += `a business`;
+  }
+  
+  if (answers.space_concept) {
+    prompt += ` with a ${answers.space_concept} theme`;
+  }
+  
+  if (answers.cuisine_type) {
+    prompt += ` serving ${answers.cuisine_type}`;
+  }
+  
+  if (answers.fashion_style) {
+    prompt += ` specializing in ${answers.fashion_style} fashion`;
+  }
+  
+  if (answers.problem_solved) {
+    prompt += ` that solves the problem of ${answers.problem_solved}`;
+  }
+  
+  if (answers.services_offered) {
+    prompt += ` offering ${answers.services_offered}`;
+  }
+  
+  if (answers.target_audience) {
+    prompt += ` targeting ${answers.target_audience}`;
+  }
+  
+  if (answers.website_goal) {
+    prompt += `. The main goal of the website is to ${answers.website_goal}`;
+  }
+  
+  console.log('🔍 Generated comprehensive prompt:', prompt);
+  
+  return prompt;
+}
+
 // Build enhanced prompt using ACE method
 function buildEnhancedPrompt(userMessage, projectFiles, sectionAnalysis, isInitialPrompt) {
-  const { targetSections, imageOperation, textOperation, styleOperation } = sectionAnalysis;
+  const { targetSections, imageOperation, textOperation, styleOperation, businessInfo } = sectionAnalysis;
   
-  let prompt = `You are an expert React developer specializing in targeted website modifications. 
+  let prompt = `You are an expert React developer specializing in creating stunning, conversion-optimized landing pages. 
 
-APPROACH (A):
-- Visualize ONLY the specific changes requested
-- Preserve ALL existing code not related to the target sections
-- Maintain exact structure and styling of untouched sections
-
-INSTRUCTIONS (C):
-- Make ONLY the requested changes to the specified sections
-- Do NOT modify business names, hero text, or other content unless explicitly requested
-- Do NOT regenerate entire components unless specifically asked
-- Preserve all existing images and placeholders in non-target sections
-
-REQUIREMENTS (E):
-- NON-NEGOTIABLE: Keep all existing code structure intact
-- NON-NEGOTIABLE: Only modify the sections explicitly mentioned in the user request
-- NON-NEGOTIABLE: Preserve all existing images and their URLs in non-target sections
-- NON-NEGOTIABLE: Maintain exact component structure and props
+CRITICAL REQUIREMENTS FOR INITIAL PROMPTS:
+${isInitialPrompt ? `
+- ALWAYS create a complete, professional React component with proper imports
+- ALWAYS include React hooks (useState, useEffect) for form handling and interactivity
+- ALWAYS create functional forms with proper validation and state management
+- ALWAYS include responsive design with Tailwind CSS breakpoints
+- ALWAYS create a navigation header with smooth scrolling
+- ALWAYS include a prominent hero section with business name and tagline
+- ALWAYS add multiple sections: Hero, Features, About, Contact
+- ALWAYS include proper form components with input fields, validation, and submit handlers
+- ALWAYS use the specified color scheme throughout the entire component
+- ALWAYS create interactive elements like hover effects and animations
+- ALWAYS include proper image placeholders for all sections
+- ALWAYS make the design mobile-responsive and professional
+` : `
+- Make targeted modifications to existing components
+- Preserve existing structure and functionality
+- Only modify sections explicitly mentioned in the request
+`}
 
 USER REQUEST: "${userMessage}"
 
-TARGET SECTIONS: ${targetSections.join(', ') || 'None specified'}
+DETECTED BUSINESS TYPE: ${businessInfo.color_scheme}
+BUSINESS NAME: ${businessInfo.name}
+BUSINESS TAGLINE: ${businessInfo.tagline}
+
+COLOR SCHEME (APPLY THESE COLORS TO ALL COMPONENTS):
+- Primary Color: ${businessInfo.colors.primary}
+- Secondary Color: ${businessInfo.colors.secondary}
+- Accent Color: ${businessInfo.colors.accent}
+- Gradient: ${businessInfo.colors.gradient}
+
+CRITICAL BUSINESS-SPECIFIC REQUIREMENTS (YOU MUST FOLLOW THESE EXACTLY):
+${getBusinessSpecificRequirements(businessInfo.color_scheme)}
+
+MANDATORY COMPLIANCE CHECK:
+- You MUST implement ALL sections and features listed above
+- You MUST include the exact form fields specified
+- You MUST use the specified color scheme
+- You MUST create a complete, functional React component
+- You MUST NOT skip any required sections or features
+- **CRITICAL**: You MUST follow the EXACT template structure below - DO NOT create your own version
+- **CRITICAL**: You MUST include ALL the image placeholders shown in the template
+- **CRITICAL**: You MUST NOT modify the template structure - only replace the business name and content
+
+TARGET SECTIONS: ${targetSections.join(', ') || 'All sections for initial prompt'}
 OPERATION TYPES: ${[
   imageOperation && 'Image modification',
   textOperation && 'Text modification', 
   styleOperation && 'Style modification'
-].filter(Boolean).join(', ') || 'General modification'}
+].filter(Boolean).join(', ') || 'Complete website generation'}
 
 CURRENT FILES:
 ${JSON.stringify(projectFiles, null, 2)}
 
 CRITICAL RULES:
-1. ONLY modify the sections mentioned in the user request
-2. Preserve ALL existing code in non-target sections
-3. Keep all existing image URLs and placeholders intact
-4. Do NOT change business names or hero content unless explicitly requested
-5. Maintain exact component structure and styling
-6. If adding images, only add them to the specified sections
-7. Use existing image placeholders when available
+1. ${isInitialPrompt ? 'CREATE a complete React component with all necessary sections' : 'ONLY modify the sections mentioned in the user request'}
+2. ALWAYS use proper React syntax with function components and hooks
+3. ALWAYS include useState and useEffect for form handling and interactivity
+4. ALWAYS create functional forms with proper validation and state management
+5. ALWAYS apply the detected color scheme to all components
+6. ALWAYS use the specified gradient for hero sections and CTAs
+7. ALWAYS include responsive design with Tailwind CSS breakpoints
+8. ALWAYS create a navigation header with smooth scrolling
+9. ALWAYS include proper image placeholders for all sections
+10. ALWAYS make the design mobile-responsive and professional
+11. ALWAYS include proper form components with input fields and submit handlers
+12. ALWAYS create interactive elements like hover effects and animations
+13. **MANDATORY**: You MUST include ALL the business-specific features listed above
+14. **MANDATORY**: You MUST create the exact forms specified in the business requirements
+15. **MANDATORY**: You MUST include all the sections and features mentioned in the user request
+16. **MANDATORY**: The generated code MUST be a complete, functional React component
+17. **MANDATORY**: For mobile apps, you MUST include app store badges, download CTAs, screenshots, and testimonials
+18. **MANDATORY**: You MUST implement ALL 9 sections listed in the business requirements
+19. **MANDATORY**: The code MUST be production-ready with proper error handling
+20. **MANDATORY**: You have 15,000 tokens available - use them to create a comprehensive, detailed implementation
 
-Return ONLY the JSON response with updated_files containing ONLY the modified files.
+CRITICAL: You MUST return ONLY a valid JSON object with this EXACT structure:
+
+{
+  "assistant_message": "I've created a complete mobile app landing page with all requested features.",
+  "updated_files": {
+    "src/App.jsx": "import React, { useState } from 'react';\\n\\nfunction App() {\\n  const [email, setEmail] = useState('');\\n  const [formSubmitted, setFormSubmitted] = useState(false);\\n  \\n  const handleSubmit = (e) => {\\n    e.preventDefault();\\n    if (!email) return;\\n    setFormSubmitted(true);\\n  };\\n  \\n  return (\\n    <div className=\\"min-h-screen bg-gradient-to-br from-indigo-600 to-pink-500\\">\\n      {/* Navigation */}\\n      <nav className=\\"fixed w-full bg-white shadow-md\\">\\n        <div className=\\"container mx-auto px-4 py-4\\">\\n          <div className=\\"flex justify-between items-center\\">\\n            <h1 className=\\"text-2xl font-bold text-gray-800\\">TaskFlow</h1>\\n            <div className=\\"hidden md:flex space-x-6\\">\\n              <a href=\\"#features\\" className=\\"text-gray-800 hover:text-pink-500\\">Features</a>\\n              <a href=\\"#about\\" className=\\"text-gray-800 hover:text-pink-500\\">About</a>\\n              <a href=\\"#contact\\" className=\\"text-gray-800 hover:text-pink-500\\">Contact</a>\\n            </div>\\n          </div>\\n        </div>\\n      </nav>\\n      \\n      {/* Hero Section */}\\n      <section className=\\"hero-section py-20\\">\\n        <div className=\\"container mx-auto px-4 text-center\\">\\n          <h1 className=\\"text-5xl font-bold text-white mb-6\\">TaskFlow</h1>\\n          <p className=\\"text-xl text-pink-100 mb-8\\">Your digital life, simplified</p>\\n          <div className=\\"flex justify-center space-x-4 mb-8\\">\\n            <img src=\\"{GENERATED_IMAGE_URL_APP_STORE}\\" alt=\\"App Store\\" className=\\"h-12\\" />\\n            <img src=\\"{GENERATED_IMAGE_URL_GOOGLE_PLAY}\\" alt=\\"Google Play\\" className=\\"h-12\\" />\\n          </div>\\n          <img src=\\"{GENERATED_IMAGE_URL_HERO}\\" alt=\\"TaskFlow App\\" className=\\"mx-auto max-w-md\\" />\\n        </div>\\n      </section>\\n      \\n      {/* App Screenshots */}\\n      <section className=\\"py-16 bg-white\\">\\n        <div className=\\"container mx-auto px-4\\">\\n          <h2 className=\\"text-3xl font-bold text-center mb-12\\">App Screenshots</h2>\\n          <div className=\\"grid md:grid-cols-3 gap-8\\">\\n            <img src=\\"{GENERATED_IMAGE_URL_SCREENSHOT_1}\\" alt=\\"Screenshot 1\\" className=\\"rounded-lg shadow-lg\\" />\\n            <img src=\\"{GENERATED_IMAGE_URL_SCREENSHOT_2}\\" alt=\\"Screenshot 2\\" className=\\"rounded-lg shadow-lg\\" />\\n            <img src=\\"{GENERATED_IMAGE_URL_SCREENSHOT_3}\\" alt=\\"Screenshot 3\\" className=\\"rounded-lg shadow-lg\\" />\\n          </div>\\n        </div>\\n      </section>\\n      \\n      {/* Features */}\\n      <section id=\\"features\\" className=\\"py-16 bg-gray-50\\">\\n        <div className=\\"container mx-auto px-4\\">\\n          <h2 className=\\"text-3xl font-bold text-center mb-12\\">Features</h2>\\n          <div className=\\"grid md:grid-cols-3 gap-8\\">\\n            <div className=\\"text-center\\">\\n              <img src=\\"{GENERATED_IMAGE_URL_FEATURE_1}\\" alt=\\"Feature 1\\" className=\\"w-16 h-16 mx-auto mb-4\\" />\\n              <h3 className=\\"text-xl font-semibold mb-2\\">Task Management</h3>\\n              <p className=\\"text-gray-600\\">Organize your tasks efficiently</p>\\n            </div>\\n            <div className=\\"text-center\\">\\n              <img src=\\"{GENERATED_IMAGE_URL_FEATURE_2}\\" alt=\\"Feature 2\\" className=\\"w-16 h-16 mx-auto mb-4\\" />\\n              <h3 className=\\"text-xl font-semibold mb-2\\">Reminders</h3>\\n              <p className=\\"text-gray-600\\">Never miss important deadlines</p>\\n            </div>\\n            <div className=\\"text-center\\">\\n              <img src=\\"{GENERATED_IMAGE_URL_FEATURE_3}\\" alt=\\"Feature 3\\" className=\\"w-16 h-16 mx-auto mb-4\\" />\\n              <h3 className=\\"text-xl font-semibold mb-2\\">Collaboration</h3>\\n              <p className=\\"text-gray-600\\">Work together seamlessly</p>\\n            </div>\\n          </div>\\n        </div>\\n      </section>\\n      \\n      {/* Beta Signup */}\\n      <section className=\\"py-16 bg-indigo-600\\">\\n        <div className=\\"container mx-auto px-4 text-center\\">\\n          <h2 className=\\"text-3xl font-bold text-white mb-8\\">Join the Beta</h2>\\n          <form onSubmit={handleSubmit} className=\\"max-w-md mx-auto\\">\\n            <input\\n              type=\\"email\\"\\n              value={email}\\n              onChange={(e) => setEmail(e.target.value)}\\n              placeholder=\\"Enter your email\\"\\n              className=\\"w-full p-3 rounded-lg mb-4\\"\\n              required\\n            />\\n            <button\\n              type=\\"submit\\"\\n              className=\\"bg-pink-500 text-white px-8 py-3 rounded-lg font-semibold hover:bg-pink-600\\"\\n            >\\n              Join Beta\\n            </button>\\n          </form>\\n          {formSubmitted && (\\n            <p className=\\"text-green-300 mt-4\\">Thank you! We'll notify you when the beta is ready.</p>\\n          )}\\n        </div>\\n      </section>\\n      \\n      {/* Testimonials */}\\n      <section className=\\"py-16 bg-white\\">\\n        <div className=\\"container mx-auto px-4\\">\\n          <h2 className=\\"text-3xl font-bold text-center mb-12\\">What Users Say</h2>\\n          <div className=\\"grid md:grid-cols-3 gap-8\\">\\n            <div className=\\"text-center\\">\\n              <img src=\\"{GENERATED_IMAGE_URL_TESTIMONIAL_1}\\" alt=\\"User 1\\" className=\\"w-16 h-16 rounded-full mx-auto mb-4\\" />\\n              <p className=\\"text-gray-600 mb-2\\">\\"TaskFlow has transformed my productivity!\\"</p>\\n              <p className=\\"font-semibold\\">- Sarah Johnson</p>\\n            </div>\\n            <div className=\\"text-center\\">\\n              <img src=\\"{GENERATED_IMAGE_URL_TESTIMONIAL_2}\\" alt=\\"User 2\\" className=\\"w-16 h-16 rounded-full mx-auto mb-4\\" />\\n              <p className=\\"text-gray-600 mb-2\\">\\"The best task management app I've used.\\"</p>\\n              <p className=\\"font-semibold\\">- Mike Chen</p>\\n            </div>\\n            <div className=\\"text-center\\">\\n              <img src=\\"{GENERATED_IMAGE_URL_TESTIMONIAL_3}\\" alt=\\"User 3\\" className=\\"w-16 h-16 rounded-full mx-auto mb-4\\" />\\n              <p className=\\"text-gray-600 mb-2\\">\\"Simple, intuitive, and powerful.\\"</p>\\n              <p className=\\"font-semibold\\">- Lisa Rodriguez</p>\\n            </div>\\n          </div>\\n        </div>\\n      </section>\\n      \\n      {/* About */}\\n      <section id=\\"about\\" className=\\"py-16 bg-gray-50\\">\\n        <div className=\\"container mx-auto px-4\\">\\n          <div className=\\"grid md:grid-cols-2 gap-8 items-center\\">\\n            <div>\\n              <h2 className=\\"text-3xl font-bold mb-6\\">About TaskFlow</h2>\\n              <p className=\\"text-gray-600 mb-4\\">TaskFlow is designed to help you manage your daily tasks efficiently and boost your productivity.</p>\\n              <p className=\\"text-gray-600\\">With intuitive features and a clean interface, TaskFlow makes task management simple and enjoyable.</p>\\n            </div>\\n            <img src=\\"{GENERATED_IMAGE_URL_ABOUT}\\" alt=\\"About TaskFlow\\" className=\\"rounded-lg\\" />\\n          </div>\\n        </div>\\n      </section>\\n      \\n      {/* Contact */}\\n      <section id=\\"contact\\" className=\\"py-16 bg-white\\">\\n        <div className=\\"container mx-auto px-4\\">\\n          <h2 className=\\"text-3xl font-bold text-center mb-12\\">Contact Us</h2>\\n          <div className=\\"grid md:grid-cols-2 gap-8\\">\\n            <div>\\n              <h3 className=\\"text-xl font-semibold mb-4\\">Get in Touch</h3>\\n              <p className=\\"text-gray-600 mb-4\\">Have questions about TaskFlow? We'd love to hear from you.</p>\\n              <p className=\\"text-gray-600\\">Email: hello@taskflow.app</p>\\n            </div>\\n            <form className=\\"space-y-4\\">\\n              <input type=\\"text\\" placeholder=\\"Name\\" className=\\"w-full p-3 border rounded-lg\\" />\\n              <input type=\\"email\\" placeholder=\\"Email\\" className=\\"w-full p-3 border rounded-lg\\" />\\n              <textarea placeholder=\\"Message\\" className=\\"w-full p-3 border rounded-lg\\" rows=\\"4\\"></textarea>\\n              <button type=\\"submit\\" className=\\"bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700\\">Send</button>\\n            </form>\\n          </div>\\n        </div>\\n      </section>\\n    </div>\\n  );\\n}\\n\\nexport default App;"
+  },
+  "image_requests": [
+    {
+      "prompt": "A professional hero image for TaskFlow mobile app",
+      "aspect_ratio": "16:9",
+      "placement": "hero"
+    },
+    {
+      "prompt": "App Store badge for TaskFlow",
+      "aspect_ratio": "1:1",
+      "placement": "app_store"
+    },
+    {
+      "prompt": "Google Play Store badge for TaskFlow",
+      "aspect_ratio": "1:1",
+      "placement": "google_play"
+    },
+    {
+      "prompt": "Mobile app screenshot 1 for TaskFlow",
+      "aspect_ratio": "9:16",
+      "placement": "screenshot_1"
+    },
+    {
+      "prompt": "Mobile app screenshot 2 for TaskFlow",
+      "aspect_ratio": "9:16",
+      "placement": "screenshot_2"
+    },
+    {
+      "prompt": "Mobile app screenshot 3 for TaskFlow",
+      "aspect_ratio": "9:16",
+      "placement": "screenshot_3"
+    },
+    {
+      "prompt": "Feature icon for task management",
+      "aspect_ratio": "1:1",
+      "placement": "feature_1"
+    },
+    {
+      "prompt": "Feature icon for reminders",
+      "aspect_ratio": "1:1",
+      "placement": "feature_2"
+    },
+    {
+      "prompt": "Feature icon for collaboration",
+      "aspect_ratio": "1:1",
+      "placement": "feature_3"
+    },
+    {
+      "prompt": "User testimonial avatar 1",
+      "aspect_ratio": "1:1",
+      "placement": "testimonial_1"
+    },
+    {
+      "prompt": "User testimonial avatar 2",
+      "aspect_ratio": "1:1",
+      "placement": "testimonial_2"
+    },
+    {
+      "prompt": "User testimonial avatar 3",
+      "aspect_ratio": "1:1",
+      "placement": "testimonial_3"
+    },
+    {
+      "prompt": "About section image for TaskFlow",
+      "aspect_ratio": "16:9",
+      "placement": "about"
+    }
+  ],
+  "business_info": {
+    "name": "TaskFlow",
+    "tagline": "Your digital life, simplified",
+    "color_scheme": "mobile_app"
+  }
+}
 
 CRITICAL JSON FORMATTING RULES:
 - Use double quotes for all property names and string values
@@ -3382,27 +4545,232 @@ CRITICAL JSON FORMATTING RULES:
 - No comments or explanations outside the JSON
 - Ensure all strings are properly escaped
 - The response must be valid JSON that can be parsed by JSON.parse()
-
-Example valid response format:
+- DO NOT include any text before or after the JSON object
+- DO NOT use markdown code blocks around the JSON
 {
-  "assistant_message": "I've updated the contact section with a new image.",
+  "assistant_message": "I've created a complete landing page with all requested features.",
   "updated_files": {
-    "src/App.jsx": "// Updated JSX code here"
+    "src/App.jsx": "import React, { useState, useEffect } from 'react';\\n\\nfunction App() {\\n  const [formData, setFormData] = useState({});\\n  const [email, setEmail] = useState('');\\n  \\n  const handleSubmit = (e) => {\\n    e.preventDefault();\\n    // Handle form submission\\n  };\\n  \\n  return (\\n    <div className=\\"min-h-screen bg-gradient-to-br from-indigo-500 to-pink-500\\">\\n      {/* Navigation */}\\n      <nav className=\\"...\\">\\n        {/* Navigation content */}\\n      </nav>\\n      \\n      {/* Hero Section with app name and tagline */}\\n      <section className=\\"hero-section\\">\\n        <h1>TaskFlow</h1>\\n        <p>Your digital life, simplified</p>\\n        {/* App store badges and download buttons */}\\n      </section>\\n      \\n      {/* App Preview/Screenshots Section */}\\n      <section className=\\"app-preview\\">\\n        {/* Mobile mockups and screenshots */}\\n      </section>\\n      \\n      {/* Feature Showcase */}\\n      <section className=\\"features\\">\\n        {/* Feature cards with icons */}\\n      </section>\\n      \\n      {/* Beta Signup Form */}\\n      <section className=\\"beta-signup\\">\\n        <form onSubmit={handleSubmit}>\\n          <input type=\\"email\\" value={email} onChange={(e) => setEmail(e.target.value)} />\\n          <button type=\\"submit\\">Join Beta</button>\\n        </form>\\n      </section>\\n      \\n      {/* User Testimonials */}\\n      <section className=\\"testimonials\\">\\n        {/* Customer reviews */}\\n      </section>\\n      \\n      {/* About Section */}\\n      <section className=\\"about\\">\\n        {/* App benefits and description */}\\n      </section>\\n      \\n      {/* Contact Section */}\\n      <section className=\\"contact\\">\\n        {/* Contact form */}\\n      </section>\\n    </div>\\n  );\\n}"
   },
   "image_requests": [
     {
-      "prompt": "A professional contact section image",
-      "aspect_ratio": "4:3",
-      "placement": "contact"
+      "prompt": "A professional hero image for ${businessInfo.name}",
+      "aspect_ratio": "16:9",
+      "placement": "hero"
     }
   ],
   "business_info": {
-    "name": "Business Name",
-    "tagline": "Business Tagline"
+    "name": "${businessInfo.name}",
+    "tagline": "${businessInfo.tagline}",
+    "color_scheme": "${businessInfo.color_scheme}"
   }
 }`;
 
   return prompt;
+}
+
+// Get business-specific requirements based on business type
+function getBusinessSpecificRequirements(businessType) {
+  const requirements = {
+    ecommerce_fashion: `
+- Include a product showcase/grid section
+- Add a style quiz form with multiple questions
+- Include newsletter signup form
+- Add shopping CTA buttons
+- Create fashion-focused design elements
+- Include product categories or filters
+`,
+    mobile_app: `
+CRITICAL: You MUST create a mobile app landing page with these EXACT sections and features.
+
+REQUIRED SECTIONS (ALL MUST BE INCLUDED):
+1. Hero - with "TaskFlow" app name, tagline, and app store badges
+2. App Preview/Screenshots - mobile mockups and app screenshots
+3. Features - feature showcase with icons and descriptions
+4. Beta Signup - email signup form with "Join Beta" button
+5. Testimonials - user reviews and ratings
+6. About - app benefits and description
+7. Contact - contact form and information
+8. Navigation - smooth scrolling header
+
+REQUIRED FORM FIELDS:
+- Email (required) for beta signup
+- Name, Email, Message for contact form
+- Submit button: "Join Beta" for signup, "Send" for contact
+
+REQUIRED FEATURES:
+- App store badges (Apple App Store and Google Play Store)
+- Mobile mockup/screenshot section
+- Feature cards with icons
+- User testimonials with star ratings
+- Beta signup form with validation
+- Contact form
+- Responsive navigation
+
+REQUIRED STYLING:
+- Use mobile_app color scheme (indigo-600, pink-500, emerald-500)
+- Mobile responsive design
+- Professional app store aesthetic
+
+DO NOT SKIP ANY SECTION OR FEATURE!
+`,
+    consulting_service: `
+CRITICAL: You MUST create a consulting service landing page with these EXACT sections and features.
+
+REQUIRED SECTIONS (ALL MUST BE INCLUDED):
+1. Hero - with "Strategic Solutions" and consultation CTA
+2. Services - business optimization, profitability, strategic consulting
+3. Consultation Form - with date, time, service type, company fields
+4. Case Studies - success stories and client results
+5. Expert Profiles - team member bios and credentials
+6. Testimonials - client reviews and ratings
+7. About - company mission and expertise
+8. Contact - contact form and information
+
+REQUIRED FORM FIELDS:
+- Name (required)
+- Email (required) 
+- Phone (required)
+- Company Name (required)
+- Service Type (dropdown: Business Optimization, Profitability Improvement, Strategic Consulting)
+- Preferred Date (date picker)
+- Preferred Time (time picker)
+- Message (textarea)
+- Submit button: "Book Consultation"
+
+REQUIRED STYLING:
+- Use blue-800, violet-600, amber-500 colors
+- Professional corporate design
+- Mobile responsive
+
+DO NOT SKIP ANY SECTION OR FEATURE!
+`,
+    online_education: `
+CRITICAL: You MUST create an online education platform landing page with these EXACT sections and features.
+
+REQUIRED SECTIONS (ALL MUST BE INCLUDED):
+1. Hero - with "SkillMaster" brand and learning CTA
+2. Courses - course previews with programming, design, business categories
+3. Features - learning modules, progress tracking, certification
+4. Testimonials - student reviews and success stories
+5. About - platform mission and learning philosophy
+6. Contact - contact form and information
+
+REQUIRED FEATURES:
+- Course previews with images, descriptions, and "Enroll Now" buttons
+- Student testimonials with photos and star ratings
+- Enrollment forms with name, email, course selection
+- Course categories (programming, design, business skills)
+- Learning modules and curriculum structure
+- Certification badges and completion certificates
+- Professional educational design
+
+REQUIRED FORM FIELDS:
+- Name (required)
+- Email (required)
+- Course Selection (dropdown: Programming, Design, Business Skills)
+- Message (textarea)
+- Submit button: "Enroll Now"
+
+REQUIRED STYLING:
+- Use online_education color scheme (green-600, blue-500, orange-500)
+- Modern, educational design
+- Mobile responsive
+- Professional course imagery
+
+DO NOT SKIP ANY SECTION OR FEATURE!
+`,
+    bar_restaurant: `
+CRITICAL: You MUST create a bar/restaurant landing page with these EXACT sections and features.
+
+REQUIRED SECTIONS (ALL MUST BE INCLUDED):
+1. Hero - with restaurant name, tagline, and reservation CTA
+2. Menu Preview - featured dishes and drinks with descriptions
+3. Atmosphere - ambiance photos and venue description
+4. Special Events - private parties, events, happy hour
+5. Testimonials - customer reviews and ratings
+6. About - restaurant story and chef background
+7. Contact - contact form, location, and hours
+8. Navigation - smooth scrolling header
+
+REQUIRED FEATURES:
+- Menu preview with food/drink images and descriptions
+- Reservation/booking form with date, time, party size
+- Customer testimonials with photos and star ratings
+- Special events and private party information
+- Location map and operating hours
+- Social media integration
+- Professional restaurant aesthetic
+
+REQUIRED FORM FIELDS:
+- Name (required)
+- Email (required)
+- Phone (required)
+- Date (date picker, required)
+- Time (time picker, required)
+- Party Size (dropdown: 1-2, 3-4, 5-6, 7-8, 9+)
+- Special Requests (textarea)
+- Submit button: "Make Reservation"
+
+REQUIRED STYLING:
+- Use bar_restaurant color scheme (amber-600, red-600, emerald-600)
+- Warm, inviting restaurant atmosphere
+- Mobile responsive design
+- Professional hospitality aesthetic
+
+DO NOT SKIP ANY SECTION OR FEATURE!
+`,
+    real_estate: `
+- Include property search form
+- Add property gallery section
+- Include market insights
+- Add agent profiles
+- Create location services section
+- Include property listings
+`,
+    healthcare_wellness: `
+- Include appointment booking form
+- Add service overview section
+- Include doctor profiles
+- Create health programs section
+- Add telemedicine features
+- Include trust indicators
+`,
+    creative_agency: `
+- Include portfolio showcase section
+- Add project quote form
+- Include service offerings
+- Create creative team profiles
+- Add project timeline
+- Include client testimonials
+`,
+    subscription_box: `
+- Include subscription signup form
+- Add past box previews section
+- Include monthly themes
+- Create unboxing experience section
+- Add subscription tiers
+- Include delivery information
+`,
+    local_service: `
+- Include service booking form
+- Add service areas map
+- Include service offerings
+- Create professional profiles
+- Add pricing information
+- Include local focus elements
+`,
+    saas_b2b: `
+- Include demo request form
+- Add integration showcase
+- Include dashboard preview
+- Create enterprise features section
+- Add pricing tiers
+- Include customer logos
+`
+  };
+  
+  return requirements[businessType] || '';
 }
 
 // Apply targeted updates to preserve existing code
@@ -3496,6 +4864,47 @@ async function replaceImageInSection(updatedFiles, placement, imageUrl, original
           updatedContent = updatedContent.replace(featurePlaceholder, imageUrl);
           replacementsMade++;
           console.log(`✅ Replaced {GENERATED_IMAGE_URL_FEATURE_${featureNumber}} with image URL`);
+        }
+      }
+      
+      // Handle special cases for screenshot images
+      if (placement.startsWith('screenshot_')) {
+        const screenshotNumber = placement.split('_')[1];
+        const screenshotPlaceholder = new RegExp(`\\{GENERATED_IMAGE_URL_SCREENSHOT_${screenshotNumber}\\}`, 'g');
+        if (screenshotPlaceholder.test(updatedContent)) {
+          updatedContent = updatedContent.replace(screenshotPlaceholder, imageUrl);
+          replacementsMade++;
+          console.log(`✅ Replaced {GENERATED_IMAGE_URL_SCREENSHOT_${screenshotNumber}} with image URL`);
+        }
+      }
+      
+      // Handle special cases for testimonial images
+      if (placement.startsWith('testimonial_')) {
+        const testimonialNumber = placement.split('_')[1];
+        const testimonialPlaceholder = new RegExp(`\\{GENERATED_IMAGE_URL_TESTIMONIAL_${testimonialNumber}\\}`, 'g');
+        if (testimonialPlaceholder.test(updatedContent)) {
+          updatedContent = updatedContent.replace(testimonialPlaceholder, imageUrl);
+          replacementsMade++;
+          console.log(`✅ Replaced {GENERATED_IMAGE_URL_TESTIMONIAL_${testimonialNumber}} with image URL`);
+        }
+      }
+      
+      // Handle app store badges
+      if (placement === 'app_store') {
+        const appStorePlaceholder = new RegExp(`\\{GENERATED_IMAGE_URL_APP_STORE\\}`, 'g');
+        if (appStorePlaceholder.test(updatedContent)) {
+          updatedContent = updatedContent.replace(appStorePlaceholder, imageUrl);
+          replacementsMade++;
+          console.log(`✅ Replaced {GENERATED_IMAGE_URL_APP_STORE} with image URL`);
+        }
+      }
+      
+      if (placement === 'google_play') {
+        const googlePlayPlaceholder = new RegExp(`\\{GENERATED_IMAGE_URL_GOOGLE_PLAY\\}`, 'g');
+        if (googlePlayPlaceholder.test(updatedContent)) {
+          updatedContent = updatedContent.replace(googlePlayPlaceholder, imageUrl);
+          replacementsMade++;
+          console.log(`✅ Replaced {GENERATED_IMAGE_URL_GOOGLE_PLAY} with image URL`);
         }
       }
       

@@ -175,6 +175,44 @@ const ChatPage = ({ onBackToHome }) => {
 
       if (llmResponse.ok) {
         const result = await llmResponse.json();
+        
+        // Check if we need clarification
+        if (result.needs_clarification) {
+          // Handle clarification response
+          const clarificationMessage = {
+            id: Date.now() + 1,
+            role: 'assistant',
+            message: result.message,
+            timestamp: new Date().toISOString(),
+            clarification_questions: result.clarification_questions,
+            current_question: result.current_question,
+            current_question_index: result.current_question_index,
+            clarification_answers: result.clarification_answers,
+            needs_clarification: true
+          };
+          
+          // Store clarification state for tracking the conversation
+          const clarificationState = {
+            clarificationQuestions: result.clarification_questions,
+            currentQuestionIndex: result.current_question_index,
+            clarificationAnswers: result.clarification_answers || {}
+          };
+          
+          await fetch('/api/chat_messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              project_id: currentProject.id,
+              role: 'assistant',
+              message: result.message,
+              clarification_state: JSON.stringify(clarificationState)
+            })
+          });
+          
+          setMessages(prev => [...prev, clarificationMessage]);
+          return; // Don't proceed with file updates for clarification
+        }
+        
         // 3. Update project files if LLM made changes
         if (result.updated_files) {
           await fetch(`/api/projects/${currentProject.id}`, {
@@ -559,6 +597,19 @@ const ChatPage = ({ onBackToHome }) => {
                     }`}
                   >
                     <p className="text-sm">{message.message}</p>
+                    
+                    {/* Display current clarification question if present */}
+                    {message.needs_clarification && message.current_question && (
+                      <div className="mt-3">
+                        <div className="text-xs text-gray-600 bg-blue-50 p-3 rounded border-l-4 border-blue-400">
+                          <div className="font-medium text-blue-700 mb-1">
+                            Question {message.current_question_index + 1} of {message.clarification_questions?.length || '?'}
+                          </div>
+                          <div>{message.current_question.question}</div>
+                        </div>
+                      </div>
+                    )}
+                    
                     <p className={`text-xs mt-1 ${
                       message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
                     }`}>

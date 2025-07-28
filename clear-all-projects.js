@@ -1,66 +1,52 @@
 #!/usr/bin/env node
 
-// Script to delete all projects from the database
-const API_BASE = 'http://localhost:8787';
+import { D1Database } from '@cloudflare/workers-types';
 
 async function clearAllProjects() {
-  console.log('🗑️  Clearing all projects from database...\n');
-  
+  console.log('🗑️  Clearing all projects from local D1 database...\n');
+
   try {
-    // Step 1: Get all projects
-    console.log('📋 Fetching all projects...');
-    const projectsResponse = await fetch(`${API_BASE}/api/projects`);
+    // Connect to the local D1 database
+    const db = new D1Database('jetsy-leads');
     
-    if (!projectsResponse.ok) {
-      throw new Error(`Failed to fetch projects: ${projectsResponse.status}`);
-    }
+    // First, let's see what we have
+    console.log('📊 Current projects in database:');
+    const projects = await db.prepare('SELECT id, project_name, created_at FROM projects ORDER BY created_at DESC').all();
     
-    const projects = await projectsResponse.json();
-    console.log(`Found ${projects.length} projects to delete`);
-    
-    if (projects.length === 0) {
-      console.log('✅ No projects found. Database is already clean!');
+    if (projects.results.length === 0) {
+      console.log('✅ No projects found in database');
       return;
     }
     
-    // Step 2: Delete each project
-    console.log('\n🗑️  Deleting projects...');
-    let deletedCount = 0;
+    console.log(`Found ${projects.results.length} projects:`);
+    projects.results.forEach(project => {
+      console.log(`   - ID: ${project.id}, Name: ${project.project_name}, Created: ${project.created_at}`);
+    });
     
-    for (const project of projects) {
-      try {
-        const deleteResponse = await fetch(`${API_BASE}/api/projects/${project.id}`, {
-          method: 'DELETE'
-        });
-        
-        if (deleteResponse.ok) {
-          console.log(`✅ Deleted project: ${project.project_name} (ID: ${project.id})`);
-          deletedCount++;
-        } else {
-          console.log(`❌ Failed to delete project: ${project.project_name} (ID: ${project.id})`);
-        }
-      } catch (error) {
-        console.log(`❌ Error deleting project ${project.id}: ${error.message}`);
-      }
-    }
+    // Delete chat messages first (due to foreign key constraints)
+    console.log('\n🗑️  Deleting chat messages...');
+    const chatResult = await db.prepare('DELETE FROM chat_messages').run();
+    console.log(`   Deleted ${chatResult.changes} chat messages`);
     
-    console.log(`\n🎉 Successfully deleted ${deletedCount} out of ${projects.length} projects`);
+    // Delete file backups
+    console.log('🗑️  Deleting file backups...');
+    const backupResult = await db.prepare('DELETE FROM file_backups').run();
+    console.log(`   Deleted ${backupResult.changes} file backups`);
     
-    // Step 3: Verify all projects are deleted
-    console.log('\n🔍 Verifying deletion...');
-    const verifyResponse = await fetch(`${API_BASE}/api/projects`);
+    // Delete images
+    console.log('🗑️  Deleting images...');
+    const imageResult = await db.prepare('DELETE FROM images').run();
+    console.log(`   Deleted ${imageResult.changes} images`);
     
-    if (verifyResponse.ok) {
-      const remainingProjects = await verifyResponse.json();
-      if (remainingProjects.length === 0) {
-        console.log('✅ All projects successfully deleted! Database is now clean.');
-      } else {
-        console.log(`⚠️  ${remainingProjects.length} projects still remain in database`);
-      }
-    }
+    // Finally, delete projects
+    console.log('🗑️  Deleting projects...');
+    const projectResult = await db.prepare('DELETE FROM projects').run();
+    console.log(`   Deleted ${projectResult.changes} projects`);
+    
+    console.log('\n✅ Successfully cleared all data from local D1 database!');
     
   } catch (error) {
-    console.error('❌ Error clearing projects:', error.message);
+    console.error('❌ Error clearing database:', error);
   }
 }
 
