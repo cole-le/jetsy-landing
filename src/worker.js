@@ -1068,12 +1068,12 @@ async function getChatMessages(request, env, corsHeaders) {
 async function addChatMessage(request, env, corsHeaders) {
   const db = env.DB;
   try {
-    const { project_id, role, message, clarification_state } = await request.json();
+    const { project_id, role, message, clarification_state, is_initial_message } = await request.json();
     if (!project_id || !role || !message) {
       return new Response(JSON.stringify({ error: 'project_id, role, and message are required' }), { status: 400, headers: corsHeaders });
     }
     const now = new Date().toISOString();
-    const result = await db.prepare('INSERT INTO chat_messages (project_id, role, message, timestamp, clarification_state) VALUES (?, ?, ?, ?, ?)').bind(project_id, role, message, now, clarification_state || null).run();
+    const result = await db.prepare('INSERT INTO chat_messages (project_id, role, message, timestamp, clarification_state, is_initial_message) VALUES (?, ?, ?, ?, ?, ?)').bind(project_id, role, message, now, clarification_state || null, is_initial_message || false).run();
     if (!result.success) {
       throw new Error('Failed to add chat message');
     }
@@ -1177,13 +1177,8 @@ async function handleLLMOrchestration(request, env, corsHeaders) {
       });
     }
     
-    // Smart image generation logic - treat as initial prompt if only basic files exist
-    const isInitialPrompt = !projectFiles || 
-                           Object.keys(projectFiles).length === 0 || 
-                           (Object.keys(projectFiles).length === 1 && projectFiles['src/index.css']) ||
-                           (Object.keys(projectFiles).length === 2 && 
-                            projectFiles['src/index.css'] && 
-                            (projectFiles['src/App.jsx'] || projectFiles['src/main.jsx'] || projectFiles['src/index.jsx']));
+    // Use the isInitialPrompt from sectionAnalysis instead of recalculating
+    const isInitialPrompt = sectionAnalysis.operationType === 'create';
     
     // For initial prompts, ALWAYS generate images regardless of user message content
     // For subsequent prompts, only generate images if user explicitly requests them
@@ -1478,10 +1473,16 @@ async function handleLLMOrchestration(request, env, corsHeaders) {
     const enhancedPrompt = buildEnhancedPrompt(user_message, projectFiles, sectionAnalysis, isInitialPrompt);
     
     // Call OpenAI with enhanced prompt
+    console.log(`🤖 Calling OpenAI with targeted editing analysis...`);
+    console.log(`   - Is targeted edit: ${sectionAnalysis.isTargetedEdit}`);
+    console.log(`   - Edit scope: ${sectionAnalysis.editScope}`);
+    console.log(`   - Target sections: ${sectionAnalysis.targetSections.join(', ') || 'none'}`);
+    
     const response = await callOpenAI(user_message, projectFiles, { ...env, OPENAI_API_KEY: apiKey }, null, null, null, enhancedPrompt);
     
     // === TARGETED CODE UPDATES ===
     if (response.updated_files) {
+      console.log(`🎯 Applying targeted updates to preserve existing code...`);
       response.updated_files = await applyTargetedUpdates(response.updated_files, projectFiles, sectionAnalysis, env);
     }
     
@@ -1859,7 +1860,7 @@ TARGETED EDITING INSTRUCTIONS:
 ${nanoAnalysis ? `
 NANO ANALYSIS (Stage 1):
 - Is multi-step: ${nanoAnalysis.is_multi_step}
-- Total tasks: ${nanoAnalysis.total_tasks}
+- Total tasks: ${nanoAnalysis.total_tasks} 
 - Tasks to execute:
 ${nanoAnalysis.tasks?.map((task, index) => `${index + 1}. ${task.type.toUpperCase()}: ${task.section || 'general'} - ${task.details}`).join('\n') || 'No tasks parsed'}
 
@@ -3726,140 +3727,108 @@ const COLOR_SCHEMES = {
 // Detect business type from user message using GPT-4o-mini
 async function detectBusinessType(userMessage, env) {
   try {
-    const aiPrompt = `CRITICAL: You are a business classifier. Your ONLY job is to return ONE business type code from the list below.
-
-Business Types:
-- ecommerce_fashion: Online fashion stores, clothing retailers, fashion boutiques
-- mobile_app: Mobile applications, smartphone apps, iOS/Android apps
-- consulting_service: Business consulting, strategy advisory, professional services
-- online_education: Online learning platforms, courses, educational content
-- real_estate: Property sales, real estate agencies, housing
-- healthcare_wellness: Medical services, health clinics, wellness centers
-- creative_agency: Design agencies, creative services, branding
-- subscription_box: Monthly subscription services, curated boxes
-- bar_restaurant: Bars, restaurants, cafes, pubs, food and beverage establishments
-- local_service: Local professional services, repairs, maintenance, other local businesses
-- saas_b2b: Business software, enterprise solutions, B2B platforms
-
-Business Description: "${userMessage}"
-
-CRITICAL RULES:
-1. Return ONLY the business type code (e.g., "bar_restaurant")
-2. Do NOT include any explanations, descriptions, or additional text
-3. Do NOT generate website content or code
-4. Your response must be exactly one of the business type codes listed above
-5. Do NOT add any punctuation, quotes, or formatting
-6. Do NOT say "I would classify this as" or similar phrases
-7. Do NOT describe what you generated or what the business does
-8. Do NOT mention sections, forms, or website features
-
-VALID RESPONSES (choose exactly one):
-bar_restaurant
-local_service
-mobile_app
-ecommerce_fashion
-consulting_service
-online_education
-real_estate
-healthcare_wellness
-creative_agency
-subscription_box
-saas_b2b
-
-INVALID RESPONSES (do NOT do these):
-- "This is a bar/restaurant business"
-- "Based on the description, this would be a bar_restaurant"
-- "bar_restaurant."
-- "The business type is bar_restaurant"
-- "generated a complete landing page for..."
-- "including all required sections..."
-- Any other text besides the exact code
-
-EXAMPLE:
-Input: "a restaurant serving Italian food"
-Output: bar_restaurant
-
-Input: "a mobile app for task management"
-Output: mobile_app`;
-
     console.log(`🔍 Using GPT-4o-mini to detect business type for: "${userMessage}"`);
     
     // Use GPT-4o-mini for business type classification
-    const response = await callOpenAI(aiPrompt, {}, env, null, null, null, null);
+    const response = await callOpenAIBusinessType(userMessage, env);
+    
+    // Log the full response for debugging
+    console.log(`🔍 GPT-4o-mini raw response: "${response.assistant_message}"`);
+    console.log(`🔍 Response length: ${response.assistant_message ? response.assistant_message.length : 0} characters`);
     
     if (response.assistant_message) {
       let detectedType = response.assistant_message.trim().toLowerCase();
       
-                            // If the AI returned a long response, try to extract the business type
-                      if (detectedType.length > 50) {
-                        console.log(`⚠️ AI returned long response, attempting to extract business type...`);
-
-                        // Try to find a business type code in the response
-                        const businessTypes = [
-                          'ecommerce_fashion', 'mobile_app', 'consulting_service', 'online_education',
-                          'real_estate', 'healthcare_wellness', 'creative_agency', 'subscription_box',
-                          'bar_restaurant', 'local_service', 'saas_b2b'
-                        ];
-
-                        for (const businessType of businessTypes) {
-                          if (detectedType.includes(businessType)) {
-                            detectedType = businessType;
-                            console.log(`🔍 Extracted business type from long response: ${detectedType}`);
-                            break;
-                          }
-                        }
-
-                        // If still no match found, try context-based detection
-                        if (detectedType.length > 50) {
-                          console.log(`⚠️ No business type code found, attempting context-based detection...`);
-                          
-                          const context = userMessage.toLowerCase();
-                          
-                          // Check for bar/restaurant indicators
-                          if (context.includes('bar') || 
-                              context.includes('restaurant') || 
-                              context.includes('cafe') || 
-                              context.includes('pub') ||
-                              context.includes('alcohol') ||
-                              context.includes('drink') ||
-                              context.includes('food') ||
-                              context.includes('dining') ||
-                              context.includes('cuisine') ||
-                              context.includes('serving')) {
-                            detectedType = 'bar_restaurant';
-                            console.log(`🔍 Context-based detection: bar_restaurant`);
-                          }
-                          // Check for other business types...
-                          else if (context.includes('app') || context.includes('mobile') || context.includes('smartphone')) {
-                            detectedType = 'mobile_app';
-                            console.log(`🔍 Context-based detection: mobile_app`);
-                          }
-                          else if (context.includes('consulting') || context.includes('strategy') || context.includes('business')) {
-                            detectedType = 'consulting_service';
-                            console.log(`🔍 Context-based detection: consulting_service`);
-                          }
-                          else if (context.includes('education') || context.includes('learning') || context.includes('course')) {
-                            detectedType = 'online_education';
-                            console.log(`🔍 Context-based detection: online_education`);
-                          }
-                          else if (context.includes('fashion') || context.includes('clothing') || context.includes('style')) {
-                            detectedType = 'ecommerce_fashion';
-                            console.log(`🔍 Context-based detection: ecommerce_fashion`);
-                          }
-                          else {
-                            detectedType = 'local_service';
-                            console.log(`🔍 Context-based detection: local_service (default)`);
-                          }
-                        }
-                      }
+      console.log(`🔍 Trimmed and lowercased response: "${detectedType}"`);
       
-                            // Validate the response is one of our known types
-                      const validTypes = [
-                        'ecommerce_fashion', 'mobile_app', 'consulting_service', 'online_education',
-                        'real_estate', 'healthcare_wellness', 'creative_agency', 'subscription_box',
-                        'bar_restaurant', 'local_service', 'saas_b2b'
-                      ];
-      
+      // If the AI returned a long response, try to extract the business type
+      if (detectedType.length > 50) {
+        console.log(`⚠️ AI returned long response, attempting to extract business type...`);
+
+        // Try to find a business type code in the response
+        const businessTypes = [
+          'ecommerce_fashion', 'mobile_app', 'consulting_service', 'online_education',
+          'real_estate', 'healthcare_wellness', 'creative_agency', 'subscription_box',
+          'bar_restaurant', 'local_service', 'saas_b2b'
+        ];
+
+        for (const businessType of businessTypes) {
+          if (detectedType.includes(businessType)) {
+            detectedType = businessType;
+            console.log(`🔍 Extracted business type from long response: ${detectedType}`);
+            break;
+          }
+        }
+
+        // If still no match found, try context-based detection
+        if (detectedType.length > 50) {
+          console.log(`⚠️ No business type code found, attempting context-based detection...`);
+          
+          const context = userMessage.toLowerCase();
+          
+          // Check for bar/restaurant indicators
+          if (context.includes('bar') || 
+              context.includes('restaurant') || 
+              context.includes('cafe') || 
+              context.includes('pub') ||
+              context.includes('alcohol') ||
+              context.includes('drink') ||
+              context.includes('food') ||
+              context.includes('dining') ||
+              context.includes('cuisine') ||
+              context.includes('serving')) {
+            detectedType = 'bar_restaurant';
+            console.log(`🔍 Context-based detection: bar_restaurant`);
+          }
+          // Check for SaaS/B2B software first (higher priority)
+          else if (context.includes('software') || 
+                   context.includes('api') || 
+                   context.includes('saas') || 
+                   context.includes('b2b') ||
+                   context.includes('enterprise') ||
+                   context.includes('platform') ||
+                   context.includes('gemini') ||
+                   context.includes('react') ||
+                   context.includes('python') ||
+                   context.includes('library') ||
+                   context.includes('generate') ||
+                   context.includes('automation') ||
+                   context.includes('tool') ||
+                   context.includes('service')) {
+            detectedType = 'saas_b2b';
+            console.log(`🔍 Context-based detection: saas_b2b`);
+          }
+          // Check for mobile apps (lower priority)
+          else if (context.includes('app') || context.includes('mobile') || context.includes('smartphone')) {
+            detectedType = 'mobile_app';
+            console.log(`🔍 Context-based detection: mobile_app`);
+          }
+          else if (context.includes('consulting') || context.includes('strategy') || context.includes('business')) {
+            detectedType = 'consulting_service';
+            console.log(`🔍 Context-based detection: consulting_service`);
+          }
+          else if (context.includes('education') || context.includes('learning') || context.includes('course')) {
+            detectedType = 'online_education';
+            console.log(`🔍 Context-based detection: online_education`);
+          }
+          else if (context.includes('fashion') || context.includes('clothing') || context.includes('style')) {
+            detectedType = 'ecommerce_fashion';
+            console.log(`🔍 Context-based detection: ecommerce_fashion`);
+          }
+          else {
+            detectedType = 'local_service';
+            console.log(`🔍 Context-based detection: local_service (default)`);
+          }
+        }
+      }
+
+      // Validate the response is one of our known types
+      const validTypes = [
+        'ecommerce_fashion', 'mobile_app', 'consulting_service', 'online_education',
+        'real_estate', 'healthcare_wellness', 'creative_agency', 'subscription_box',
+        'bar_restaurant', 'local_service', 'saas_b2b'
+      ];
+
       if (validTypes.includes(detectedType)) {
         console.log(`🤖 AI detected business type: ${detectedType}`);
         return detectedType;
@@ -3886,7 +3855,9 @@ function isVaguePrompt(messageLower) {
   
   const specificKeywords = [
     'mobile app', 'fashion', 'consulting', 'education', 'real estate', 'healthcare',
-    'creative agency', 'subscription', 'saas', 'software', 'ecommerce', 'online store'
+    'creative agency', 'subscription', 'saas', 'software', 'ecommerce', 'online store',
+    'api', 'gemini', 'react', 'python', 'library', 'generate', 'automation', 'tool',
+    'platform', 'enterprise', 'b2b', 'service'
   ];
   
   // If the message is very short (less than 10 words), it's likely vague
@@ -4141,16 +4112,27 @@ async function analyzeUserRequest(userMessage, projectFiles, env, projectId = nu
   if (projectId) {
     try {
       const db = env.DB;
-      const chatMessages = await db.prepare(
-        'SELECT role, message, clarification_state FROM chat_messages WHERE project_id = ? ORDER BY timestamp DESC LIMIT 5'
-      ).bind(projectId).all();
       
-      const messageCount = chatMessages.results.length;
+      // First, check if there are any existing messages for this project
+      const existingMessages = await db.prepare(
+        'SELECT COUNT(*) as count FROM chat_messages WHERE project_id = ?'
+      ).bind(projectId).first();
+      
+      const messageCount = existingMessages.count;
       console.log(`   chat history count: ${messageCount}`);
       
-      // Check if this is a response to a clarification question
-      if (messageCount > 1) {
-        const lastAssistantMessage = chatMessages.results.find(msg => msg.role === 'assistant');
+      // If this is the first message for this project, it's an initial prompt
+      // Since the frontend adds the message before calling this function, 
+      // we check for exactly 1 message (the current one being processed)
+      if (messageCount === 0 || messageCount === 1) {
+        isInitialPrompt = true;
+        console.log(`   First message for project - marking as initial prompt (count: ${messageCount})`);
+      } else {
+        // Check if this is a response to a clarification question
+        const lastAssistantMessage = await db.prepare(
+          'SELECT clarification_state FROM chat_messages WHERE project_id = ? AND role = ? ORDER BY timestamp DESC LIMIT 1'
+        ).bind(projectId, 'assistant').first();
+        
         if (lastAssistantMessage && lastAssistantMessage.clarification_state) {
           try {
             clarificationState = JSON.parse(lastAssistantMessage.clarification_state);
@@ -4160,16 +4142,18 @@ async function analyzeUserRequest(userMessage, projectFiles, env, projectId = nu
             console.log(`   Error parsing clarification state: ${e.message}`);
           }
         }
+        
+        // If not a clarification response, this is a subsequent message (not initial)
+        if (!isClarificationResponse) {
+          isInitialPrompt = false;
+          console.log(`   Subsequent message detected - not initial prompt`);
+        }
       }
-      
-      // If chat history count is 0 or 1, it's an initial prompt
-      // (0 = no messages yet, 1 = only the current user message)
-      isInitialPrompt = messageCount <= 1;
       
     } catch (error) {
       console.log(`   Error checking chat history: ${error.message}`);
       // Fallback: if we can't check chat history, assume it's initial if project files are minimal
-      isInitialPrompt = !projectFiles || Object.keys(projectFiles).length <= 2; // Just default files
+      isInitialPrompt = !projectFiles || Object.keys(projectFiles).length <= 2;
     }
   } else {
     // No project ID, assume it's initial
@@ -4207,55 +4191,162 @@ async function analyzeUserRequest(userMessage, projectFiles, env, projectId = nu
   
   console.log(`❌ Not a vague prompt or not initial - proceeding with business type detection`);
   
-  const businessType = await detectBusinessType(userMessage, env);
-  const businessInfo = generateBusinessInfo(userMessage, businessType);
+  // Only detect business type for initial prompts or if not a targeted edit
+  let businessType, businessInfo;
   
+  if (isInitialPrompt) {
+    console.log(`🔍 Initial prompt detected - detecting business type...`);
+    businessType = await detectBusinessType(userMessage, env);
+    businessInfo = generateBusinessInfo(userMessage, businessType);
+  } else {
+    console.log(`🎯 Subsequent prompt detected - skipping business type detection for targeted editing`);
+    // For targeted edits, we'll use existing business info or detect from context
+    businessType = 'local_service'; // Default fallback
+    businessInfo = generateBusinessInfo(userMessage, businessType);
+  }
+  
+  // === ENHANCED TARGETED EDITING ANALYSIS ===
   const analysis = {
     targetSections: [],
-    operationType: 'modify', // 'create', 'modify', 'delete'
+    operationType: isInitialPrompt ? 'create' : 'modify', // 'create', 'modify', 'delete'
     imageOperation: false,
     textOperation: false,
     styleOperation: false,
     specificTargets: [],
     businessType: businessType,
     businessInfo: businessInfo,
-    needsClarification: false
+    needsClarification: false,
+    isTargetedEdit: false,
+    editScope: 'full', // 'full', 'section', 'element', 'style'
+    preserveImages: true,
+    preserveStructure: true
   };
   
-  // Detect target sections
+  // === DETECT TARGETED EDITING PATTERNS ===
+  const targetedEditPatterns = {
+    // Text/content changes
+    'text': ['change text', 'update text', 'modify text', 'edit text', 'replace text', 'change content', 'update content'],
+    'title': ['change title', 'update title', 'modify title', 'edit title', 'replace title'],
+    'description': ['change description', 'update description', 'modify description', 'edit description'],
+    'tagline': ['change tagline', 'update tagline', 'modify tagline', 'edit tagline'],
+    
+    // Style changes
+    'color': ['change color', 'update color', 'modify color', 'edit color', 'different color', 'new color'],
+    'style': ['change style', 'update style', 'modify style', 'edit style', 'different style'],
+    'font': ['change font', 'update font', 'modify font', 'edit font', 'different font'],
+    'layout': ['change layout', 'update layout', 'modify layout', 'edit layout', 'different layout'],
+    
+    // Image changes
+    'image': ['change image', 'update image', 'modify image', 'edit image', 'replace image', 'new image', 'different image'],
+    'photo': ['change photo', 'update photo', 'modify photo', 'edit photo', 'replace photo', 'new photo'],
+    'picture': ['change picture', 'update picture', 'modify picture', 'edit picture', 'replace picture', 'new picture'],
+    
+    // Section changes
+    'section': ['change section', 'update section', 'modify section', 'edit section', 'replace section'],
+    'add section': ['add section', 'new section', 'create section', 'insert section'],
+    'remove section': ['remove section', 'delete section', 'remove', 'delete'],
+    
+    // Business info changes
+    'business name': ['change business name', 'update business name', 'modify business name', 'edit business name', 'different business name'],
+    'company name': ['change company name', 'update company name', 'modify company name', 'edit company name'],
+    'brand name': ['change brand name', 'update brand name', 'modify brand name', 'edit brand name']
+  };
+  
+  // Check for targeted editing patterns
+  for (const [operation, patterns] of Object.entries(targetedEditPatterns)) {
+    if (patterns.some(pattern => messageLower.includes(pattern))) {
+      analysis.isTargetedEdit = true;
+      
+      if (operation === 'text' || operation === 'title' || operation === 'description' || operation === 'tagline') {
+        analysis.textOperation = true;
+        analysis.editScope = 'element';
+      } else if (operation === 'color' || operation === 'style' || operation === 'font' || operation === 'layout') {
+        analysis.styleOperation = true;
+        analysis.editScope = 'style';
+      } else if (operation === 'image' || operation === 'photo' || operation === 'picture') {
+        analysis.imageOperation = true;
+        analysis.editScope = 'element';
+      } else if (operation === 'section') {
+        analysis.editScope = 'section';
+      } else if (operation === 'add section') {
+        analysis.editScope = 'section';
+        analysis.operationType = 'add';
+      } else if (operation === 'remove section') {
+        analysis.editScope = 'section';
+        analysis.operationType = 'delete';
+      }
+      
+      console.log(`🎯 Detected targeted edit: ${operation} (scope: ${analysis.editScope})`);
+    }
+  }
+  
+  // === DETECT SPECIFIC SECTIONS ===
   const sectionPatterns = {
-    'hero': ['hero', 'main', 'header', 'banner'],
-    'about': ['about', 'about us'],
-    'features': ['feature', 'features'],
-    'contact': ['contact', 'contact us'],
-    'gallery': ['gallery', 'photos', 'images'],
-    'logo': ['logo', 'brand']
+    'hero': ['hero', 'main', 'header', 'banner', 'top section'],
+    'about': ['about', 'about us', 'about section'],
+    'features': ['feature', 'features', 'feature section', 'services'],
+    'contact': ['contact', 'contact us', 'contact section'],
+    'gallery': ['gallery', 'photos', 'images', 'portfolio'],
+    'logo': ['logo', 'brand', 'branding'],
+    'navigation': ['nav', 'navigation', 'menu', 'navbar'],
+    'footer': ['footer', 'bottom'],
+    'testimonials': ['testimonial', 'testimonials', 'reviews'],
+    'pricing': ['pricing', 'price', 'cost'],
+    'faq': ['faq', 'questions', 'help']
   };
   
   for (const [section, keywords] of Object.entries(sectionPatterns)) {
     if (keywords.some(keyword => messageLower.includes(keyword))) {
       analysis.targetSections.push(section);
+      console.log(`🎯 Detected target section: ${section}`);
     }
   }
   
-  // Detect operation types
-  if (messageLower.includes('image') || messageLower.includes('photo') || messageLower.includes('picture')) {
-    analysis.imageOperation = true;
+  // === DETECT SPECIFIC ELEMENTS ===
+  const elementPatterns = {
+    'button': ['button', 'cta', 'call to action'],
+    'form': ['form', 'input', 'field'],
+    'link': ['link', 'url', 'href'],
+    'image': ['image', 'img', 'photo', 'picture'],
+    'text': ['text', 'content', 'paragraph', 'p']
+  };
+  
+  for (const [element, keywords] of Object.entries(elementPatterns)) {
+    if (keywords.some(keyword => messageLower.includes(keyword))) {
+      analysis.specificTargets.push(element);
+      console.log(`🎯 Detected target element: ${element}`);
+    }
   }
   
-  if (messageLower.includes('text') || messageLower.includes('content') || messageLower.includes('title') || messageLower.includes('description')) {
-    analysis.textOperation = true;
+  // === DETECT PRESERVATION INTENT ===
+  const preservationKeywords = ['keep', 'preserve', 'maintain', 'don\'t change', 'leave', 'existing'];
+  if (preservationKeywords.some(keyword => messageLower.includes(keyword))) {
+    analysis.preserveImages = true;
+    analysis.preserveStructure = true;
+    console.log(`🛡️ Detected preservation intent`);
   }
   
-  if (messageLower.includes('color') || messageLower.includes('style') || messageLower.includes('font') || messageLower.includes('layout')) {
-    analysis.styleOperation = true;
+  // === DETECT REGENERATION INTENT ===
+  const regenerationKeywords = ['regenerate', 'recreate', 'rebuild', 'start over', 'completely new', 'entirely new'];
+  if (regenerationKeywords.some(keyword => messageLower.includes(keyword))) {
+    analysis.editScope = 'full';
+    analysis.isTargetedEdit = false;
+    console.log(`🔄 Detected regeneration intent`);
   }
   
-  // Detect specific targets
-  const specificMatches = messageLower.match(/(?:in|for|to|the)\s+([a-zA-Z\s]+)\s+(?:section|area|part)/g);
-  if (specificMatches) {
-    analysis.specificTargets = specificMatches.map(match => match.replace(/(?:in|for|to|the)\s+/, '').replace(/\s+(?:section|area|part)/, '').trim());
-  }
+  // === FINAL ANALYSIS LOGGING ===
+  console.log(`📊 Final Analysis Results:`);
+  console.log(`   - Is targeted edit: ${analysis.isTargetedEdit}`);
+  console.log(`   - Edit scope: ${analysis.editScope}`);
+  console.log(`   - Target sections: ${analysis.targetSections.join(', ') || 'none'}`);
+  console.log(`   - Target elements: ${analysis.specificTargets.join(', ') || 'none'}`);
+  console.log(`   - Text operation: ${analysis.textOperation}`);
+  console.log(`   - Style operation: ${analysis.styleOperation}`);
+  console.log(`   - Image operation: ${analysis.imageOperation}`);
+  console.log(`   - Preserve images: ${analysis.preserveImages}`);
+  console.log(`   - Preserve structure: ${analysis.preserveStructure}`);
+  console.log(`   - Operation type: ${analysis.operationType}`);
+  console.log(`   - Business type: ${analysis.businessType}`);
   
   return analysis;
 }
@@ -4458,87 +4549,6 @@ CRITICAL RULES:
 19. **MANDATORY**: The code MUST be production-ready with proper error handling
 20. **MANDATORY**: You have 15,000 tokens available - use them to create a comprehensive, detailed implementation
 
-CRITICAL: You MUST return ONLY a valid JSON object with this EXACT structure:
-
-{
-  "assistant_message": "I've created a complete mobile app landing page with all requested features.",
-  "updated_files": {
-    "src/App.jsx": "import React, { useState } from 'react';\\n\\nfunction App() {\\n  const [email, setEmail] = useState('');\\n  const [formSubmitted, setFormSubmitted] = useState(false);\\n  \\n  const handleSubmit = (e) => {\\n    e.preventDefault();\\n    if (!email) return;\\n    setFormSubmitted(true);\\n  };\\n  \\n  return (\\n    <div className=\\"min-h-screen bg-gradient-to-br from-indigo-600 to-pink-500\\">\\n      {/* Navigation */}\\n      <nav className=\\"fixed w-full bg-white shadow-md\\">\\n        <div className=\\"container mx-auto px-4 py-4\\">\\n          <div className=\\"flex justify-between items-center\\">\\n            <h1 className=\\"text-2xl font-bold text-gray-800\\">TaskFlow</h1>\\n            <div className=\\"hidden md:flex space-x-6\\">\\n              <a href=\\"#features\\" className=\\"text-gray-800 hover:text-pink-500\\">Features</a>\\n              <a href=\\"#about\\" className=\\"text-gray-800 hover:text-pink-500\\">About</a>\\n              <a href=\\"#contact\\" className=\\"text-gray-800 hover:text-pink-500\\">Contact</a>\\n            </div>\\n          </div>\\n        </div>\\n      </nav>\\n      \\n      {/* Hero Section */}\\n      <section className=\\"hero-section py-20\\">\\n        <div className=\\"container mx-auto px-4 text-center\\">\\n          <h1 className=\\"text-5xl font-bold text-white mb-6\\">TaskFlow</h1>\\n          <p className=\\"text-xl text-pink-100 mb-8\\">Your digital life, simplified</p>\\n          <div className=\\"flex justify-center space-x-4 mb-8\\">\\n            <img src=\\"{GENERATED_IMAGE_URL_APP_STORE}\\" alt=\\"App Store\\" className=\\"h-12\\" />\\n            <img src=\\"{GENERATED_IMAGE_URL_GOOGLE_PLAY}\\" alt=\\"Google Play\\" className=\\"h-12\\" />\\n          </div>\\n          <img src=\\"{GENERATED_IMAGE_URL_HERO}\\" alt=\\"TaskFlow App\\" className=\\"mx-auto max-w-md\\" />\\n        </div>\\n      </section>\\n      \\n      {/* App Screenshots */}\\n      <section className=\\"py-16 bg-white\\">\\n        <div className=\\"container mx-auto px-4\\">\\n          <h2 className=\\"text-3xl font-bold text-center mb-12\\">App Screenshots</h2>\\n          <div className=\\"grid md:grid-cols-3 gap-8\\">\\n            <img src=\\"{GENERATED_IMAGE_URL_SCREENSHOT_1}\\" alt=\\"Screenshot 1\\" className=\\"rounded-lg shadow-lg\\" />\\n            <img src=\\"{GENERATED_IMAGE_URL_SCREENSHOT_2}\\" alt=\\"Screenshot 2\\" className=\\"rounded-lg shadow-lg\\" />\\n            <img src=\\"{GENERATED_IMAGE_URL_SCREENSHOT_3}\\" alt=\\"Screenshot 3\\" className=\\"rounded-lg shadow-lg\\" />\\n          </div>\\n        </div>\\n      </section>\\n      \\n      {/* Features */}\\n      <section id=\\"features\\" className=\\"py-16 bg-gray-50\\">\\n        <div className=\\"container mx-auto px-4\\">\\n          <h2 className=\\"text-3xl font-bold text-center mb-12\\">Features</h2>\\n          <div className=\\"grid md:grid-cols-3 gap-8\\">\\n            <div className=\\"text-center\\">\\n              <img src=\\"{GENERATED_IMAGE_URL_FEATURE_1}\\" alt=\\"Feature 1\\" className=\\"w-16 h-16 mx-auto mb-4\\" />\\n              <h3 className=\\"text-xl font-semibold mb-2\\">Task Management</h3>\\n              <p className=\\"text-gray-600\\">Organize your tasks efficiently</p>\\n            </div>\\n            <div className=\\"text-center\\">\\n              <img src=\\"{GENERATED_IMAGE_URL_FEATURE_2}\\" alt=\\"Feature 2\\" className=\\"w-16 h-16 mx-auto mb-4\\" />\\n              <h3 className=\\"text-xl font-semibold mb-2\\">Reminders</h3>\\n              <p className=\\"text-gray-600\\">Never miss important deadlines</p>\\n            </div>\\n            <div className=\\"text-center\\">\\n              <img src=\\"{GENERATED_IMAGE_URL_FEATURE_3}\\" alt=\\"Feature 3\\" className=\\"w-16 h-16 mx-auto mb-4\\" />\\n              <h3 className=\\"text-xl font-semibold mb-2\\">Collaboration</h3>\\n              <p className=\\"text-gray-600\\">Work together seamlessly</p>\\n            </div>\\n          </div>\\n        </div>\\n      </section>\\n      \\n      {/* Beta Signup */}\\n      <section className=\\"py-16 bg-indigo-600\\">\\n        <div className=\\"container mx-auto px-4 text-center\\">\\n          <h2 className=\\"text-3xl font-bold text-white mb-8\\">Join the Beta</h2>\\n          <form onSubmit={handleSubmit} className=\\"max-w-md mx-auto\\">\\n            <input\\n              type=\\"email\\"\\n              value={email}\\n              onChange={(e) => setEmail(e.target.value)}\\n              placeholder=\\"Enter your email\\"\\n              className=\\"w-full p-3 rounded-lg mb-4\\"\\n              required\\n            />\\n            <button\\n              type=\\"submit\\"\\n              className=\\"bg-pink-500 text-white px-8 py-3 rounded-lg font-semibold hover:bg-pink-600\\"\\n            >\\n              Join Beta\\n            </button>\\n          </form>\\n          {formSubmitted && (\\n            <p className=\\"text-green-300 mt-4\\">Thank you! We'll notify you when the beta is ready.</p>\\n          )}\\n        </div>\\n      </section>\\n      \\n      {/* Testimonials */}\\n      <section className=\\"py-16 bg-white\\">\\n        <div className=\\"container mx-auto px-4\\">\\n          <h2 className=\\"text-3xl font-bold text-center mb-12\\">What Users Say</h2>\\n          <div className=\\"grid md:grid-cols-3 gap-8\\">\\n            <div className=\\"text-center\\">\\n              <img src=\\"{GENERATED_IMAGE_URL_TESTIMONIAL_1}\\" alt=\\"User 1\\" className=\\"w-16 h-16 rounded-full mx-auto mb-4\\" />\\n              <p className=\\"text-gray-600 mb-2\\">\\"TaskFlow has transformed my productivity!\\"</p>\\n              <p className=\\"font-semibold\\">- Sarah Johnson</p>\\n            </div>\\n            <div className=\\"text-center\\">\\n              <img src=\\"{GENERATED_IMAGE_URL_TESTIMONIAL_2}\\" alt=\\"User 2\\" className=\\"w-16 h-16 rounded-full mx-auto mb-4\\" />\\n              <p className=\\"text-gray-600 mb-2\\">\\"The best task management app I've used.\\"</p>\\n              <p className=\\"font-semibold\\">- Mike Chen</p>\\n            </div>\\n            <div className=\\"text-center\\">\\n              <img src=\\"{GENERATED_IMAGE_URL_TESTIMONIAL_3}\\" alt=\\"User 3\\" className=\\"w-16 h-16 rounded-full mx-auto mb-4\\" />\\n              <p className=\\"text-gray-600 mb-2\\">\\"Simple, intuitive, and powerful.\\"</p>\\n              <p className=\\"font-semibold\\">- Lisa Rodriguez</p>\\n            </div>\\n          </div>\\n        </div>\\n      </section>\\n      \\n      {/* About */}\\n      <section id=\\"about\\" className=\\"py-16 bg-gray-50\\">\\n        <div className=\\"container mx-auto px-4\\">\\n          <div className=\\"grid md:grid-cols-2 gap-8 items-center\\">\\n            <div>\\n              <h2 className=\\"text-3xl font-bold mb-6\\">About TaskFlow</h2>\\n              <p className=\\"text-gray-600 mb-4\\">TaskFlow is designed to help you manage your daily tasks efficiently and boost your productivity.</p>\\n              <p className=\\"text-gray-600\\">With intuitive features and a clean interface, TaskFlow makes task management simple and enjoyable.</p>\\n            </div>\\n            <img src=\\"{GENERATED_IMAGE_URL_ABOUT}\\" alt=\\"About TaskFlow\\" className=\\"rounded-lg\\" />\\n          </div>\\n        </div>\\n      </section>\\n      \\n      {/* Contact */}\\n      <section id=\\"contact\\" className=\\"py-16 bg-white\\">\\n        <div className=\\"container mx-auto px-4\\">\\n          <h2 className=\\"text-3xl font-bold text-center mb-12\\">Contact Us</h2>\\n          <div className=\\"grid md:grid-cols-2 gap-8\\">\\n            <div>\\n              <h3 className=\\"text-xl font-semibold mb-4\\">Get in Touch</h3>\\n              <p className=\\"text-gray-600 mb-4\\">Have questions about TaskFlow? We'd love to hear from you.</p>\\n              <p className=\\"text-gray-600\\">Email: hello@taskflow.app</p>\\n            </div>\\n            <form className=\\"space-y-4\\">\\n              <input type=\\"text\\" placeholder=\\"Name\\" className=\\"w-full p-3 border rounded-lg\\" />\\n              <input type=\\"email\\" placeholder=\\"Email\\" className=\\"w-full p-3 border rounded-lg\\" />\\n              <textarea placeholder=\\"Message\\" className=\\"w-full p-3 border rounded-lg\\" rows=\\"4\\"></textarea>\\n              <button type=\\"submit\\" className=\\"bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700\\">Send</button>\\n            </form>\\n          </div>\\n        </div>\\n      </section>\\n    </div>\\n  );\\n}\\n\\nexport default App;"
-  },
-  "image_requests": [
-    {
-      "prompt": "A professional hero image for TaskFlow mobile app",
-      "aspect_ratio": "16:9",
-      "placement": "hero"
-    },
-    {
-      "prompt": "App Store badge for TaskFlow",
-      "aspect_ratio": "1:1",
-      "placement": "app_store"
-    },
-    {
-      "prompt": "Google Play Store badge for TaskFlow",
-      "aspect_ratio": "1:1",
-      "placement": "google_play"
-    },
-    {
-      "prompt": "Mobile app screenshot 1 for TaskFlow",
-      "aspect_ratio": "9:16",
-      "placement": "screenshot_1"
-    },
-    {
-      "prompt": "Mobile app screenshot 2 for TaskFlow",
-      "aspect_ratio": "9:16",
-      "placement": "screenshot_2"
-    },
-    {
-      "prompt": "Mobile app screenshot 3 for TaskFlow",
-      "aspect_ratio": "9:16",
-      "placement": "screenshot_3"
-    },
-    {
-      "prompt": "Feature icon for task management",
-      "aspect_ratio": "1:1",
-      "placement": "feature_1"
-    },
-    {
-      "prompt": "Feature icon for reminders",
-      "aspect_ratio": "1:1",
-      "placement": "feature_2"
-    },
-    {
-      "prompt": "Feature icon for collaboration",
-      "aspect_ratio": "1:1",
-      "placement": "feature_3"
-    },
-    {
-      "prompt": "User testimonial avatar 1",
-      "aspect_ratio": "1:1",
-      "placement": "testimonial_1"
-    },
-    {
-      "prompt": "User testimonial avatar 2",
-      "aspect_ratio": "1:1",
-      "placement": "testimonial_2"
-    },
-    {
-      "prompt": "User testimonial avatar 3",
-      "aspect_ratio": "1:1",
-      "placement": "testimonial_3"
-    },
-    {
-      "prompt": "About section image for TaskFlow",
-      "aspect_ratio": "16:9",
-      "placement": "about"
-    }
-  ],
-  "business_info": {
-    "name": "TaskFlow",
-    "tagline": "Your digital life, simplified",
-    "color_scheme": "mobile_app"
-  }
-}
-
 CRITICAL JSON FORMATTING RULES:
 - Use double quotes for all property names and string values
 - No trailing commas before closing braces or brackets
@@ -4547,10 +4557,13 @@ CRITICAL JSON FORMATTING RULES:
 - The response must be valid JSON that can be parsed by JSON.parse()
 - DO NOT include any text before or after the JSON object
 - DO NOT use markdown code blocks around the JSON
+
+CRITICAL: You MUST return ONLY a valid JSON object with this EXACT structure:
+
 {
   "assistant_message": "I've created a complete landing page with all requested features.",
   "updated_files": {
-    "src/App.jsx": "import React, { useState, useEffect } from 'react';\\n\\nfunction App() {\\n  const [formData, setFormData] = useState({});\\n  const [email, setEmail] = useState('');\\n  \\n  const handleSubmit = (e) => {\\n    e.preventDefault();\\n    // Handle form submission\\n  };\\n  \\n  return (\\n    <div className=\\"min-h-screen bg-gradient-to-br from-indigo-500 to-pink-500\\">\\n      {/* Navigation */}\\n      <nav className=\\"...\\">\\n        {/* Navigation content */}\\n      </nav>\\n      \\n      {/* Hero Section with app name and tagline */}\\n      <section className=\\"hero-section\\">\\n        <h1>TaskFlow</h1>\\n        <p>Your digital life, simplified</p>\\n        {/* App store badges and download buttons */}\\n      </section>\\n      \\n      {/* App Preview/Screenshots Section */}\\n      <section className=\\"app-preview\\">\\n        {/* Mobile mockups and screenshots */}\\n      </section>\\n      \\n      {/* Feature Showcase */}\\n      <section className=\\"features\\">\\n        {/* Feature cards with icons */}\\n      </section>\\n      \\n      {/* Beta Signup Form */}\\n      <section className=\\"beta-signup\\">\\n        <form onSubmit={handleSubmit}>\\n          <input type=\\"email\\" value={email} onChange={(e) => setEmail(e.target.value)} />\\n          <button type=\\"submit\\">Join Beta</button>\\n        </form>\\n      </section>\\n      \\n      {/* User Testimonials */}\\n      <section className=\\"testimonials\\">\\n        {/* Customer reviews */}\\n      </section>\\n      \\n      {/* About Section */}\\n      <section className=\\"about\\">\\n        {/* App benefits and description */}\\n      </section>\\n      \\n      {/* Contact Section */}\\n      <section className=\\"contact\\">\\n        {/* Contact form */}\\n      </section>\\n    </div>\\n  );\\n}"
+    "src/App.jsx": "import React, { useState, useEffect } from 'react';\\n\\nfunction App() {\\n  const [formData, setFormData] = useState({});\\n  const [email, setEmail] = useState('');\\n  \\n  const handleSubmit = (e) => {\\n    e.preventDefault();\\n    // Handle form submission\\n  };\\n  \\n  return (\\n    <div className=\\"min-h-screen bg-gradient-to-br from-indigo-500 to-pink-500\\">\\n      {/* Navigation */}\\n      <nav className=\\"...\\">\\n        {/* Navigation content */}\\n      </nav>\\n      \\n      {/* Hero Section with app name and tagline */}\\n      <section className=\\"hero-section\\">\\n        <h1>${businessInfo.name}</h1>\\n        <p>${businessInfo.tagline}</p>\\n        {/* App store badges and download buttons */}\\n      </section>\\n      \\n      {/* App Preview/Screenshots Section */}\\n      <section className=\\"app-preview\\">\\n        {/* Mobile mockups and screenshots */}\\n      </section>\\n      \\n      {/* Feature Showcase */}\\n      <section className=\\"features\\">\\n        {/* Feature cards with icons */}\\n      </section>\\n      \\n      {/* Beta Signup Form */}\\n      <section className=\\"beta-signup\\">\\n        <form onSubmit={handleSubmit}>\\n          <input type=\\"email\\" value={email} onChange={(e) => setEmail(e.target.value)} />\\n          <button type=\\"submit\\">Join Beta</button>\\n        </form>\\n      </section>\\n      \\n      {/* User Testimonials */}\\n      <section className=\\"testimonials\\">\\n        {/* Customer reviews */}\\n      </section>\\n      \\n      {/* About Section */}\\n      <section className=\\"about\\">\\n        {/* App benefits and description */}\\n      </section>\\n      \\n      {/* Contact Section */}\\n      <section className=\\"contact\\">\\n        {/* Contact form */}\\n      </section>\\n    </div>\\n  );\\n}"
   },
   "image_requests": [
     {
@@ -4584,7 +4597,7 @@ function getBusinessSpecificRequirements(businessType) {
 CRITICAL: You MUST create a mobile app landing page with these EXACT sections and features.
 
 REQUIRED SECTIONS (ALL MUST BE INCLUDED):
-1. Hero - with "TaskFlow" app name, tagline, and app store badges
+1. Hero - with app name, tagline, and app store badges
 2. App Preview/Screenshots - mobile mockups and app screenshots
 3. Features - feature showcase with icons and descriptions
 4. Beta Signup - email signup form with "Join Beta" button
@@ -4618,7 +4631,7 @@ DO NOT SKIP ANY SECTION OR FEATURE!
 CRITICAL: You MUST create a consulting service landing page with these EXACT sections and features.
 
 REQUIRED SECTIONS (ALL MUST BE INCLUDED):
-1. Hero - with "Strategic Solutions" and consultation CTA
+1. Hero - with company name and consultation CTA
 2. Services - business optimization, profitability, strategic consulting
 3. Consultation Form - with date, time, service type, company fields
 4. Case Studies - success stories and client results
@@ -4649,7 +4662,7 @@ DO NOT SKIP ANY SECTION OR FEATURE!
 CRITICAL: You MUST create an online education platform landing page with these EXACT sections and features.
 
 REQUIRED SECTIONS (ALL MUST BE INCLUDED):
-1. Hero - with "SkillMaster" brand and learning CTA
+1. Hero - with platform name and learning CTA
 2. Courses - course previews with programming, design, business categories
 3. Features - learning modules, progress tracking, certification
 4. Testimonials - student reviews and success stories
@@ -4773,13 +4786,25 @@ DO NOT SKIP ANY SECTION OR FEATURE!
   return requirements[businessType] || '';
 }
 
+// === TARGETED CODE EDITING SYSTEM ===
+
 // Apply targeted updates to preserve existing code
 async function applyTargetedUpdates(updatedFiles, originalFiles, sectionAnalysis, env) {
-  const { targetSections } = sectionAnalysis;
+  console.log(`🎯 Applying targeted updates...`);
+  console.log(`   - Target sections: ${sectionAnalysis.targetSections.join(', ') || 'none'}`);
+  console.log(`   - Edit scope: ${sectionAnalysis.editScope}`);
+  console.log(`   - Is targeted edit: ${sectionAnalysis.isTargetedEdit}`);
+  
+  // If this is a full regeneration or initial prompt, return the new files as-is
+  if (sectionAnalysis.editScope === 'full' || !sectionAnalysis.isTargetedEdit) {
+    console.log(`🔄 Full regeneration detected - using new files as-is`);
+    return updatedFiles;
+  }
   
   // If no specific sections targeted, return original files with minimal changes
-  if (targetSections.length === 0) {
-    return updatedFiles;
+  if (sectionAnalysis.targetSections.length === 0) {
+    console.log(`⚠️ No target sections - preserving original files`);
+    return originalFiles;
   }
   
   const result = {};
@@ -4787,23 +4812,23 @@ async function applyTargetedUpdates(updatedFiles, originalFiles, sectionAnalysis
   for (const [filename, newContent] of Object.entries(updatedFiles)) {
     if (originalFiles[filename]) {
       // Merge changes intelligently
-      result[filename] = await mergeTargetedChanges(filename, originalFiles[filename], newContent, targetSections);
+      result[filename] = await mergeTargetedChanges(filename, originalFiles[filename], newContent, sectionAnalysis);
     } else {
       // New file, use as is
       result[filename] = newContent;
     }
   }
   
+  console.log(`✅ Targeted updates applied successfully`);
   return result;
 }
 
 // Merge targeted changes while preserving existing code
-async function mergeTargetedChanges(filename, originalContent, newContent, targetSections) {
-  // For now, use a simple approach - preserve original content and only apply specific section changes
-  // This can be enhanced with more sophisticated diffing algorithms
+async function mergeTargetedChanges(filename, originalContent, newContent, sectionAnalysis) {
+  console.log(`🔧 Merging changes for ${filename}`);
   
   if (filename.includes('App.jsx') || filename.includes('main.jsx')) {
-    return await mergeJSXChanges(originalContent, newContent, targetSections);
+    return await mergeJSXChanges(originalContent, newContent, sectionAnalysis);
   }
   
   // For other files, preserve original content
@@ -4811,19 +4836,138 @@ async function mergeTargetedChanges(filename, originalContent, newContent, targe
 }
 
 // Merge JSX changes intelligently
-async function mergeJSXChanges(originalContent, newContent, targetSections) {
-  // Simple approach: extract target sections from new content and merge with original
-  // This is a basic implementation that can be enhanced
+async function mergeJSXChanges(originalContent, newContent, sectionAnalysis) {
+  console.log(`🎨 Merging JSX changes with scope: ${sectionAnalysis.editScope}`);
+  
+  let mergedContent = originalContent;
+  
+  if (sectionAnalysis.editScope === 'style') {
+    // Only update style-related changes
+    mergedContent = await mergeStyleChanges(originalContent, newContent, sectionAnalysis);
+  } else if (sectionAnalysis.editScope === 'element') {
+    // Only update specific elements
+    mergedContent = await mergeElementChanges(originalContent, newContent, sectionAnalysis);
+  } else if (sectionAnalysis.editScope === 'section') {
+    // Update entire sections
+    mergedContent = await mergeSectionChanges(originalContent, newContent, sectionAnalysis);
+  }
+  
+  return mergedContent;
+}
+
+// Merge style changes only
+async function mergeStyleChanges(originalContent, newContent, sectionAnalysis) {
+  console.log(`🎨 Merging style changes...`);
+  
+  // Extract color schemes and style patterns from new content
+  const colorPatterns = [
+    /bg-\w+-\d+/g,
+    /text-\w+-\d+/g,
+    /border-\w+-\d+/g,
+    /from-\w+-\d+/g,
+    /to-\w+-\d+/g
+  ];
+  
+  let mergedContent = originalContent;
+  
+  // Apply color changes to target sections
+  for (const section of sectionAnalysis.targetSections) {
+    const sectionRegex = new RegExp(`(<div[^>]*className="[^"]*${section}[^"]*"[^>]*>.*?</div>)`, 'gs');
+    const sectionMatches = originalContent.match(sectionRegex);
+    
+    if (sectionMatches) {
+      for (const match of sectionMatches) {
+        // Find corresponding section in new content
+        const newSectionMatch = newContent.match(sectionRegex);
+        if (newSectionMatch) {
+          // Extract style classes from new section
+          const styleClasses = newSectionMatch[0].match(/className="([^"]*)"/);
+          if (styleClasses) {
+            // Apply new styles to original section
+            const updatedSection = match.replace(/className="([^"]*)"/, `className="${styleClasses[1]}"`);
+            mergedContent = mergedContent.replace(match, updatedSection);
+          }
+        }
+      }
+    }
+  }
+  
+  return mergedContent;
+}
+
+// Merge element changes only
+async function mergeElementChanges(originalContent, newContent, sectionAnalysis) {
+  console.log(`🔧 Merging element changes...`);
+  
+  let mergedContent = originalContent;
+  
+  // Handle text changes
+  if (sectionAnalysis.textOperation) {
+    // Extract text content from new content and apply to original
+    const textPatterns = [
+      /<h1[^>]*>(.*?)<\/h1>/g,
+      /<h2[^>]*>(.*?)<\/h2>/g,
+      /<h3[^>]*>(.*?)<\/h3>/g,
+      /<p[^>]*>(.*?)<\/p>/g,
+      /<span[^>]*>(.*?)<\/span>/g
+    ];
+    
+    for (const pattern of textPatterns) {
+      const newMatches = newContent.match(pattern);
+      if (newMatches) {
+        const originalMatches = originalContent.match(pattern);
+        if (originalMatches && newMatches.length === originalMatches.length) {
+          for (let i = 0; i < newMatches.length; i++) {
+            mergedContent = mergedContent.replace(originalMatches[i], newMatches[i]);
+          }
+        }
+      }
+    }
+  }
+  
+  // Handle image changes
+  if (sectionAnalysis.imageOperation) {
+    // Extract image URLs from new content and apply to original
+    const imagePattern = /<img[^>]*src="([^"]*)"[^>]*>/g;
+    const newImages = newContent.match(imagePattern);
+    const originalImages = originalContent.match(imagePattern);
+    
+    if (newImages && originalImages && newImages.length === originalImages.length) {
+      for (let i = 0; i < newImages.length; i++) {
+        mergedContent = mergedContent.replace(originalImages[i], newImages[i]);
+      }
+    }
+  }
+  
+  return mergedContent;
+}
+
+// Merge section changes
+async function mergeSectionChanges(originalContent, newContent, sectionAnalysis) {
+  console.log(`📄 Merging section changes...`);
   
   let mergedContent = originalContent;
   
   // For each target section, find and replace the corresponding section in original content
-  for (const section of targetSections) {
-    const sectionRegex = new RegExp(`<div[^>]*className="[^"]*${section}[^"]*"[^>]*>.*?</div>`, 'gs');
-    const newSectionMatch = newContent.match(sectionRegex);
+  for (const section of sectionAnalysis.targetSections) {
+    console.log(`   - Processing section: ${section}`);
     
-    if (newSectionMatch) {
-      mergedContent = mergedContent.replace(sectionRegex, newSectionMatch[0]);
+    // Try different section patterns
+    const sectionPatterns = [
+      new RegExp(`(<section[^>]*id="${section}"[^>]*>.*?</section>)`, 'gs'),
+      new RegExp(`(<div[^>]*className="[^"]*${section}[^"]*"[^>]*>.*?</div>)`, 'gs'),
+      new RegExp(`(<div[^>]*id="${section}"[^>]*>.*?</div>)`, 'gs')
+    ];
+    
+    for (const pattern of sectionPatterns) {
+      const newSectionMatch = newContent.match(pattern);
+      const originalSectionMatch = originalContent.match(pattern);
+      
+      if (newSectionMatch && originalSectionMatch) {
+        console.log(`   ✅ Found and replacing section: ${section}`);
+        mergedContent = mergedContent.replace(originalSectionMatch[0], newSectionMatch[0]);
+        break;
+      }
     }
   }
   
@@ -5020,3 +5164,71 @@ async function handleGetBackups(request, env, corsHeaders) {
     });
   }
 }
+
+// Simple function for business type detection only
+async function callOpenAIBusinessType(userMessage, env) {
+  const openaiUrl = 'https://api.openai.com/v1/chat/completions';
+  
+  const systemPrompt = `You are a business classifier. Analyze the business description and return ONLY the business type code that best matches.
+
+Available business types:
+- saas_b2b (software as a service, business software, APIs, platforms)
+- mobile_app (mobile applications, smartphone apps)
+- consulting_service (business consulting, advisory services)
+- online_education (online learning, courses, educational platforms)
+- real_estate (property sales, real estate agencies)
+- healthcare_wellness (medical services, health clinics)
+- creative_agency (design agencies, creative services)
+- subscription_box (monthly subscription services)
+- bar_restaurant (bars, restaurants, cafes, food establishments)
+- ecommerce_fashion (online fashion stores, clothing retailers)
+- local_service (local professional services, repairs, maintenance)
+
+Return ONLY the business type code (e.g., "saas_b2b") with no other text.`;
+
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userMessage }
+  ];
+
+  try {
+    const response = await fetch(openaiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${env.OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: messages,
+        max_tokens: 50,
+        temperature: 0.1
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.choices && data.choices[0] && data.choices[0].message) {
+      const assistantMessage = data.choices[0].message.content.trim();
+      
+      // Log cost - fix the parameter access
+      const inputTokens = data.usage?.prompt_tokens || 0;
+      const outputTokens = data.usage?.completion_tokens || 0;
+      const cost = calculateCost(inputTokens, outputTokens, 'mini');
+      console.log(`💰 GPT-4o-mini cost: { input_tokens: ${inputTokens}, output_tokens: ${outputTokens}, cost: '$${cost.toFixed(6)}' }`);
+      
+      return { assistant_message: assistantMessage };
+    } else {
+      throw new Error('Invalid response format from OpenAI');
+    }
+  } catch (error) {
+    console.log(`⚠️ Error calling OpenAI for business type detection: ${error.message}`);
+    throw error;
+  }
+}
+
+// Detect business type from user message using GPT-4o-mini

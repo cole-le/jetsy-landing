@@ -152,13 +152,17 @@ const ChatPage = ({ onBackToHome }) => {
 
     try {
       // 1. Add user message to chat history
+      // Check if this is the first message for this project
+      const isInitialMessage = messages.length === 0;
+      
       await fetch('/api/chat_messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           project_id: currentProject.id,
           role: 'user',
-          message: inputMessage
+          message: inputMessage,
+          is_initial_message: isInitialMessage
         })
       });
 
@@ -205,7 +209,8 @@ const ChatPage = ({ onBackToHome }) => {
               project_id: currentProject.id,
               role: 'assistant',
               message: result.message,
-              clarification_state: JSON.stringify(clarificationState)
+              clarification_state: JSON.stringify(clarificationState),
+              is_initial_message: false
             })
           });
           
@@ -241,7 +246,8 @@ const ChatPage = ({ onBackToHome }) => {
             project_id: currentProject.id,
             role: 'assistant',
             message: result.assistant_message,
-            backup_id: result.backup_id
+            backup_id: result.backup_id,
+            is_initial_message: false
           })
         });
         setMessages(prev => [...prev, assistantMessage]);
