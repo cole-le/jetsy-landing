@@ -13,6 +13,7 @@ import { trackEvent } from './utils/analytics'
 import DemoBookingForm from './components/DemoBookingForm'
 import ChatInputWithToggle from './components/ChatInputWithToggle'
 import ChatPage from './components/ChatPage'
+import ExceptionalTemplate from './components/ExceptionalTemplate'
 
 function App() {
   const [currentStep, setCurrentStep] = useState('hero') // hero, faq, pricing, lead-capture, onboarding, login, demo-booking, demo-thankyou, chat
@@ -24,6 +25,7 @@ function App() {
   const [leadData, setLeadData] = useState(null)
   const [hasSeenPricing, setHasSeenPricing] = useState(false)
   const [expandChat, setExpandChat] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   useEffect(() => {
     // Track page view
@@ -34,27 +36,41 @@ function App() {
   useEffect(() => {
     const path = window.location.pathname;
     console.log('URL pathname:', path);
+    
     if (path === '/chat') {
       console.log('Setting currentStep to chat');
       setCurrentStep('chat');
     } else if (path === '/faq') {
       setCurrentStep('faq');
+    } else if (path === '/template') {
+      setCurrentStep('template');
     } else if (path === '/') {
       setCurrentStep('hero');
     }
+    
+    // Mark initial load as complete
+    setIsInitialLoad(false);
   }, []);
 
-  // Update URL when step changes
+  // Update URL when step changes (but avoid infinite loops)
   useEffect(() => {
+    // Don't update URL during initial load
+    if (isInitialLoad) return;
+    
+    const path = window.location.pathname;
     console.log('currentStep changed to:', currentStep);
-    if (currentStep === 'chat') {
+    
+    // Only update URL if it doesn't match the current step
+    if (currentStep === 'chat' && path !== '/chat') {
       window.history.pushState({}, '', '/chat');
-    } else if (currentStep === 'faq') {
+    } else if (currentStep === 'faq' && path !== '/faq') {
       window.history.pushState({}, '', '/faq');
-    } else if (currentStep === 'hero') {
+    } else if (currentStep === 'template' && path !== '/template') {
+      window.history.pushState({}, '', '/template');
+    } else if (currentStep === 'hero' && path !== '/') {
       window.history.pushState({}, '', '/');
     }
-  }, [currentStep]);
+  }, [currentStep, isInitialLoad]);
 
   const handleChatClick = () => {
     setCurrentStep('chat');
@@ -457,8 +473,13 @@ function App() {
         <ChatPage onBackToHome={() => setCurrentStep('hero')} />
       )}
 
+      {/* Exceptional Template */}
+      {currentStep === 'template' && (
+        <ExceptionalTemplate />
+      )}
+
       {/* Footer */}
-      <Footer />
+      {currentStep !== 'template' && <Footer />}
 
     </div>
   )
