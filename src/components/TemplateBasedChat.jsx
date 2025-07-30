@@ -79,7 +79,9 @@ const TemplateBasedChat = ({ onBackToHome }) => {
       email: "hello@jetsy.com",
       phone: "+1 (555) 123-4567",
       office: "San Francisco, CA"
-    }
+    },
+    trustIndicator1: "Join 10,000+ creators",
+    trustIndicator2: "4.9/5 rating"
   });
 
   // Load existing project when component mounts
@@ -729,6 +731,42 @@ const TemplateBasedChat = ({ onBackToHome }) => {
                   </div>
                 </div>
 
+                {/* Trust Indicators Editor */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center">
+                    <span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span>
+                    Trust Indicators
+                  </h4>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Trust Indicator 1</label>
+                      <input
+                        type="text"
+                        value={templateData.trustIndicator1}
+                        onChange={(e) => setTemplateData(prev => ({ 
+                          ...prev, 
+                          trustIndicator1: e.target.value
+                        }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g., Join 10,000+ creators"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Trust Indicator 2</label>
+                      <input
+                        type="text"
+                        value={templateData.trustIndicator2}
+                        onChange={(e) => setTemplateData(prev => ({ 
+                          ...prev, 
+                          trustIndicator2: e.target.value
+                        }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g., 4.9/5 rating"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 {/* Action Buttons */}
                 <div className="bg-gray-50 rounded-lg p-6">
                   <div className="flex space-x-4">
@@ -790,15 +828,17 @@ const TemplateBasedChat = ({ onBackToHome }) => {
         
         <div className="flex-1 overflow-y-auto">
           <div className="min-h-full">
-            <ExceptionalTemplate 
-              businessName={templateData.businessName}
-              tagline={templateData.tagline}
-              heroDescription={templateData.heroDescription}
-              features={templateData.features}
-              aboutContent={templateData.aboutContent}
-              pricing={templateData.pricing}
-              contactInfo={templateData.contactInfo}
-            />
+                                    <ExceptionalTemplate 
+                          businessName={templateData.businessName}
+                          tagline={templateData.tagline}
+                          heroDescription={templateData.heroDescription}
+                          features={templateData.features}
+                          aboutContent={templateData.aboutContent}
+                          pricing={templateData.pricing}
+                          contactInfo={templateData.contactInfo}
+                          trustIndicator1={templateData.trustIndicator1}
+                          trustIndicator2={templateData.trustIndicator2}
+                        />
           </div>
         </div>
       </div>

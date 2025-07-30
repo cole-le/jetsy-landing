@@ -5282,6 +5282,8 @@ Generate content for the following sections:
 5. aboutContent - About section content
 6. pricing - 3 pricing tiers (Starter, Pro, Enterprise) with appropriate features and pricing
 7. contactInfo - Contact information
+8. trustIndicator1 - A trust indicator like "Join 10,000+ creators" or similar
+9. trustIndicator2 - A rating or review indicator like "4.9/5 rating" or similar
 
 Return ONLY a JSON object with these fields. Keep the structure exactly the same as the current template data.`;
 

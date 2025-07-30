@@ -69,7 +69,9 @@ const ExceptionalTemplate = ({
     email: "hello@jetsy.com",
     phone: "+1 (555) 123-4567",
     office: "San Francisco, CA"
-  }
+  },
+  trustIndicator1 = "Join 10,000+ creators",
+  trustIndicator2 = "4.9/5 rating"
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [activeSection, setActiveSection] = useState('home');
@@ -138,7 +140,7 @@ const ExceptionalTemplate = ({
                 </div>
               </div>
               <div className="ml-3">
-                <span className="text-xl font-bold text-gray-900">Jetsy</span>
+                <span className="text-xl font-bold text-gray-900">{businessName}</span>
               </div>
             </div>
             
@@ -203,7 +205,7 @@ const ExceptionalTemplate = ({
                     <div key={i} className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-400 to-purple-400 border-2 border-white"></div>
                   ))}
                 </div>
-                <span>Join 10,000+ creators</span>
+                <span>{trustIndicator1}</span>
               </div>
               <div className="flex items-center">
                 <div className="flex text-yellow-400 mr-2">
@@ -213,7 +215,7 @@ const ExceptionalTemplate = ({
                     </svg>
                   ))}
                 </div>
-                <span>4.9/5 rating</span>
+                <span>{trustIndicator2}</span>
               </div>
             </div>
           </div>
@@ -503,7 +505,7 @@ const ExceptionalTemplate = ({
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center mr-3">
                   <span className="text-white font-bold text-sm">J</span>
                 </div>
-                <span className="text-xl font-bold">Jetsy</span>
+                <span className="text-xl font-bold">{businessName}</span>
               </div>
               <p className="text-gray-400 mb-6 max-w-md">
                 Build beautiful, conversion-optimized landing pages with AI. 
@@ -550,7 +552,7 @@ const ExceptionalTemplate = ({
           </div>
           
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 Jetsy. All rights reserved.</p>
+            <p>&copy; 2024 {businessName}. All rights reserved.</p>
           </div>
         </div>
       </footer>
