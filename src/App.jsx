@@ -13,6 +13,7 @@ import { trackEvent } from './utils/analytics'
 import DemoBookingForm from './components/DemoBookingForm'
 import ChatInputWithToggle from './components/ChatInputWithToggle'
 import ChatPage from './components/ChatPage'
+import TemplateBasedChat from './components/TemplateBasedChat'
 import ExceptionalTemplate from './components/ExceptionalTemplate'
 
 function App() {
@@ -470,7 +471,7 @@ function App() {
 
       {/* Chat Page */}
       {currentStep === 'chat' && (
-        <ChatPage onBackToHome={() => setCurrentStep('hero')} />
+        <TemplateBasedChat onBackToHome={() => setCurrentStep('hero')} />
       )}
 
       {/* Exceptional Template */}

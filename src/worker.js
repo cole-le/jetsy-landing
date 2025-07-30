@@ -109,6 +109,14 @@ export default {
         }
       }
 
+      // --- Template Generation API ---
+      if (path === '/api/template-generate' && request.method === 'POST') {
+        return await handleTemplateGeneration(request, env, corsHeaders);
+      }
+      if (path === '/api/template-generate' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
       // --- LLM Orchestration API ---
       if (path === '/api/llm-orchestrate' && request.method === 'POST') {
         return await handleLLMOrchestration(request, env, corsHeaders);
@@ -5232,3 +5240,101 @@ Return ONLY the business type code (e.g., "saas_b2b") with no other text.`;
 }
 
 // Detect business type from user message using GPT-4o-mini
+
+// Handle template generation for the new template-based system
+async function handleTemplateGeneration(request, env, corsHeaders) {
+  try {
+    const { project_id, user_message, current_template_data } = await request.json();
+    
+    // Detect business type from user message
+    const businessTypeResult = await detectBusinessType(user_message, env);
+    const businessType = businessTypeResult.assistant_message;
+    
+    // Generate template content based on business type and user message
+    const updatedTemplateData = await generateTemplateContent(user_message, current_template_data, businessType, env);
+    
+    return new Response(JSON.stringify({
+      success: true,
+      template_data: updatedTemplateData,
+      assistant_message: 'I\'ve updated your landing page with content tailored to your business!'
+    }), {
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  } catch (error) {
+    console.error('Template generation error:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Failed to generate template content'
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+}
+
+// Generate template content based on business type and user message
+async function generateTemplateContent(userMessage, currentTemplateData, businessType, env) {
+  const systemPrompt = `You are an expert landing page content generator. Based on the user's business description and business type, generate appropriate content for their landing page template.
+
+Business Type: ${businessType}
+User Message: ${userMessage}
+
+Generate content for the following sections:
+1. businessName - A compelling business name (if not provided in user message, create one)
+2. tagline - A powerful tagline that captures the value proposition
+3. heroDescription - A brief description for the hero section
+4. features - 6 features that highlight the key benefits (keep the same structure with icon, title, description)
+5. aboutContent - About section content
+6. pricing - 3 pricing tiers (Starter, Pro, Enterprise) with appropriate features and pricing
+7. contactInfo - Contact information
+
+Return ONLY a JSON object with these fields. Keep the structure exactly the same as the current template data.`;
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${env.OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Current template data: ${JSON.stringify(currentTemplateData)}` }
+        ],
+        max_tokens: 2000,
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.choices && data.choices[0] && data.choices[0].message) {
+      const assistantMessage = data.choices[0].message.content.trim();
+      
+      // Try to parse the JSON response
+      try {
+        const generatedData = JSON.parse(assistantMessage);
+        return {
+          ...currentTemplateData,
+          ...generatedData
+        };
+      } catch (parseError) {
+        console.error('Failed to parse AI response as JSON:', parseError);
+        // Return current template data if parsing fails
+        return currentTemplateData;
+      }
+    } else {
+      throw new Error('Invalid response format from OpenAI');
+    }
+  } catch (error) {
+    console.error('Error generating template content:', error);
+    // Return current template data as fallback
+    return currentTemplateData;
+  }
+}

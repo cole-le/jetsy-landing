@@ -1,6 +1,76 @@
 import React, { useState, useEffect } from 'react';
 
-const ExceptionalTemplate = () => {
+const ExceptionalTemplate = ({ 
+  businessName = 'Your Amazing Startup',
+  tagline = 'Transform your idea into reality with our innovative solution',
+  heroDescription = 'Join thousands of satisfied customers who have already made the leap.',
+  features = [
+    {
+      icon: "🚀",
+      title: "AI-Powered Design",
+      description: "Our AI analyzes your business and creates stunning, conversion-optimized designs automatically."
+    },
+    {
+      icon: "⚡",
+      title: "Lightning Fast",
+      description: "Build and deploy your landing page in minutes, not hours. Get to market faster than ever."
+    },
+    {
+      icon: "📱",
+      title: "Mobile-First",
+      description: "Every landing page is optimized for mobile devices, ensuring perfect performance everywhere."
+    },
+    {
+      icon: "🎨",
+      title: "Customizable",
+      description: "Easily customize colors, fonts, layouts, and content to match your brand perfectly."
+    },
+    {
+      icon: "📊",
+      title: "Analytics Built-in",
+      description: "Track conversions, user behavior, and performance with our integrated analytics dashboard."
+    },
+    {
+      icon: "🔒",
+      title: "Secure & Reliable",
+      description: "Built on enterprise-grade infrastructure with 99.9% uptime and advanced security."
+    }
+  ],
+  aboutContent = "We understand the challenges of bringing ideas to life. That's why we've built a platform that makes it effortless to create professional landing pages that actually convert visitors into customers.",
+  pricing = [
+    {
+      name: "Starter",
+      price: "Free",
+      description: "Perfect for trying out our platform",
+      features: ["1 landing page", "Basic templates", "Email support", "Analytics dashboard"],
+      cta: "Get Started Free",
+      popular: false
+    },
+    {
+      name: "Pro",
+      price: "$29",
+      period: "/month",
+      description: "For growing businesses and creators",
+      features: ["Unlimited landing pages", "Premium templates", "Priority support", "Advanced analytics", "Custom domains", "A/B testing"],
+      cta: "Start Pro Trial",
+      popular: true
+    },
+    {
+      name: "Enterprise",
+      price: "$99",
+      period: "/month",
+      description: "For large teams and agencies",
+      features: ["Everything in Pro", "Team collaboration", "White-label options", "API access", "Dedicated support", "Custom integrations"],
+      cta: "Contact Sales",
+      popular: false
+    }
+  ],
+  contactInfo = {
+    email: "hello@jetsy.com",
+    phone: "+1 (555) 123-4567",
+    office: "San Francisco, CA"
+  }
+}) => {
   const [isVisible, setIsVisible] = useState(false);
   const [activeSection, setActiveSection] = useState('home');
   const [formData, setFormData] = useState({
@@ -58,7 +128,7 @@ const ExceptionalTemplate = () => {
   return (
     <div className="min-h-screen bg-white">
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
+      <nav className="relative bg-white/90 backdrop-blur-md border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
@@ -92,7 +162,7 @@ const ExceptionalTemplate = () => {
       </nav>
 
       {/* Hero Section */}
-      <section id="home" className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-gray-50 to-blue-50">
+      <section id="home" className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-gray-50 to-blue-50 pt-0">
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10"></div>
         
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -105,15 +175,15 @@ const ExceptionalTemplate = () => {
             </div>
             
             <h1 className="text-5xl md:text-7xl font-bold text-gray-900 mb-6 leading-tight">
-              Build Beautiful
-              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Landing Pages</span>
-              <br />
-              in Minutes
+              {businessName}
             </h1>
             
             <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
-              Transform your ideas into stunning, conversion-optimized landing pages with our AI-powered platform. 
-              No coding required, just pure creativity.
+              {tagline}
+            </p>
+            
+            <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed">
+              {heroDescription}
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
@@ -169,38 +239,7 @@ const ExceptionalTemplate = () => {
           </div>
           
           <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                icon: "🚀",
-                title: "AI-Powered Design",
-                description: "Our AI analyzes your business and creates stunning, conversion-optimized designs automatically."
-              },
-              {
-                icon: "⚡",
-                title: "Lightning Fast",
-                description: "Build and deploy your landing page in minutes, not hours. Get to market faster than ever."
-              },
-              {
-                icon: "📱",
-                title: "Mobile-First",
-                description: "Every landing page is optimized for mobile devices, ensuring perfect performance everywhere."
-              },
-              {
-                icon: "🎨",
-                title: "Customizable",
-                description: "Easily customize colors, fonts, layouts, and content to match your brand perfectly."
-              },
-              {
-                icon: "📊",
-                title: "Analytics Built-in",
-                description: "Track conversions, user behavior, and performance with our integrated analytics dashboard."
-              },
-              {
-                icon: "🔒",
-                title: "Secure & Reliable",
-                description: "Built on enterprise-grade infrastructure with 99.9% uptime and advanced security."
-              }
-            ].map((feature, index) => (
+            {features.map((feature, index) => (
               <div key={index} className="group p-8 rounded-2xl bg-gray-50 hover:bg-white hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
                 <div className="text-4xl mb-4">{feature.icon}</div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-3">{feature.title}</h3>
@@ -222,8 +261,7 @@ const ExceptionalTemplate = () => {
                 <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">for creators</span>
               </h2>
               <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-                We understand the challenges of bringing ideas to life. That's why we've built a platform that makes 
-                it effortless to create professional landing pages that actually convert visitors into customers.
+                {aboutContent}
               </p>
               
               <div className="space-y-4">
@@ -288,34 +326,7 @@ const ExceptionalTemplate = () => {
           </div>
           
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {[
-              {
-                name: "Starter",
-                price: "Free",
-                description: "Perfect for trying out our platform",
-                features: ["1 landing page", "Basic templates", "Email support", "Analytics dashboard"],
-                cta: "Get Started Free",
-                popular: false
-              },
-              {
-                name: "Pro",
-                price: "$29",
-                period: "/month",
-                description: "For growing businesses and creators",
-                features: ["Unlimited landing pages", "Premium templates", "Priority support", "Advanced analytics", "Custom domains", "A/B testing"],
-                cta: "Start Pro Trial",
-                popular: true
-              },
-              {
-                name: "Enterprise",
-                price: "$99",
-                period: "/month",
-                description: "For large teams and agencies",
-                features: ["Everything in Pro", "Team collaboration", "White-label options", "API access", "Dedicated support", "Custom integrations"],
-                cta: "Contact Sales",
-                popular: false
-              }
-            ].map((plan, index) => (
+            {pricing.map((plan, index) => (
               <div key={index} className={`relative p-8 rounded-2xl border-2 transition-all duration-300 transform hover:-translate-y-2 ${
                 plan.popular 
                   ? 'border-blue-600 bg-gradient-to-br from-blue-50 to-purple-50 shadow-2xl' 
@@ -384,8 +395,8 @@ const ExceptionalTemplate = () => {
                     </svg>
                   </div>
                   <div>
-                    <div className="font-semibold text-gray-900">Email</div>
-                    <div className="text-gray-600">hello@jetsy.com</div>
+                                         <div className="font-semibold text-gray-900">Email</div>
+                     <div className="text-gray-600">{contactInfo.email}</div>
                   </div>
                 </div>
                 
@@ -396,8 +407,8 @@ const ExceptionalTemplate = () => {
                     </svg>
                   </div>
                   <div>
-                    <div className="font-semibold text-gray-900">Phone</div>
-                    <div className="text-gray-600">+1 (555) 123-4567</div>
+                                         <div className="font-semibold text-gray-900">Phone</div>
+                     <div className="text-gray-600">{contactInfo.phone}</div>
                   </div>
                 </div>
                 
@@ -409,8 +420,8 @@ const ExceptionalTemplate = () => {
                     </svg>
                   </div>
                   <div>
-                    <div className="font-semibold text-gray-900">Office</div>
-                    <div className="text-gray-600">San Francisco, CA</div>
+                                         <div className="font-semibold text-gray-900">Office</div>
+                     <div className="text-gray-600">{contactInfo.office}</div>
                   </div>
                 </div>
               </div>

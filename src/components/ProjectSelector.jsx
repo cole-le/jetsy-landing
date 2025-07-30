@@ -18,9 +18,12 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
   const loadProjects = async () => {
     try {
       setLoading(true);
+      console.log('Loading projects...');
       const response = await fetch('/api/projects?user_id=1');
+      console.log('Projects response:', response);
       if (response.ok) {
         const result = await response.json();
+        console.log('Projects result:', result);
         setProjects(result.projects || []);
         
         // If no current project is selected, select the most recent one
@@ -29,6 +32,7 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
           onProjectSelect(mostRecent);
         }
       } else {
+        console.error('Failed to load projects:', response.status, response.statusText);
         setError('Failed to load projects');
       }
     } catch (error) {
@@ -168,7 +172,7 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 w-full">
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-200">
         <div className="flex items-center justify-between">
