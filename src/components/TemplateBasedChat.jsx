@@ -89,6 +89,35 @@ const TemplateBasedChat = ({ onBackToHome }) => {
     loadOrRestoreProject();
   }, []);
 
+  // Auto-save template data when it changes
+  useEffect(() => {
+    if (currentProject?.id && isEditorMode) {
+      const saveTemplateData = async () => {
+        try {
+          const response = await fetch(`/api/projects/${currentProject.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              template_data: templateData
+            })
+          });
+          
+          if (response.ok) {
+            console.log('Template data auto-saved successfully');
+          } else {
+            console.error('Failed to auto-save template data');
+          }
+        } catch (error) {
+          console.error('Error auto-saving template data:', error);
+        }
+      };
+
+      // Debounce the save to avoid too many API calls
+      const timeoutId = setTimeout(saveTemplateData, 1000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [templateData, currentProject?.id, isEditorMode]);
+
   const getStoredProjectId = () => {
     return localStorage.getItem('jetsy_current_project_id');
   };
@@ -111,6 +140,12 @@ const TemplateBasedChat = ({ onBackToHome }) => {
             project_name: project.project_name,
             files: JSON.parse(project.files)
           });
+          
+          // Load saved template data if it exists
+          if (project.template_data) {
+            setTemplateData(project.template_data);
+          }
+          
           await loadChatMessages(project.id);
           return;
         }
@@ -126,6 +161,12 @@ const TemplateBasedChat = ({ onBackToHome }) => {
             project_name: mostRecent.project_name,
             files: JSON.parse(mostRecent.files)
           });
+          
+          // Load saved template data if it exists
+          if (mostRecent.template_data) {
+            setTemplateData(mostRecent.template_data);
+          }
+          
           setStoredProjectId(mostRecent.id);
           await loadChatMessages(mostRecent.id);
           return;
@@ -234,6 +275,25 @@ const TemplateBasedChat = ({ onBackToHome }) => {
         // Update template data with AI-generated content
         if (result.template_data) {
           setTemplateData(result.template_data);
+          
+          // Save the AI-generated template data to database
+          try {
+            const saveResponse = await fetch(`/api/projects/${currentProject.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                template_data: result.template_data
+              })
+            });
+            
+            if (saveResponse.ok) {
+              console.log('AI-generated template data saved successfully');
+            } else {
+              console.error('Failed to save AI-generated template data');
+            }
+          } catch (error) {
+            console.error('Error saving AI-generated template data:', error);
+          }
         }
 
         // Add AI response to chat

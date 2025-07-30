@@ -1005,22 +1005,34 @@ async function createProject(request, env, corsHeaders) {
 async function updateProjectFiles(id, request, env, corsHeaders) {
   const db = env.DB;
   try {
-    const { files, project_name } = await request.json();
-    if (!files && !project_name) {
-      return new Response(JSON.stringify({ error: 'files or project_name are required' }), { status: 400, headers: corsHeaders });
+    const { files, project_name, template_data } = await request.json();
+    if (!files && !project_name && !template_data) {
+      return new Response(JSON.stringify({ error: 'files, project_name, or template_data are required' }), { status: 400, headers: corsHeaders });
     }
     const now = new Date().toISOString();
     
     let query, params;
-    if (files && project_name) {
+    if (files && project_name && template_data) {
+      query = 'UPDATE projects SET files = ?, project_name = ?, template_data = ?, updated_at = ? WHERE id = ?';
+      params = [JSON.stringify(files), project_name, JSON.stringify(template_data), now, id];
+    } else if (files && project_name) {
       query = 'UPDATE projects SET files = ?, project_name = ?, updated_at = ? WHERE id = ?';
       params = [JSON.stringify(files), project_name, now, id];
+    } else if (files && template_data) {
+      query = 'UPDATE projects SET files = ?, template_data = ?, updated_at = ? WHERE id = ?';
+      params = [JSON.stringify(files), JSON.stringify(template_data), now, id];
+    } else if (project_name && template_data) {
+      query = 'UPDATE projects SET project_name = ?, template_data = ?, updated_at = ? WHERE id = ?';
+      params = [project_name, JSON.stringify(template_data), now, id];
     } else if (files) {
       query = 'UPDATE projects SET files = ?, updated_at = ? WHERE id = ?';
       params = [JSON.stringify(files), now, id];
-    } else {
+    } else if (project_name) {
       query = 'UPDATE projects SET project_name = ?, updated_at = ? WHERE id = ?';
       params = [project_name, now, id];
+    } else if (template_data) {
+      query = 'UPDATE projects SET template_data = ?, updated_at = ? WHERE id = ?';
+      params = [JSON.stringify(template_data), now, id];
     }
     
     const result = await db.prepare(query).bind(...params).run();

@@ -148,6 +148,7 @@ CREATE TABLE IF NOT EXISTS projects (
     user_id INTEGER DEFAULT 1, -- Default user ID for now
     project_name TEXT NOT NULL,
     files TEXT NOT NULL, -- JSON mapping filenames to content
+    template_data TEXT, -- JSON data for template-based system
     created_at TEXT NOT NULL, -- ISO string
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
