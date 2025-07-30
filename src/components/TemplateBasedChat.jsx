@@ -171,15 +171,20 @@ const TemplateBasedChat = ({ onBackToHome }) => {
       const response = await fetch(`/api/chat_messages?project_id=${projectId}`);
       if (response.ok) {
         const result = await response.json();
-        setMessages(result.messages || []);
+        const messages = result.messages || [];
+        setMessages(messages);
         
-        // If there are messages, switch to editor mode
-        if (result.messages && result.messages.length > 0) {
+        // Only switch to editor mode if there are AI-generated messages (not just user messages)
+        const hasAIMessages = messages.some(msg => msg.role === 'assistant');
+        if (hasAIMessages) {
           setIsEditorMode(true);
+        } else {
+          setIsEditorMode(false);
         }
       }
     } catch (error) {
       console.error('Error loading chat messages:', error);
+      setIsEditorMode(false);
     }
   };
 
@@ -277,6 +282,12 @@ const TemplateBasedChat = ({ onBackToHome }) => {
     });
     setStoredProjectId(project.id);
     await loadChatMessages(project.id);
+    
+    // Load saved template data if it exists
+    if (project.template_data) {
+      setTemplateData(project.template_data);
+    }
+    
     setShowProjectPanel(false);
   };
 
@@ -321,7 +332,7 @@ const TemplateBasedChat = ({ onBackToHome }) => {
                 }}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               >
-                Projects {showProjectPanel ? '(Hide)' : '(Show)'}
+                Projects
               </button>
             </div>
           </div>
@@ -341,12 +352,12 @@ const TemplateBasedChat = ({ onBackToHome }) => {
         )}
 
         {/* Chat/Editor Content */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-h-0">
           {!isEditorMode ? (
             // Chat Mode
             <>
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                              {/* Messages */}
+                <div className="h-[calc(100vh-400px)] overflow-y-auto p-6 space-y-4">
                 {messages.map((message) => (
                   <div
                     key={message.id}
@@ -380,41 +391,383 @@ const TemplateBasedChat = ({ onBackToHome }) => {
               </div>
 
               {/* Input */}
-              <div className="border-t border-gray-200 p-6">
-                <div className="flex space-x-4">
-                  <textarea
-                    value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Describe your startup idea or business..."
-                    className="flex-1 border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    rows={3}
-                    disabled={isLoading}
-                  />
+              <div className="p-4">
+                <div className="relative bg-white border border-gray-200 rounded-2xl shadow-lg p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="flex-1">
+                      <textarea
+                        value={inputMessage}
+                        onChange={(e) => setInputMessage(e.target.value)}
+                        onKeyPress={handleKeyPress}
+                        placeholder="Describe your startup idea or business..."
+                        className="w-full px-4 py-3 bg-transparent border-none outline-none resize-none text-text placeholder-mutedText text-lg leading-relaxed min-h-[80px] md:min-h-[60px] max-h-[400px] md:max-h-[200px]"
+                        rows={4}
+                        disabled={isLoading}
+                        style={{ fontFamily: 'inherit' }}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Submit Button - Positioned in bottom right corner */}
                   <button
                     onClick={handleSendMessage}
                     disabled={isLoading || !inputMessage.trim()}
-                    className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className={`absolute bottom-6 right-6 p-3 rounded-full transition-colors duration-200 flex-shrink-0 ${
+                      inputMessage.trim() && !isLoading
+                        ? 'bg-black hover:bg-gray-800' 
+                        : 'bg-gray-300 cursor-not-allowed'
+                    }`}
+                    title="Submit message"
                   >
-                    Send
+                    <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 -960 960 960" className={`shrink-0 h-6 w-6 ${inputMessage.trim() && !isLoading ? 'text-white' : 'text-gray-500'}`} fill="currentColor">
+                      <path d="M442.39-616.87 309.78-487.26q-11.82 11.83-27.78 11.33t-27.78-12.33q-11.83-11.83-11.83-27.78 0-15.96 11.83-27.79l198.43-199q11.83-11.82 28.35-11.82t28.35 11.82l198.43 199q11.83 11.83 11.83 27.79 0 15.95-11.83 27.78-11.82 11.83-27.78 11.83t-27.78-11.83L521.61-618.87v348.83q0 16.95-11.33 28.28-11.32 11.33-28.28 11.33t-28.28-11.33q-11.33-11.33-11.33-28.28z"></path>
+                    </svg>
                   </button>
                 </div>
               </div>
             </>
           ) : (
             // Editor Mode
-            <div className="flex-1 p-6">
+            <div className="flex-1 p-6 overflow-y-auto">
               <div className="space-y-6">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Template Editor</h3>
                   <p className="text-gray-600 mb-6">
-                    Your landing page has been generated! You can now customize the content using the editor below.
+                    Your landing page has been generated! Customize the content below and see changes in real-time.
                   </p>
                 </div>
                 
-                {/* Editor will be implemented in the next step */}
-                <div className="bg-gray-100 rounded-lg p-8 text-center">
-                  <p className="text-gray-500">Editor interface coming in the next step...</p>
+                {/* Hero Section Editor */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                    Hero Section
+                  </h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Business Name</label>
+                      <input
+                        type="text"
+                        value={templateData.businessName}
+                        onChange={(e) => setTemplateData(prev => ({ ...prev, businessName: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter your business name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Tagline</label>
+                      <input
+                        type="text"
+                        value={templateData.tagline}
+                        onChange={(e) => setTemplateData(prev => ({ ...prev, tagline: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter your tagline"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Hero Description</label>
+                      <textarea
+                        value={templateData.heroDescription}
+                        onChange={(e) => setTemplateData(prev => ({ ...prev, heroDescription: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        rows={3}
+                        placeholder="Enter your hero description"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Features Section Editor */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center">
+                    <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                    Features Section
+                  </h4>
+                  <div className="space-y-4">
+                    {templateData.features.map((feature, index) => (
+                      <div key={index} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-sm font-medium text-gray-700">Feature {index + 1}</span>
+                          <button
+                            onClick={() => {
+                              const newFeatures = templateData.features.filter((_, i) => i !== index);
+                              setTemplateData(prev => ({ ...prev, features: newFeatures }));
+                            }}
+                            className="text-red-500 hover:text-red-700 text-sm"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Icon</label>
+                            <input
+                              type="text"
+                              value={feature.icon}
+                              onChange={(e) => {
+                                const newFeatures = [...templateData.features];
+                                newFeatures[index].icon = e.target.value;
+                                setTemplateData(prev => ({ ...prev, features: newFeatures }));
+                              }}
+                              className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="🚀"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Title</label>
+                            <input
+                              type="text"
+                              value={feature.title}
+                              onChange={(e) => {
+                                const newFeatures = [...templateData.features];
+                                newFeatures[index].title = e.target.value;
+                                setTemplateData(prev => ({ ...prev, features: newFeatures }));
+                              }}
+                              className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Feature title"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Description</label>
+                            <textarea
+                              value={feature.description}
+                              onChange={(e) => {
+                                const newFeatures = [...templateData.features];
+                                newFeatures[index].description = e.target.value;
+                                setTemplateData(prev => ({ ...prev, features: newFeatures }));
+                              }}
+                              className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              rows={2}
+                              placeholder="Feature description"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => {
+                        const newFeature = {
+                          icon: "✨",
+                          title: "New Feature",
+                          description: "Add your feature description here"
+                        };
+                        setTemplateData(prev => ({
+                          ...prev,
+                          features: [...prev.features, newFeature]
+                        }));
+                      }}
+                      className="w-full border-2 border-dashed border-gray-300 rounded-lg py-3 text-gray-500 hover:border-blue-500 hover:text-blue-500 transition-colors"
+                    >
+                      + Add Feature
+                    </button>
+                  </div>
+                </div>
+
+                {/* About Section Editor */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center">
+                    <span className="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+                    About Section
+                  </h4>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">About Content</label>
+                    <textarea
+                      value={templateData.aboutContent}
+                      onChange={(e) => setTemplateData(prev => ({ ...prev, aboutContent: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      rows={4}
+                      placeholder="Enter your about section content"
+                    />
+                  </div>
+                </div>
+
+                {/* Pricing Section Editor */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center">
+                    <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                    Pricing Section
+                  </h4>
+                  <div className="space-y-4">
+                    {templateData.pricing.map((plan, index) => (
+                      <div key={index} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-sm font-medium text-gray-700">{plan.name} Plan</span>
+                          <button
+                            onClick={() => {
+                              const newPricing = templateData.pricing.filter((_, i) => i !== index);
+                              setTemplateData(prev => ({ ...prev, pricing: newPricing }));
+                            }}
+                            className="text-red-500 hover:text-red-700 text-sm"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Plan Name</label>
+                            <input
+                              type="text"
+                              value={plan.name}
+                              onChange={(e) => {
+                                const newPricing = [...templateData.pricing];
+                                newPricing[index].name = e.target.value;
+                                setTemplateData(prev => ({ ...prev, pricing: newPricing }));
+                              }}
+                              className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Price</label>
+                            <input
+                              type="text"
+                              value={plan.price}
+                              onChange={(e) => {
+                                const newPricing = [...templateData.pricing];
+                                newPricing[index].price = e.target.value;
+                                setTemplateData(prev => ({ ...prev, pricing: newPricing }));
+                              }}
+                              className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="block text-xs text-gray-600 mb-1">Description</label>
+                            <input
+                              type="text"
+                              value={plan.description}
+                              onChange={(e) => {
+                                const newPricing = [...templateData.pricing];
+                                newPricing[index].description = e.target.value;
+                                setTemplateData(prev => ({ ...prev, pricing: newPricing }));
+                              }}
+                              className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="block text-xs text-gray-600 mb-1">CTA Button Text</label>
+                            <input
+                              type="text"
+                              value={plan.cta}
+                              onChange={(e) => {
+                                const newPricing = [...templateData.pricing];
+                                newPricing[index].cta = e.target.value;
+                                setTemplateData(prev => ({ ...prev, pricing: newPricing }));
+                              }}
+                              className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => {
+                        const newPlan = {
+                          name: "New Plan",
+                          price: "$0",
+                          description: "Plan description",
+                          features: ["Feature 1", "Feature 2"],
+                          cta: "Get Started",
+                          popular: false
+                        };
+                        setTemplateData(prev => ({
+                          ...prev,
+                          pricing: [...prev.pricing, newPlan]
+                        }));
+                      }}
+                      className="w-full border-2 border-dashed border-gray-300 rounded-lg py-3 text-gray-500 hover:border-blue-500 hover:text-blue-500 transition-colors"
+                    >
+                      + Add Pricing Plan
+                    </button>
+                  </div>
+                </div>
+
+                {/* Contact Section Editor */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center">
+                    <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                    Contact Information
+                  </h4>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                      <input
+                        type="email"
+                        value={templateData.contactInfo.email}
+                        onChange={(e) => setTemplateData(prev => ({
+                          ...prev,
+                          contactInfo: { ...prev.contactInfo, email: e.target.value }
+                        }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="hello@yourcompany.com"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                      <input
+                        type="text"
+                        value={templateData.contactInfo.phone}
+                        onChange={(e) => setTemplateData(prev => ({
+                          ...prev,
+                          contactInfo: { ...prev.contactInfo, phone: e.target.value }
+                        }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="+1 (555) 123-4567"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Office Location</label>
+                      <input
+                        type="text"
+                        value={templateData.contactInfo.office}
+                        onChange={(e) => setTemplateData(prev => ({
+                          ...prev,
+                          contactInfo: { ...prev.contactInfo, office: e.target.value }
+                        }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="San Francisco, CA"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <div className="flex space-x-4">
+                    <button
+                      onClick={() => setIsEditorMode(false)}
+                      className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors"
+                    >
+                      Back to Chat
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          // Save template data to project
+                          const response = await fetch(`/api/projects/${currentProject.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              template_data: templateData
+                            })
+                          });
+                          
+                          if (response.ok) {
+                            console.log('Template data saved successfully');
+                            // Show success feedback
+                            alert('Changes saved successfully!');
+                          } else {
+                            console.error('Failed to save template data');
+                            alert('Failed to save changes. Please try again.');
+                          }
+                        } catch (error) {
+                          console.error('Error saving template data:', error);
+                          alert('Error saving changes. Please try again.');
+                        }
+                      }}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                      Save Changes
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
