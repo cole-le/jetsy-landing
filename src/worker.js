@@ -5246,17 +5246,13 @@ async function handleTemplateGeneration(request, env, corsHeaders) {
   try {
     const { project_id, user_message, current_template_data } = await request.json();
     
-    // Detect business type from user message
-    const businessTypeResult = await detectBusinessType(user_message, env);
-    const businessType = businessTypeResult.assistant_message;
-    
-    // Generate template content based on business type and user message
-    const updatedTemplateData = await generateTemplateContent(user_message, current_template_data, businessType, env);
+    // Generate template content directly from user message
+    const updatedTemplateData = await generateTemplateContent(user_message, current_template_data, env);
     
     return new Response(JSON.stringify({
       success: true,
       template_data: updatedTemplateData,
-      assistant_message: 'I\'ve updated your landing page with content tailored to your business!'
+      assistant_message: 'I\'ve generated a landing page tailored to your business idea! You can now customize the content using the editor.'
     }), {
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });
@@ -5272,11 +5268,10 @@ async function handleTemplateGeneration(request, env, corsHeaders) {
   }
 }
 
-// Generate template content based on business type and user message
-async function generateTemplateContent(userMessage, currentTemplateData, businessType, env) {
-  const systemPrompt = `You are an expert landing page content generator. Based on the user's business description and business type, generate appropriate content for their landing page template.
+// Generate template content based on user message
+async function generateTemplateContent(userMessage, currentTemplateData, env) {
+  const systemPrompt = `You are an expert landing page content generator. Based on the user's business description, generate compelling content for their landing page template.
 
-Business Type: ${businessType}
 User Message: ${userMessage}
 
 Generate content for the following sections:
@@ -5317,15 +5312,32 @@ Return ONLY a JSON object with these fields. Keep the structure exactly the same
     if (data.choices && data.choices[0] && data.choices[0].message) {
       const assistantMessage = data.choices[0].message.content.trim();
       
+      // Log the AI response for debugging
+      console.log('🤖 AI Response:', assistantMessage);
+      console.log('📏 Response length:', assistantMessage.length);
+      console.log('🔍 Response type:', typeof assistantMessage);
+      
+      // Extract JSON from markdown code blocks if present
+      let jsonContent = assistantMessage;
+      if (assistantMessage.includes('```json')) {
+        const jsonMatch = assistantMessage.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          jsonContent = jsonMatch[1].trim();
+          console.log('🔧 Extracted JSON from markdown:', jsonContent);
+        }
+      }
+      
       // Try to parse the JSON response
       try {
-        const generatedData = JSON.parse(assistantMessage);
+        const generatedData = JSON.parse(jsonContent);
+        console.log('✅ Successfully parsed JSON:', generatedData);
         return {
           ...currentTemplateData,
           ...generatedData
         };
       } catch (parseError) {
-        console.error('Failed to parse AI response as JSON:', parseError);
+        console.error('❌ Failed to parse AI response as JSON:', parseError);
+        console.error('🔍 Raw response that failed to parse:', jsonContent);
         // Return current template data if parsing fails
         return currentTemplateData;
       }
