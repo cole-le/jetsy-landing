@@ -5300,22 +5300,28 @@ Generate content for the following sections:
 1. businessName - A compelling business name (if not provided in user message, create one)
 2. tagline - A powerful tagline that captures the value proposition
 3. heroDescription - A brief description for the hero section
-4. sectionType - Determine the appropriate section type based on the business:
+4. ctaButtonText - Generate an appropriate call-to-action button text based on the business:
+   - For restaurants/bars: "Book Table Now", "Order Online", "Reserve Your Spot", "Visit Us Today"
+   - For SaaS/tech: "Start Free Trial", "Get Started Free", "Try It Free", "Join Beta"
+   - For e-commerce: "Shop Now", "Browse Collection", "Start Shopping", "Explore Products"
+   - For services: "Get Started", "Book Consultation", "Contact Us", "Learn More"
+   - For other businesses: "Get Started", "Learn More", "Contact Us", "Explore"
+5. sectionType - Determine the appropriate section type based on the business:
    - Use "services" for restaurants, bars, cafes, food businesses
    - Use "features" for SaaS, software, apps, tech companies
    - Use "highlights" for other businesses
-5. sectionTitle - Generate an appropriate title for the section type
-6. sectionSubtitle - Generate an appropriate subtitle for the section type
-7. features - Generate 6 items that are appropriate for the business:
+6. sectionTitle - Generate an appropriate title for the section type
+7. sectionSubtitle - Generate an appropriate subtitle for the section type
+8. features - Generate 6 items that are appropriate for the business:
    - For restaurants/bars: focus on menu items, services, atmosphere, dining experience
    - For SaaS/tech: focus on features, capabilities, benefits, technology
    - For other businesses: focus on highlights, services, unique offerings, value propositions
    Keep the same structure with icon, title, description
-8. aboutContent - About section content tailored to the business
-9. pricing - 3 pricing tiers appropriate for the business (adjust names and content accordingly)
-10. contactInfo - Contact information
-11. trustIndicator1 - A trust indicator appropriate for the business
-12. trustIndicator2 - A rating or review indicator appropriate for the business
+9. aboutContent - About section content tailored to the business
+10. pricing - 3 pricing tiers appropriate for the business (adjust names and content accordingly)
+11. contactInfo - Contact information
+12. trustIndicator1 - A trust indicator appropriate for the business
+13. trustIndicator2 - A rating or review indicator appropriate for the business
 
 Return ONLY a JSON object with these fields. Keep the structure exactly the same as the current template data.`;
 

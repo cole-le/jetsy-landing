@@ -314,6 +314,7 @@ function App() {
         onLogoClick={handleLogoClick} 
         onGetStartedClick={handleGetStartedClick}
         onChatClick={handleChatClick}
+        isChatMode={currentStep === 'chat'}
       />
       
       {/* Hero Section */}

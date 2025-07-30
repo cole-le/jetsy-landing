@@ -55,8 +55,8 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
         files: {
           "src/App.jsx": `import React from 'react';\nimport './index.css';\nfunction App() {\n  return (\n    <div className=\"min-h-screen bg-gray-50\">\n      <div className=\"container mx-auto px-4 py-8\">\n        <h1 className=\"text-4xl font-bold text-center text-gray-900 mb-8\">Welcome to Your Landing Page</h1>\n        <p className=\"text-center text-gray-600 mb-8\">This is a placeholder. Start chatting to customize your landing page!</p>\n      </div>\n    </div>\n  );\n}\nexport default App;`,
           "src/index.css": `@tailwind base;\n@tailwind components;\n@tailwind utilities;`
-        },
-        template_data: DEFAULT_TEMPLATE_DATA
+        }
+        // Don't include template_data for new projects - let users chat first
       };
 
       const response = await fetch('/api/projects', {

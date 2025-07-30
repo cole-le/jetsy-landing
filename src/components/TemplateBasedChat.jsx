@@ -7,6 +7,7 @@ export const DEFAULT_TEMPLATE_DATA = {
   businessName: 'Your Amazing Startup',
   tagline: 'Transform your idea into reality with our innovative solution',
   heroDescription: 'Join thousands of satisfied customers who have already made the leap.',
+  ctaButtonText: 'Start Building Free',
   sectionType: 'features', // 'features' for SaaS/tech, 'services' for restaurants/bars, 'highlights' for other businesses
   sectionTitle: 'Everything you need to succeed',
   sectionSubtitle: 'Our platform combines cutting-edge AI with proven design principles to create landing pages that convert.',
@@ -230,8 +231,8 @@ const TemplateBasedChat = ({ onBackToHome }) => {
         files: {
           "src/App.jsx": `import React from 'react';\nimport './index.css';\nfunction App() {\n  return (\n    <div className=\"min-h-screen bg-gray-50\">\n      <div className=\"container mx-auto px-4 py-8\">\n        <h1 className=\"text-4xl font-bold text-center text-gray-900 mb-8\">Welcome to Your Landing Page</h1>\n        <p className=\"text-center text-gray-600 mb-8\">This is a placeholder. Start chatting to customize your landing page!</p>\n      </div>\n    </div>\n  );\n}\nexport default App;`,
           "src/index.css": `@tailwind base;\n@tailwind components;\n@tailwind utilities;`
-        },
-        template_data: DEFAULT_TEMPLATE_DATA
+        }
+        // Don't include template_data for new projects - let users chat first
       };
 
       const response = await fetch('/api/projects', {
@@ -245,8 +246,9 @@ const TemplateBasedChat = ({ onBackToHome }) => {
         const newProject = { id: result.project_id, ...projectData };
         setCurrentProject(newProject);
         setStoredProjectId(result.project_id);
-        // Switch to editor mode since new projects now have template data
-        setIsEditorMode(true);
+        // Start in chat mode for new projects
+        setIsEditorMode(false);
+        setTemplateData(DEFAULT_TEMPLATE_DATA);
         await loadChatMessages(result.project_id);
       }
     } catch (error) {
@@ -424,15 +426,7 @@ const TemplateBasedChat = ({ onBackToHome }) => {
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={onBackToHome}
-                className="text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-              </button>
+            <div className="flex items-center">
               <div>
                 <h1 className="text-xl font-semibold text-gray-900">
                   {isEditorMode ? 'Template Editor' : 'AI Chat'}
@@ -550,10 +544,38 @@ const TemplateBasedChat = ({ onBackToHome }) => {
             <div className="flex-1 p-6 overflow-y-auto">
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Template Editor</h3>
-                  <p className="text-gray-600 mb-6">
+                  <p className="text-gray-600 mb-4">
                     Your landing page has been generated! Customize the content below and see changes in real-time.
                   </p>
+                  <button
+                    onClick={async () => {
+                      try {
+                        // Save template data to project
+                        const response = await fetch(`/api/projects/${currentProject.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            template_data: templateData
+                          })
+                        });
+                        
+                        if (response.ok) {
+                          console.log('Template data saved successfully');
+                          // Show success feedback
+                          alert('Changes saved successfully!');
+                        } else {
+                          console.error('Failed to save template data');
+                          alert('Failed to save changes. Please try again.');
+                        }
+                      } catch (error) {
+                        console.error('Error saving template data:', error);
+                        alert('Error saving changes. Please try again.');
+                      }
+                    }}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors mb-6"
+                  >
+                    Save Changes
+                  </button>
                 </div>
                 
                 {/* Hero Section Editor */}
@@ -591,6 +613,16 @@ const TemplateBasedChat = ({ onBackToHome }) => {
                         className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         rows={3}
                         placeholder="Enter your hero description"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">CTA Button Text</label>
+                      <input
+                        type="text"
+                        value={templateData.ctaButtonText}
+                        onChange={(e) => setTemplateData(prev => ({ ...prev, ctaButtonText: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter your CTA button text"
                       />
                     </div>
                   </div>
@@ -925,46 +957,7 @@ const TemplateBasedChat = ({ onBackToHome }) => {
                   </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="bg-gray-50 rounded-lg p-6">
-                  <div className="flex space-x-4">
-                    <button
-                      onClick={() => setIsEditorMode(false)}
-                      className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors"
-                    >
-                      Back to Chat
-                    </button>
-                    <button
-                      onClick={async () => {
-                        try {
-                          // Save template data to project
-                          const response = await fetch(`/api/projects/${currentProject.id}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              template_data: templateData
-                            })
-                          });
-                          
-                          if (response.ok) {
-                            console.log('Template data saved successfully');
-                            // Show success feedback
-                            alert('Changes saved successfully!');
-                          } else {
-                            console.error('Failed to save template data');
-                            alert('Failed to save changes. Please try again.');
-                          }
-                        } catch (error) {
-                          console.error('Error saving template data:', error);
-                          alert('Error saving changes. Please try again.');
-                        }
-                      }}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                    >
-                      Save Changes
-                    </button>
-                  </div>
-                </div>
+
               </div>
             </div>
           )}
@@ -990,6 +983,7 @@ const TemplateBasedChat = ({ onBackToHome }) => {
                           businessName={templateData.businessName}
                           tagline={templateData.tagline}
                           heroDescription={templateData.heroDescription}
+                          ctaButtonText={templateData.ctaButtonText}
                           sectionType={templateData.sectionType}
                           sectionTitle={templateData.sectionTitle}
                           sectionSubtitle={templateData.sectionSubtitle}
