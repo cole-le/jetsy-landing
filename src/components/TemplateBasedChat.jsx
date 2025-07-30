@@ -2,6 +2,81 @@ import React, { useState, useEffect, useRef } from 'react';
 import ProjectSelector from './ProjectSelector';
 import ExceptionalTemplate from './ExceptionalTemplate';
 
+// Default template data for new projects
+export const DEFAULT_TEMPLATE_DATA = {
+  businessName: 'Your Amazing Startup',
+  tagline: 'Transform your idea into reality with our innovative solution',
+  heroDescription: 'Join thousands of satisfied customers who have already made the leap.',
+  features: [
+    {
+      icon: "🚀",
+      title: "AI-Powered Design",
+      description: "Our AI analyzes your business and creates stunning, conversion-optimized designs automatically."
+    },
+    {
+      icon: "⚡",
+      title: "Lightning Fast",
+      description: "Build and deploy your landing page in minutes, not hours. Get to market faster than ever."
+    },
+    {
+      icon: "📱",
+      title: "Mobile-First",
+      description: "Every landing page is optimized for mobile devices, ensuring perfect performance everywhere."
+    },
+    {
+      icon: "🎨",
+      title: "Customizable",
+      description: "Easily customize colors, fonts, layouts, and content to match your brand perfectly."
+    },
+    {
+      icon: "📊",
+      title: "Analytics Built-in",
+      description: "Track conversions, user behavior, and performance with our integrated analytics dashboard."
+    },
+    {
+      icon: "🔒",
+      title: "Secure & Reliable",
+      description: "Built on enterprise-grade infrastructure with 99.9% uptime and advanced security."
+    }
+  ],
+  aboutContent: "We understand the challenges of bringing ideas to life. That's why we've built a platform that makes it effortless to create professional landing pages that actually convert visitors into customers.",
+  pricing: [
+    {
+      name: "Starter",
+      price: "Free",
+      description: "Perfect for trying out our platform",
+      features: ["1 landing page", "Basic templates", "Email support", "Analytics dashboard"],
+      cta: "Get Started Free",
+      popular: false
+    },
+    {
+      name: "Pro",
+      price: "$29",
+      period: "/month",
+      description: "For growing businesses and creators",
+      features: ["Unlimited landing pages", "Premium templates", "Priority support", "Advanced analytics", "Custom domains", "A/B testing"],
+      cta: "Start Pro Trial",
+      popular: true
+    },
+    {
+      name: "Enterprise",
+      price: "$99",
+      period: "/month",
+      description: "For large teams and agencies",
+      features: ["Everything in Pro", "Team collaboration", "White-label options", "API access", "Dedicated support", "Custom integrations"],
+      cta: "Contact Sales",
+      popular: false
+    }
+  ],
+  contactInfo: {
+    email: "hello@jetsy.com",
+    phone: "+1 (555) 123-4567",
+    office: "San Francisco, CA"
+  },
+  trustIndicator1: "Join 10,000+ creators",
+  trustIndicator2: "4.9/5 rating"
+};
+
 const TemplateBasedChat = ({ onBackToHome }) => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -10,79 +85,7 @@ const TemplateBasedChat = ({ onBackToHome }) => {
   const [showProjectSelector, setShowProjectSelector] = useState(false);
   const [showProjectPanel, setShowProjectPanel] = useState(false);
   const [isEditorMode, setIsEditorMode] = useState(false);
-  const [templateData, setTemplateData] = useState({
-    businessName: 'Your Amazing Startup',
-    tagline: 'Transform your idea into reality with our innovative solution',
-    heroDescription: 'Join thousands of satisfied customers who have already made the leap.',
-    features: [
-      {
-        icon: "🚀",
-        title: "AI-Powered Design",
-        description: "Our AI analyzes your business and creates stunning, conversion-optimized designs automatically."
-      },
-      {
-        icon: "⚡",
-        title: "Lightning Fast",
-        description: "Build and deploy your landing page in minutes, not hours. Get to market faster than ever."
-      },
-      {
-        icon: "📱",
-        title: "Mobile-First",
-        description: "Every landing page is optimized for mobile devices, ensuring perfect performance everywhere."
-      },
-      {
-        icon: "🎨",
-        title: "Customizable",
-        description: "Easily customize colors, fonts, layouts, and content to match your brand perfectly."
-      },
-      {
-        icon: "📊",
-        title: "Analytics Built-in",
-        description: "Track conversions, user behavior, and performance with our integrated analytics dashboard."
-      },
-      {
-        icon: "🔒",
-        title: "Secure & Reliable",
-        description: "Built on enterprise-grade infrastructure with 99.9% uptime and advanced security."
-      }
-    ],
-    aboutContent: "We understand the challenges of bringing ideas to life. That's why we've built a platform that makes it effortless to create professional landing pages that actually convert visitors into customers.",
-    pricing: [
-      {
-        name: "Starter",
-        price: "Free",
-        description: "Perfect for trying out our platform",
-        features: ["1 landing page", "Basic templates", "Email support", "Analytics dashboard"],
-        cta: "Get Started Free",
-        popular: false
-      },
-      {
-        name: "Pro",
-        price: "$29",
-        period: "/month",
-        description: "For growing businesses and creators",
-        features: ["Unlimited landing pages", "Premium templates", "Priority support", "Advanced analytics", "Custom domains", "A/B testing"],
-        cta: "Start Pro Trial",
-        popular: true
-      },
-      {
-        name: "Enterprise",
-        price: "$99",
-        period: "/month",
-        description: "For large teams and agencies",
-        features: ["Everything in Pro", "Team collaboration", "White-label options", "API access", "Dedicated support", "Custom integrations"],
-        cta: "Contact Sales",
-        popular: false
-      }
-    ],
-    contactInfo: {
-      email: "hello@jetsy.com",
-      phone: "+1 (555) 123-4567",
-      office: "San Francisco, CA"
-    },
-    trustIndicator1: "Join 10,000+ creators",
-    trustIndicator2: "4.9/5 rating"
-  });
+  const [templateData, setTemplateData] = useState(DEFAULT_TEMPLATE_DATA);
 
   // Load existing project when component mounts
   useEffect(() => {
@@ -143,7 +146,25 @@ const TemplateBasedChat = ({ onBackToHome }) => {
           
           // Load saved template data if it exists
           if (project.template_data) {
-            setTemplateData(project.template_data);
+            console.log('🔍 Found template_data in project:', project.template_data);
+            try {
+              // Parse template_data if it's a JSON string
+              const parsedTemplateData = typeof project.template_data === 'string' 
+                ? JSON.parse(project.template_data) 
+                : project.template_data;
+              console.log('✅ Parsed template_data:', parsedTemplateData);
+              setTemplateData(parsedTemplateData);
+              // Switch to editor mode if template data exists
+              setIsEditorMode(true);
+            } catch (error) {
+              console.error('❌ Error parsing template_data:', error);
+              console.log('🔍 Raw template_data:', project.template_data);
+            }
+          } else {
+            console.log('⚠️ No template_data found in project');
+            // Reset to default template data and switch to chat mode
+            setTemplateData(DEFAULT_TEMPLATE_DATA);
+            setIsEditorMode(false);
           }
           
           await loadChatMessages(project.id);
@@ -164,7 +185,25 @@ const TemplateBasedChat = ({ onBackToHome }) => {
           
           // Load saved template data if it exists
           if (mostRecent.template_data) {
-            setTemplateData(mostRecent.template_data);
+            console.log('🔍 Found template_data in mostRecent project:', mostRecent.template_data);
+            try {
+              // Parse template_data if it's a JSON string
+              const parsedTemplateData = typeof mostRecent.template_data === 'string' 
+                ? JSON.parse(mostRecent.template_data) 
+                : mostRecent.template_data;
+              console.log('✅ Parsed template_data from mostRecent:', parsedTemplateData);
+              setTemplateData(parsedTemplateData);
+              // Switch to editor mode if template data exists
+              setIsEditorMode(true);
+            } catch (error) {
+              console.error('❌ Error parsing template_data from mostRecent:', error);
+              console.log('🔍 Raw template_data from mostRecent:', mostRecent.template_data);
+            }
+          } else {
+            console.log('⚠️ No template_data found in mostRecent project');
+            // Reset to default template data and switch to chat mode
+            setTemplateData(DEFAULT_TEMPLATE_DATA);
+            setIsEditorMode(false);
           }
           
           setStoredProjectId(mostRecent.id);
@@ -188,7 +227,8 @@ const TemplateBasedChat = ({ onBackToHome }) => {
         files: {
           "src/App.jsx": `import React from 'react';\nimport './index.css';\nfunction App() {\n  return (\n    <div className=\"min-h-screen bg-gray-50\">\n      <div className=\"container mx-auto px-4 py-8\">\n        <h1 className=\"text-4xl font-bold text-center text-gray-900 mb-8\">Welcome to Your Landing Page</h1>\n        <p className=\"text-center text-gray-600 mb-8\">This is a placeholder. Start chatting to customize your landing page!</p>\n      </div>\n    </div>\n  );\n}\nexport default App;`,
           "src/index.css": `@tailwind base;\n@tailwind components;\n@tailwind utilities;`
-        }
+        },
+        template_data: DEFAULT_TEMPLATE_DATA
       };
 
       const response = await fetch('/api/projects', {
@@ -202,6 +242,8 @@ const TemplateBasedChat = ({ onBackToHome }) => {
         const newProject = { id: result.project_id, ...projectData };
         setCurrentProject(newProject);
         setStoredProjectId(result.project_id);
+        // Switch to editor mode since new projects now have template data
+        setIsEditorMode(true);
         await loadChatMessages(result.project_id);
       }
     } catch (error) {
@@ -217,17 +259,11 @@ const TemplateBasedChat = ({ onBackToHome }) => {
         const messages = result.messages || [];
         setMessages(messages);
         
-        // Only switch to editor mode if there are AI-generated messages (not just user messages)
-        const hasAIMessages = messages.some(msg => msg.role === 'assistant');
-        if (hasAIMessages) {
-          setIsEditorMode(true);
-        } else {
-          setIsEditorMode(false);
-        }
+        // Don't override editor mode here - it should be controlled by template data presence
+        // The editor mode is set in handleProjectSelect and loadOrRestoreProject based on template_data
       }
     } catch (error) {
       console.error('Error loading chat messages:', error);
-      setIsEditorMode(false);
     }
   };
 
@@ -347,7 +383,25 @@ const TemplateBasedChat = ({ onBackToHome }) => {
     
     // Load saved template data if it exists
     if (project.template_data) {
-      setTemplateData(project.template_data);
+      console.log('🔍 Found template_data in selected project:', project.template_data);
+      try {
+        // Parse template_data if it's a JSON string
+        const parsedTemplateData = typeof project.template_data === 'string' 
+          ? JSON.parse(project.template_data) 
+          : project.template_data;
+        console.log('✅ Parsed template_data from selected project:', parsedTemplateData);
+        setTemplateData(parsedTemplateData);
+        // Switch to editor mode if template data exists
+        setIsEditorMode(true);
+      } catch (error) {
+        console.error('❌ Error parsing template_data from selected project:', error);
+        console.log('🔍 Raw template_data from selected project:', project.template_data);
+      }
+    } else {
+      console.log('⚠️ No template_data found in selected project');
+      // Reset to default template data and switch to chat mode
+      setTemplateData(DEFAULT_TEMPLATE_DATA);
+      setIsEditorMode(false);
     }
     
     setShowProjectPanel(false);

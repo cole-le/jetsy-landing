@@ -986,12 +986,22 @@ async function getProjectById(id, env, corsHeaders) {
 async function createProject(request, env, corsHeaders) {
   const db = env.DB;
   try {
-    const { project_name, files, user_id = 1 } = await request.json();
+    const { project_name, files, user_id = 1, template_data } = await request.json();
     if (!project_name || !files) {
       return new Response(JSON.stringify({ error: 'project_name and files are required' }), { status: 400, headers: corsHeaders });
     }
     const now = new Date().toISOString();
-    const result = await db.prepare('INSERT INTO projects (user_id, project_name, files, created_at, updated_at) VALUES (?, ?, ?, ?, ?)').bind(user_id, project_name, JSON.stringify(files), now, now).run();
+    
+    let query, params;
+    if (template_data) {
+      query = 'INSERT INTO projects (user_id, project_name, files, template_data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)';
+      params = [user_id, project_name, JSON.stringify(files), JSON.stringify(template_data), now, now];
+    } else {
+      query = 'INSERT INTO projects (user_id, project_name, files, created_at, updated_at) VALUES (?, ?, ?, ?, ?)';
+      params = [user_id, project_name, JSON.stringify(files), now, now];
+    }
+    
+    const result = await db.prepare(query).bind(...params).run();
     if (!result.success) {
       throw new Error('Failed to create project');
     }
