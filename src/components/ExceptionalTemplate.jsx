@@ -75,7 +75,30 @@ const ExceptionalTemplate = ({
     office: "San Francisco, CA"
   },
   trustIndicator1 = "Join 10,000+ creators",
-  trustIndicator2 = "4.9/5 rating"
+  trustIndicator2 = "4.9/5 rating",
+  // New dynamic props
+  heroBadge = "Now Available - AI-Powered Landing Pages",
+  aboutSectionTitle = "Built by creators, for creators",
+  aboutSectionSubtitle = "Our platform combines cutting-edge AI with proven design principles to create landing pages that convert.",
+  aboutBenefits = [
+    "No coding knowledge required",
+    "AI-powered design optimization",
+    "Built-in analytics and tracking"
+  ],
+  pricingSectionTitle = "Simple, transparent pricing",
+  pricingSectionSubtitle = "Choose the plan that's right for you. All plans include our core features and 24/7 support.",
+  contactSectionTitle = "Ready to get started?",
+  contactSectionSubtitle = "Let's discuss how we can help you create the perfect landing page for your business. Our team is here to support you every step of the way.",
+  contactFormPlaceholders = {
+    name: "Your name",
+    email: "your@email.com",
+    company: "Your company",
+    message: "Tell us about your project..."
+  },
+  footerDescription = "Build beautiful, conversion-optimized landing pages with AI. Transform your ideas into reality in minutes.",
+  footerProductLinks = ["Features", "Pricing", "Templates", "API"],
+  footerCompanyLinks = ["About", "Blog", "Careers", "Contact"],
+  landingPagesCreated = "10,000+ Landing Pages Created"
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [activeSection, setActiveSection] = useState('home');
@@ -180,7 +203,7 @@ const ExceptionalTemplate = ({
           }`}>
             <div className="inline-flex items-center px-4 py-2 rounded-full bg-blue-100 text-blue-800 text-sm font-medium mb-8">
               <span className="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
-              Now Available - AI-Powered Landing Pages
+              {heroBadge}
             </div>
             
             <h1 className="text-5xl md:text-7xl font-bold text-gray-900 mb-6 leading-tight">
@@ -262,39 +285,25 @@ const ExceptionalTemplate = ({
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
               <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-                Built by creators,
+                {aboutSectionTitle.split(',')[0]},
                 <br />
-                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">for creators</span>
+                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{aboutSectionTitle.split(',')[1]}</span>
               </h2>
               <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-                {aboutContent}
+                {aboutSectionSubtitle}
               </p>
               
               <div className="space-y-4">
-                <div className="flex items-center">
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-4">
-                    <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
+                {aboutBenefits.map((benefit, index) => (
+                  <div key={index} className="flex items-center">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-4">
+                      <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <span className="text-gray-700">{benefit}</span>
                   </div>
-                  <span className="text-gray-700">No coding knowledge required</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-4">
-                    <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <span className="text-gray-700">AI-powered design optimization</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-4">
-                    <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <span className="text-gray-700">Built-in analytics and tracking</span>
-                </div>
+                ))}
               </div>
             </div>
             
@@ -309,8 +318,8 @@ const ExceptionalTemplate = ({
               </div>
               <div className="absolute -top-4 -right-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-2xl p-8 transform -rotate-3 hover:rotate-0 transition-transform duration-300">
                 <div className="text-white text-center">
-                  <div className="text-3xl font-bold mb-2">10,000+</div>
-                  <div className="text-sm opacity-90">Landing Pages Created</div>
+                  <div className="text-3xl font-bold mb-2">{landingPagesCreated.split(' ')[0]}</div>
+                  <div className="text-sm opacity-90">{landingPagesCreated.split(' ').slice(1).join(' ')}</div>
                 </div>
               </div>
             </div>
@@ -323,11 +332,11 @@ const ExceptionalTemplate = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-              Simple, transparent
-              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> pricing</span>
+              {pricingSectionTitle.split(' ').slice(0, -1).join(' ')}
+              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> {pricingSectionTitle.split(' ').slice(-1)[0]}</span>
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Choose the plan that's right for you. All plans include our core features and 24/7 support.
+              {pricingSectionSubtitle}
             </p>
           </div>
           
@@ -385,12 +394,11 @@ const ExceptionalTemplate = ({
           <div className="grid lg:grid-cols-2 gap-12">
             <div>
               <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-                Ready to get
-                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> started?</span>
+                {contactSectionTitle.split(' ').slice(0, -1).join(' ')}
+                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> {contactSectionTitle.split(' ').slice(-1)[0]}</span>
               </h2>
               <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-                Let's discuss how we can help you create the perfect landing page for your business. 
-                Our team is here to support you every step of the way.
+                {contactSectionSubtitle}
               </p>
               
               <div className="space-y-6">
@@ -444,7 +452,7 @@ const ExceptionalTemplate = ({
                       value={formData.name}
                       onChange={handleInputChange}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                      placeholder="Your name"
+                      placeholder={contactFormPlaceholders.name}
                       required
                     />
                   </div>
@@ -456,7 +464,7 @@ const ExceptionalTemplate = ({
                       value={formData.email}
                       onChange={handleInputChange}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                      placeholder="your@email.com"
+                      placeholder={contactFormPlaceholders.email}
                       required
                     />
                   </div>
@@ -464,27 +472,27 @@ const ExceptionalTemplate = ({
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Company</label>
-                  <input
-                    type="text"
-                    name="company"
-                    value={formData.company}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    placeholder="Your company"
-                  />
+                                      <input
+                      type="text"
+                      name="company"
+                      value={formData.company}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      placeholder={contactFormPlaceholders.company}
+                    />
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
-                  <textarea
-                    name="message"
-                    value={formData.message}
-                    onChange={handleInputChange}
-                    rows={4}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    placeholder="Tell us about your project..."
-                    required
-                  ></textarea>
+                                      <textarea
+                      name="message"
+                      value={formData.message}
+                      onChange={handleInputChange}
+                      rows={4}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      placeholder={contactFormPlaceholders.message}
+                      required
+                    ></textarea>
                 </div>
                 
                 <button
@@ -512,8 +520,7 @@ const ExceptionalTemplate = ({
                 <span className="text-xl font-bold">{businessName}</span>
               </div>
               <p className="text-gray-400 mb-6 max-w-md">
-                Build beautiful, conversion-optimized landing pages with AI. 
-                Transform your ideas into reality in minutes.
+                {footerDescription}
               </p>
               <div className="flex space-x-4">
                 <a href="#" className="text-gray-400 hover:text-white transition-colors">
@@ -537,20 +544,18 @@ const ExceptionalTemplate = ({
             <div>
               <h3 className="text-lg font-semibold mb-4">Product</h3>
               <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">Features</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Pricing</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Templates</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">API</a></li>
+                {footerProductLinks.map((link, index) => (
+                  <li key={index}><a href="#" className="hover:text-white transition-colors">{link}</a></li>
+                ))}
               </ul>
             </div>
             
             <div>
               <h3 className="text-lg font-semibold mb-4">Company</h3>
               <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">About</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Contact</a></li>
+                {footerCompanyLinks.map((link, index) => (
+                  <li key={index}><a href="#" className="hover:text-white transition-colors">{link}</a></li>
+                ))}
               </ul>
             </div>
           </div>

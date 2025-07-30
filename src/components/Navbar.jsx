@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 
-const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, onChatClick, isChatMode = false }) => {
+const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, onChatClick, onSaveChanges, isChatMode = false }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   const handlePricingClick = (e) => {
@@ -82,8 +82,16 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
             </div>
           )}
 
-          {/* Mobile menu button */}
-          {!isChatMode && (
+          {/* Save Changes button (chat mode) or Mobile menu button */}
+          {isChatMode ? (
+            <div className="flex items-center">
+              <button 
+                onClick={onSaveChanges}
+                className="px-6 py-2 bg-black hover:bg-gray-800 text-white rounded-lg transition-colors duration-200 font-semibold">
+                Save Changes
+              </button>
+            </div>
+          ) : (
             <div className="md:hidden">
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}

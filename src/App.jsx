@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Navbar from './components/Navbar'
 import HeroSection from './components/HeroSection'
 import FAQ from './components/FAQ'
@@ -27,6 +27,7 @@ function App() {
   const [hasSeenPricing, setHasSeenPricing] = useState(false)
   const [expandChat, setExpandChat] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const templateChatRef = useRef(null);
 
   useEffect(() => {
     // Track page view
@@ -305,6 +306,13 @@ function App() {
     setTimeout(() => setExpandChat(false), 1000); // expand for 1s
   };
 
+  const handleSaveChanges = async () => {
+    // Call the save function in TemplateBasedChat component
+    if (templateChatRef.current && templateChatRef.current.saveTemplateData) {
+      await templateChatRef.current.saveTemplateData();
+    }
+  };
+
   return (
     <div className="min-h-screen">
       {/* Navbar */}
@@ -314,6 +322,7 @@ function App() {
         onLogoClick={handleLogoClick} 
         onGetStartedClick={handleGetStartedClick}
         onChatClick={handleChatClick}
+        onSaveChanges={handleSaveChanges}
         isChatMode={currentStep === 'chat'}
       />
       
@@ -472,7 +481,11 @@ function App() {
 
       {/* Chat Page */}
       {currentStep === 'chat' && (
-        <TemplateBasedChat onBackToHome={() => setCurrentStep('hero')} />
+        <TemplateBasedChat 
+          ref={templateChatRef}
+          onBackToHome={() => setCurrentStep('hero')} 
+          onSaveChanges={handleSaveChanges}
+        />
       )}
 
       {/* Exceptional Template */}

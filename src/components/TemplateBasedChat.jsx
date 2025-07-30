@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import ProjectSelector from './ProjectSelector';
 import ExceptionalTemplate from './ExceptionalTemplate';
 
@@ -78,10 +78,33 @@ export const DEFAULT_TEMPLATE_DATA = {
     office: "San Francisco, CA"
   },
   trustIndicator1: "Join 10,000+ creators",
-  trustIndicator2: "4.9/5 rating"
+  trustIndicator2: "4.9/5 rating",
+  // New dynamic fields
+  heroBadge: "Now Available - AI-Powered Landing Pages",
+  aboutSectionTitle: "Built by creators, for creators",
+  aboutSectionSubtitle: "Our platform combines cutting-edge AI with proven design principles to create landing pages that convert.",
+  aboutBenefits: [
+    "No coding knowledge required",
+    "AI-powered design optimization",
+    "Built-in analytics and tracking"
+  ],
+  pricingSectionTitle: "Simple, transparent pricing",
+  pricingSectionSubtitle: "Choose the plan that's right for you. All plans include our core features and 24/7 support.",
+  contactSectionTitle: "Ready to get started?",
+  contactSectionSubtitle: "Let's discuss how we can help you create the perfect landing page for your business. Our team is here to support you every step of the way.",
+  contactFormPlaceholders: {
+    name: "Your name",
+    email: "your@email.com",
+    company: "Your company",
+    message: "Tell us about your project..."
+  },
+  footerDescription: "Build beautiful, conversion-optimized landing pages with AI. Transform your ideas into reality in minutes.",
+  footerProductLinks: ["Features", "Pricing", "Templates", "API"],
+  footerCompanyLinks: ["About", "Blog", "Careers", "Contact"],
+  landingPagesCreated: "10,000+ Landing Pages Created"
 };
 
-const TemplateBasedChat = ({ onBackToHome }) => {
+const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges }, ref) => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -90,6 +113,34 @@ const TemplateBasedChat = ({ onBackToHome }) => {
   const [showProjectPanel, setShowProjectPanel] = useState(false);
   const [isEditorMode, setIsEditorMode] = useState(false);
   const [templateData, setTemplateData] = useState(DEFAULT_TEMPLATE_DATA);
+
+  // Expose saveTemplateData method to parent component
+  useImperativeHandle(ref, () => ({
+    saveTemplateData: async () => {
+      if (!currentProject?.id) return;
+      
+      try {
+        const response = await fetch(`/api/projects/${currentProject.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            template_data: templateData
+          })
+        });
+        
+        if (response.ok) {
+          console.log('Template data saved successfully');
+          alert('Changes saved successfully!');
+        } else {
+          console.error('Failed to save template data');
+          alert('Failed to save changes. Please try again.');
+        }
+      } catch (error) {
+        console.error('Error saving template data:', error);
+        alert('Error saving changes. Please try again.');
+      }
+    }
+  }));
 
   // Load existing project when component mounts
   useEffect(() => {
@@ -157,7 +208,9 @@ const TemplateBasedChat = ({ onBackToHome }) => {
                 ? JSON.parse(project.template_data) 
                 : project.template_data;
               console.log('✅ Parsed template_data:', parsedTemplateData);
-              setTemplateData(parsedTemplateData);
+              // Merge with default template data to ensure all fields are present
+              const mergedTemplateData = { ...DEFAULT_TEMPLATE_DATA, ...parsedTemplateData };
+              setTemplateData(mergedTemplateData);
               // Switch to editor mode if template data exists
               setIsEditorMode(true);
             } catch (error) {
@@ -196,7 +249,9 @@ const TemplateBasedChat = ({ onBackToHome }) => {
                 ? JSON.parse(mostRecent.template_data) 
                 : mostRecent.template_data;
               console.log('✅ Parsed template_data from mostRecent:', parsedTemplateData);
-              setTemplateData(parsedTemplateData);
+              // Merge with default template data to ensure all fields are present
+              const mergedTemplateData = { ...DEFAULT_TEMPLATE_DATA, ...parsedTemplateData };
+              setTemplateData(mergedTemplateData);
               // Switch to editor mode if template data exists
               setIsEditorMode(true);
             } catch (error) {
@@ -395,7 +450,9 @@ const TemplateBasedChat = ({ onBackToHome }) => {
           ? JSON.parse(project.template_data) 
           : project.template_data;
         console.log('✅ Parsed template_data from selected project:', parsedTemplateData);
-        setTemplateData(parsedTemplateData);
+        // Merge with default template data to ensure all fields are present
+        const mergedTemplateData = { ...DEFAULT_TEMPLATE_DATA, ...parsedTemplateData };
+        setTemplateData(mergedTemplateData);
         // Switch to editor mode if template data exists
         setIsEditorMode(true);
       } catch (error) {
@@ -544,38 +601,9 @@ const TemplateBasedChat = ({ onBackToHome }) => {
             <div className="flex-1 p-6 overflow-y-auto">
               <div className="space-y-6">
                 <div>
-                  <p className="text-gray-600 mb-4">
+                  <p className="text-gray-600 mb-6">
                     Your landing page has been generated! Customize the content below and see changes in real-time.
                   </p>
-                  <button
-                    onClick={async () => {
-                      try {
-                        // Save template data to project
-                        const response = await fetch(`/api/projects/${currentProject.id}`, {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            template_data: templateData
-                          })
-                        });
-                        
-                        if (response.ok) {
-                          console.log('Template data saved successfully');
-                          // Show success feedback
-                          alert('Changes saved successfully!');
-                        } else {
-                          console.error('Failed to save template data');
-                          alert('Failed to save changes. Please try again.');
-                        }
-                      } catch (error) {
-                        console.error('Error saving template data:', error);
-                        alert('Error saving changes. Please try again.');
-                      }
-                    }}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors mb-6"
-                  >
-                    Save Changes
-                  </button>
                 </div>
                 
                 {/* Hero Section Editor */}
@@ -623,6 +651,16 @@ const TemplateBasedChat = ({ onBackToHome }) => {
                         onChange={(e) => setTemplateData(prev => ({ ...prev, ctaButtonText: e.target.value }))}
                         className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Enter your CTA button text"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Hero Badge</label>
+                      <input
+                        type="text"
+                        value={templateData.heroBadge}
+                        onChange={(e) => setTemplateData(prev => ({ ...prev, heroBadge: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter your hero badge text"
                       />
                     </div>
                   </div>
@@ -676,7 +714,7 @@ const TemplateBasedChat = ({ onBackToHome }) => {
                     </div>
                   </div>
                   <div className="space-y-4">
-                    {templateData.features.map((feature, index) => (
+                    {(templateData.features || []).map((feature, index) => (
                       <div key={index} className="border border-gray-200 rounded-lg p-4">
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-sm font-medium text-gray-700">Feature {index + 1}</span>
@@ -761,15 +799,65 @@ const TemplateBasedChat = ({ onBackToHome }) => {
                     <span className="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
                     About Section
                   </h4>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">About Content</label>
-                    <textarea
-                      value={templateData.aboutContent}
-                      onChange={(e) => setTemplateData(prev => ({ ...prev, aboutContent: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      rows={4}
-                      placeholder="Enter your about section content"
-                    />
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">About Content</label>
+                      <textarea
+                        value={templateData.aboutContent}
+                        onChange={(e) => setTemplateData(prev => ({ ...prev, aboutContent: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        rows={4}
+                        placeholder="Enter your about section content"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">About Section Title</label>
+                      <input
+                        type="text"
+                        value={templateData.aboutSectionTitle}
+                        onChange={(e) => setTemplateData(prev => ({ ...prev, aboutSectionTitle: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g., Built by creators, for creators"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">About Section Subtitle</label>
+                      <textarea
+                        value={templateData.aboutSectionSubtitle}
+                        onChange={(e) => setTemplateData(prev => ({ ...prev, aboutSectionSubtitle: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        rows={2}
+                        placeholder="Enter about section subtitle"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">About Benefits</label>
+                      {(templateData.aboutBenefits || []).map((benefit, index) => (
+                        <div key={index} className="mb-2">
+                          <input
+                            type="text"
+                            value={benefit}
+                            onChange={(e) => {
+                              const newBenefits = [...(templateData.aboutBenefits || [])];
+                              newBenefits[index] = e.target.value;
+                              setTemplateData(prev => ({ ...prev, aboutBenefits: newBenefits }));
+                            }}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder={`Benefit ${index + 1}`}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Landing Pages Created</label>
+                      <input
+                        type="text"
+                        value={templateData.landingPagesCreated}
+                        onChange={(e) => setTemplateData(prev => ({ ...prev, landingPagesCreated: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g., 10,000+ Landing Pages Created"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -780,7 +868,27 @@ const TemplateBasedChat = ({ onBackToHome }) => {
                     Pricing Section
                   </h4>
                   <div className="space-y-4">
-                    {templateData.pricing.map((plan, index) => (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Pricing Section Title</label>
+                      <input
+                        type="text"
+                        value={templateData.pricingSectionTitle}
+                        onChange={(e) => setTemplateData(prev => ({ ...prev, pricingSectionTitle: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g., Simple, transparent pricing"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Pricing Section Subtitle</label>
+                      <textarea
+                        value={templateData.pricingSectionSubtitle}
+                        onChange={(e) => setTemplateData(prev => ({ ...prev, pricingSectionSubtitle: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        rows={2}
+                        placeholder="Enter pricing section subtitle"
+                      />
+                    </div>
+                    {(templateData.pricing || []).map((plan, index) => (
                       <div key={index} className="border border-gray-200 rounded-lg p-4">
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-sm font-medium text-gray-700">{plan.name} Plan</span>
@@ -876,46 +984,174 @@ const TemplateBasedChat = ({ onBackToHome }) => {
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                   <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center">
                     <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
-                    Contact Information
+                    Contact Section
                   </h4>
-                  <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Contact Section Title</label>
                       <input
-                        type="email"
-                        value={templateData.contactInfo.email}
-                        onChange={(e) => setTemplateData(prev => ({
-                          ...prev,
-                          contactInfo: { ...prev.contactInfo, email: e.target.value }
-                        }))}
+                        type="text"
+                        value={templateData.contactSectionTitle}
+                        onChange={(e) => setTemplateData(prev => ({ ...prev, contactSectionTitle: e.target.value }))}
                         className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="hello@yourcompany.com"
+                        placeholder="e.g., Ready to get started?"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
-                      <input
-                        type="text"
-                        value={templateData.contactInfo.phone}
-                        onChange={(e) => setTemplateData(prev => ({
-                          ...prev,
-                          contactInfo: { ...prev.contactInfo, phone: e.target.value }
-                        }))}
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Contact Section Subtitle</label>
+                      <textarea
+                        value={templateData.contactSectionSubtitle}
+                        onChange={(e) => setTemplateData(prev => ({ ...prev, contactSectionSubtitle: e.target.value }))}
                         className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="+1 (555) 123-4567"
+                        rows={3}
+                        placeholder="Enter contact section subtitle"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Office Location</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Contact Information</label>
+                      <div className="grid grid-cols-1 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                          <input
+                            type="email"
+                            value={templateData.contactInfo.email}
+                            onChange={(e) => setTemplateData(prev => ({
+                              ...prev,
+                              contactInfo: { ...prev.contactInfo, email: e.target.value }
+                            }))}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="hello@yourcompany.com"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                          <input
+                            type="text"
+                            value={templateData.contactInfo.phone}
+                            onChange={(e) => setTemplateData(prev => ({
+                              ...prev,
+                              contactInfo: { ...prev.contactInfo, phone: e.target.value }
+                            }))}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="+1 (555) 123-4567"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Office Location</label>
+                          <input
+                            type="text"
+                            value={templateData.contactInfo.office}
+                            onChange={(e) => setTemplateData(prev => ({
+                              ...prev,
+                              contactInfo: { ...prev.contactInfo, office: e.target.value }
+                            }))}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="San Francisco, CA"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Contact Form Placeholders</label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Name Placeholder</label>
+                          <input
+                            type="text"
+                            value={(templateData.contactFormPlaceholders || {}).name || ''}
+                            onChange={(e) => setTemplateData(prev => ({
+                              ...prev,
+                              contactFormPlaceholders: { ...(prev.contactFormPlaceholders || {}), name: e.target.value }
+                            }))}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="e.g., Your name"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Email Placeholder</label>
+                          <input
+                            type="text"
+                            value={(templateData.contactFormPlaceholders || {}).email || ''}
+                            onChange={(e) => setTemplateData(prev => ({
+                              ...prev,
+                              contactFormPlaceholders: { ...(prev.contactFormPlaceholders || {}), email: e.target.value }
+                            }))}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="e.g., your@email.com"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Company Placeholder</label>
+                          <input
+                            type="text"
+                            value={(templateData.contactFormPlaceholders || {}).company || ''}
+                            onChange={(e) => setTemplateData(prev => ({
+                              ...prev,
+                              contactFormPlaceholders: { ...(prev.contactFormPlaceholders || {}), company: e.target.value }
+                            }))}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="e.g., Your company"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Message Placeholder</label>
+                          <input
+                            type="text"
+                            value={(templateData.contactFormPlaceholders || {}).message || ''}
+                            onChange={(e) => setTemplateData(prev => ({
+                              ...prev,
+                              contactFormPlaceholders: { ...(prev.contactFormPlaceholders || {}), message: e.target.value }
+                            }))}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="e.g., Tell us about your project..."
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer Content Editor */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center">
+                    <span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span>
+                    Footer Content
+                  </h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Footer Description</label>
+                      <textarea
+                        value={templateData.footerDescription}
+                        onChange={(e) => setTemplateData(prev => ({ ...prev, footerDescription: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        rows={3}
+                        placeholder="Enter footer description"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Product Links (comma-separated)</label>
                       <input
                         type="text"
-                        value={templateData.contactInfo.office}
+                        value={(templateData.footerProductLinks || []).join(', ')}
                         onChange={(e) => setTemplateData(prev => ({
                           ...prev,
-                          contactInfo: { ...prev.contactInfo, office: e.target.value }
+                          footerProductLinks: e.target.value.split(',').map(link => link.trim()).filter(link => link)
                         }))}
                         className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="San Francisco, CA"
+                        placeholder="Features, Pricing, Templates, API"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Company Links (comma-separated)</label>
+                      <input
+                        type="text"
+                        value={(templateData.footerCompanyLinks || []).join(', ')}
+                        onChange={(e) => setTemplateData(prev => ({
+                          ...prev,
+                          footerCompanyLinks: e.target.value.split(',').map(link => link.trim()).filter(link => link)
+                        }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="About, Blog, Careers, Contact"
                       />
                     </div>
                   </div>
@@ -980,25 +1216,38 @@ const TemplateBasedChat = ({ onBackToHome }) => {
         <div className="flex-1 overflow-y-auto">
           <div className="min-h-full">
                                     <ExceptionalTemplate 
-                          businessName={templateData.businessName}
-                          tagline={templateData.tagline}
-                          heroDescription={templateData.heroDescription}
-                          ctaButtonText={templateData.ctaButtonText}
-                          sectionType={templateData.sectionType}
-                          sectionTitle={templateData.sectionTitle}
-                          sectionSubtitle={templateData.sectionSubtitle}
-                          features={templateData.features}
-                          aboutContent={templateData.aboutContent}
-                          pricing={templateData.pricing}
-                          contactInfo={templateData.contactInfo}
-                          trustIndicator1={templateData.trustIndicator1}
-                          trustIndicator2={templateData.trustIndicator2}
+                          businessName={templateData.businessName || ''}
+                          tagline={templateData.tagline || ''}
+                          heroDescription={templateData.heroDescription || ''}
+                          ctaButtonText={templateData.ctaButtonText || ''}
+                          sectionType={templateData.sectionType || 'features'}
+                          sectionTitle={templateData.sectionTitle || ''}
+                          sectionSubtitle={templateData.sectionSubtitle || ''}
+                          features={templateData.features || []}
+                          aboutContent={templateData.aboutContent || ''}
+                          pricing={templateData.pricing || []}
+                          contactInfo={templateData.contactInfo || {}}
+                          trustIndicator1={templateData.trustIndicator1 || ''}
+                          trustIndicator2={templateData.trustIndicator2 || ''}
+                          heroBadge={templateData.heroBadge || ''}
+                          aboutSectionTitle={templateData.aboutSectionTitle || ''}
+                          aboutSectionSubtitle={templateData.aboutSectionSubtitle || ''}
+                          aboutBenefits={templateData.aboutBenefits || []}
+                          pricingSectionTitle={templateData.pricingSectionTitle || ''}
+                          pricingSectionSubtitle={templateData.pricingSectionSubtitle || ''}
+                          contactSectionTitle={templateData.contactSectionTitle || ''}
+                          contactSectionSubtitle={templateData.contactSectionSubtitle || ''}
+                          contactFormPlaceholders={templateData.contactFormPlaceholders || {}}
+                          footerDescription={templateData.footerDescription || ''}
+                          footerProductLinks={templateData.footerProductLinks || []}
+                          footerCompanyLinks={templateData.footerCompanyLinks || []}
+                          landingPagesCreated={templateData.landingPagesCreated || ''}
                         />
           </div>
         </div>
       </div>
     </div>
   );
-};
+});
 
 export default TemplateBasedChat; 

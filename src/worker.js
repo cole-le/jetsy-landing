@@ -5319,11 +5319,24 @@ Generate content for the following sections:
    Keep the same structure with icon, title, description
 9. aboutContent - About section content tailored to the business
 10. pricing - 3 pricing tiers appropriate for the business (adjust names and content accordingly)
-11. contactInfo - Contact information
+11. contactInfo - Contact information appropriate for the business
 12. trustIndicator1 - A trust indicator appropriate for the business
 13. trustIndicator2 - A rating or review indicator appropriate for the business
+14. heroBadge - Generate a badge text for the hero section (e.g., "Now Available - AI-Powered Landing Pages", "New Launch", "Limited Time Offer", "Grand Opening", etc.)
+15. aboutSectionTitle - Generate the "Built by creators, for creators" section title appropriate for the business (e.g., "Built by experts, for businesses", "Created by professionals, for customers", etc.)
+16. aboutSectionSubtitle - Generate the subtitle for the about section
+17. aboutBenefits - Generate 3 benefit points for the about section (replace the static ones like "No coding knowledge required", "AI-powered design optimization", "Built-in analytics and tracking")
+18. pricingSectionTitle - Generate the pricing section title (e.g., "Simple, transparent pricing", "Choose your plan", "Flexible pricing options")
+19. pricingSectionSubtitle - Generate the pricing section subtitle (e.g., "Choose the plan that's right for you. All plans include our core features and 24/7 support.")
+20. contactSectionTitle - Generate the contact section title (e.g., "Ready to get started?", "Get in touch", "Contact us today")
+21. contactSectionSubtitle - Generate the contact section subtitle (e.g., "Let's discuss how we can help you create the perfect landing page for your business. Our team is here to support you every step of the way.")
+22. contactFormPlaceholders - Generate appropriate placeholders for the contact form (name, email, company, message)
+23. footerDescription - Generate the footer description text (e.g., "Build beautiful, conversion-optimized landing pages with AI. Transform your ideas into reality in minutes.")
+24. footerProductLinks - Generate appropriate product link texts (e.g., ["Features", "Pricing", "Templates", "API"])
+25. footerCompanyLinks - Generate appropriate company link texts (e.g., ["About", "Blog", "Careers", "Contact"])
+26. landingPagesCreated - Generate a number and text for "Landing Pages Created" (e.g., "10,000+ Landing Pages Created", "5,000+ Projects Built", etc.)
 
-Return ONLY a JSON object with these fields. Keep the structure exactly the same as the current template data.`;
+Return ONLY a JSON object with these fields. Keep the structure exactly the same as the current template data, but add these new fields.`;
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
