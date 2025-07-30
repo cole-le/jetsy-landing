@@ -4,6 +4,9 @@ const ExceptionalTemplate = ({
   businessName = 'Your Amazing Startup',
   tagline = 'Transform your idea into reality with our innovative solution',
   heroDescription = 'Join thousands of satisfied customers who have already made the leap.',
+  sectionType = 'features',
+  sectionTitle = 'Everything you need to succeed',
+  sectionSubtitle = 'Our platform combines cutting-edge AI with proven design principles to create landing pages that convert.',
   features = [
     {
       icon: "🚀",
@@ -147,7 +150,10 @@ const ExceptionalTemplate = ({
             <div className="hidden md:block">
               <div className="ml-10 flex items-baseline space-x-8">
                 <a href="#home" className="text-gray-900 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">Home</a>
-                <a href="#features" className="text-gray-500 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">Features</a>
+                <a href={`#${sectionType}`} className="text-gray-500 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">
+                  {sectionType === 'features' ? 'Features' : 
+                   sectionType === 'services' ? 'Services' : 'Highlights'}
+                </a>
                 <a href="#about" className="text-gray-500 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">About</a>
                 <a href="#pricing" className="text-gray-500 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">Pricing</a>
                 <a href="#contact" className="text-gray-500 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">Contact</a>
@@ -227,16 +233,16 @@ const ExceptionalTemplate = ({
         <div className="absolute top-1/2 left-20 w-16 h-16 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full opacity-30 animate-ping"></div>
       </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-20 bg-white">
+      {/* Dynamic Section (Features/Services/Highlights) */}
+      <section id={sectionType} className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-              Everything you need to
-              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> succeed</span>
+              {sectionTitle.split(' ').slice(0, -1).join(' ')}
+              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> {sectionTitle.split(' ').slice(-1)[0]}</span>
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Our platform combines cutting-edge AI with proven design principles to create landing pages that convert.
+              {sectionSubtitle}
             </p>
           </div>
           

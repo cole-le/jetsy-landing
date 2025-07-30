@@ -7,6 +7,9 @@ export const DEFAULT_TEMPLATE_DATA = {
   businessName: 'Your Amazing Startup',
   tagline: 'Transform your idea into reality with our innovative solution',
   heroDescription: 'Join thousands of satisfied customers who have already made the leap.',
+  sectionType: 'features', // 'features' for SaaS/tech, 'services' for restaurants/bars, 'highlights' for other businesses
+  sectionTitle: 'Everything you need to succeed',
+  sectionSubtitle: 'Our platform combines cutting-edge AI with proven design principles to create landing pages that convert.',
   features: [
     {
       icon: "🚀",
@@ -593,12 +596,53 @@ const TemplateBasedChat = ({ onBackToHome }) => {
                   </div>
                 </div>
 
-                {/* Features Section Editor */}
+                {/* Dynamic Section Editor */}
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                   <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center">
                     <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                    Features Section
+                    {templateData.sectionType === 'features' ? 'Features' : 
+                     templateData.sectionType === 'services' ? 'Services' : 'Highlights'} Section
                   </h4>
+                  <div className="space-y-4 mb-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Section Type</label>
+                      <select
+                        value={templateData.sectionType}
+                        onChange={(e) => setTemplateData(prev => ({ 
+                          ...prev, 
+                          sectionType: e.target.value,
+                          sectionTitle: e.target.value === 'features' ? 'Everything you need to succeed' :
+                                        e.target.value === 'services' ? 'Our exceptional services' :
+                                        'What makes us special'
+                        }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="features">Features (for SaaS/Tech)</option>
+                        <option value="services">Services (for Restaurants/Bars)</option>
+                        <option value="highlights">Highlights (for Other Businesses)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Section Title</label>
+                      <input
+                        type="text"
+                        value={templateData.sectionTitle}
+                        onChange={(e) => setTemplateData(prev => ({ ...prev, sectionTitle: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter section title"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Section Subtitle</label>
+                      <textarea
+                        value={templateData.sectionSubtitle}
+                        onChange={(e) => setTemplateData(prev => ({ ...prev, sectionSubtitle: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        rows={2}
+                        placeholder="Enter section subtitle"
+                      />
+                    </div>
+                  </div>
                   <div className="space-y-4">
                     {templateData.features.map((feature, index) => (
                       <div key={index} className="border border-gray-200 rounded-lg p-4">
@@ -946,6 +990,9 @@ const TemplateBasedChat = ({ onBackToHome }) => {
                           businessName={templateData.businessName}
                           tagline={templateData.tagline}
                           heroDescription={templateData.heroDescription}
+                          sectionType={templateData.sectionType}
+                          sectionTitle={templateData.sectionTitle}
+                          sectionSubtitle={templateData.sectionSubtitle}
                           features={templateData.features}
                           aboutContent={templateData.aboutContent}
                           pricing={templateData.pricing}

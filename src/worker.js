@@ -5300,12 +5300,22 @@ Generate content for the following sections:
 1. businessName - A compelling business name (if not provided in user message, create one)
 2. tagline - A powerful tagline that captures the value proposition
 3. heroDescription - A brief description for the hero section
-4. features - 6 features that highlight the key benefits (keep the same structure with icon, title, description)
-5. aboutContent - About section content
-6. pricing - 3 pricing tiers (Starter, Pro, Enterprise) with appropriate features and pricing
-7. contactInfo - Contact information
-8. trustIndicator1 - A trust indicator like "Join 10,000+ creators" or similar
-9. trustIndicator2 - A rating or review indicator like "4.9/5 rating" or similar
+4. sectionType - Determine the appropriate section type based on the business:
+   - Use "services" for restaurants, bars, cafes, food businesses
+   - Use "features" for SaaS, software, apps, tech companies
+   - Use "highlights" for other businesses
+5. sectionTitle - Generate an appropriate title for the section type
+6. sectionSubtitle - Generate an appropriate subtitle for the section type
+7. features - Generate 6 items that are appropriate for the business:
+   - For restaurants/bars: focus on menu items, services, atmosphere, dining experience
+   - For SaaS/tech: focus on features, capabilities, benefits, technology
+   - For other businesses: focus on highlights, services, unique offerings, value propositions
+   Keep the same structure with icon, title, description
+8. aboutContent - About section content tailored to the business
+9. pricing - 3 pricing tiers appropriate for the business (adjust names and content accordingly)
+10. contactInfo - Contact information
+11. trustIndicator1 - A trust indicator appropriate for the business
+12. trustIndicator2 - A rating or review indicator appropriate for the business
 
 Return ONLY a JSON object with these fields. Keep the structure exactly the same as the current template data.`;
 
