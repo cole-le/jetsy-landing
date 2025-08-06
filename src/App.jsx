@@ -27,6 +27,7 @@ function App() {
   const [hasSeenPricing, setHasSeenPricing] = useState(false)
   const [expandChat, setExpandChat] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [previewMode, setPreviewMode] = useState('desktop'); // desktop, phone, tablet
   const templateChatRef = useRef(null);
 
   useEffect(() => {
@@ -313,6 +314,10 @@ function App() {
     }
   };
 
+  const handlePreviewModeChange = (newMode) => {
+    setPreviewMode(newMode);
+  };
+
   return (
     <div className="min-h-screen">
       {/* Navbar */}
@@ -324,6 +329,8 @@ function App() {
         onChatClick={handleChatClick}
         onSaveChanges={handleSaveChanges}
         isChatMode={currentStep === 'chat'}
+        previewMode={previewMode}
+        onPreviewModeChange={handlePreviewModeChange}
       />
       
       {/* Hero Section */}
@@ -485,6 +492,7 @@ function App() {
           ref={templateChatRef}
           onBackToHome={() => setCurrentStep('hero')} 
           onSaveChanges={handleSaveChanges}
+          previewMode={previewMode}
         />
       )}
 

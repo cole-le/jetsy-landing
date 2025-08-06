@@ -104,7 +104,7 @@ export const DEFAULT_TEMPLATE_DATA = {
   landingPagesCreated: "10,000+ Landing Pages Created"
 };
 
-const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges }, ref) => {
+const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode = 'desktop' }, ref) => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -1238,38 +1238,68 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges }, ref) => {
           </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto">
-          <div className="min-h-full">
-                                    <ExceptionalTemplate 
-                          businessName={templateData.businessName || ''}
-                          tagline={templateData.tagline || ''}
-                          heroDescription={templateData.heroDescription || ''}
-                          ctaButtonText={templateData.ctaButtonText || ''}
-                          sectionType={templateData.sectionType || 'features'}
-                          sectionTitle={templateData.sectionTitle || ''}
-                          sectionSubtitle={templateData.sectionSubtitle || ''}
-                          features={templateData.features || []}
-                          aboutContent={templateData.aboutContent || ''}
-                          pricing={templateData.pricing || []}
-                          contactInfo={templateData.contactInfo || {}}
-                          trustIndicator1={templateData.trustIndicator1 || ''}
-                          trustIndicator2={templateData.trustIndicator2 || ''}
-                          heroBadge={templateData.heroBadge || ''}
-                          aboutSectionTitle={templateData.aboutSectionTitle || ''}
-                          aboutSectionSubtitle={templateData.aboutSectionSubtitle || ''}
-                          aboutBenefits={templateData.aboutBenefits || []}
-                          pricingSectionTitle={templateData.pricingSectionTitle || ''}
-                          pricingSectionSubtitle={templateData.pricingSectionSubtitle || ''}
-                          contactSectionTitle={templateData.contactSectionTitle || ''}
-                          contactSectionSubtitle={templateData.contactSectionSubtitle || ''}
-                          contactFormPlaceholders={templateData.contactFormPlaceholders || {}}
-                          footerDescription={templateData.footerDescription || ''}
-                          footerProductLinks={templateData.footerProductLinks || []}
-                          footerCompanyLinks={templateData.footerCompanyLinks || []}
-                          landingPagesCreated={templateData.landingPagesCreated || ''}
-                          heroBackgroundImage={templateData.heroBackgroundImage || null}
-                          aboutBackgroundImage={templateData.aboutBackgroundImage || null}
-                        />
+        <div className="flex-1 overflow-y-auto bg-gray-100">
+          <div className={`mx-auto transition-all duration-300 ${
+            previewMode === 'phone' 
+              ? 'max-w-sm' 
+              : previewMode === 'tablet' 
+                ? 'max-w-2xl' 
+                : 'max-w-full'
+          }`}>
+            <div className={`bg-white shadow-lg rounded-lg overflow-hidden ${
+              previewMode === 'phone' 
+                ? 'border-8 border-gray-800 rounded-3xl relative' 
+                : previewMode === 'tablet' 
+                  ? 'border-4 border-gray-800 rounded-2xl relative' 
+                  : ''
+            }`}>
+              {/* Device frame indicators */}
+              {previewMode === 'phone' && (
+                <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded-full z-10">
+                  📱 Phone
+                </div>
+              )}
+              {previewMode === 'tablet' && (
+                <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded-full z-10">
+                  💻 Tablet
+                </div>
+              )}
+              {previewMode === 'desktop' && (
+                <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded-full z-10">
+                  🖥️ Desktop
+                </div>
+              )}
+              <ExceptionalTemplate 
+                businessName={templateData.businessName || ''}
+                tagline={templateData.tagline || ''}
+                heroDescription={templateData.heroDescription || ''}
+                ctaButtonText={templateData.ctaButtonText || ''}
+                sectionType={templateData.sectionType || 'features'}
+                sectionTitle={templateData.sectionTitle || ''}
+                sectionSubtitle={templateData.sectionSubtitle || ''}
+                features={templateData.features || []}
+                aboutContent={templateData.aboutContent || ''}
+                pricing={templateData.pricing || []}
+                contactInfo={templateData.contactInfo || {}}
+                trustIndicator1={templateData.trustIndicator1 || ''}
+                trustIndicator2={templateData.trustIndicator2 || ''}
+                heroBadge={templateData.heroBadge || ''}
+                aboutSectionTitle={templateData.aboutSectionTitle || ''}
+                aboutSectionSubtitle={templateData.aboutSectionSubtitle || ''}
+                aboutBenefits={templateData.aboutBenefits || []}
+                pricingSectionTitle={templateData.pricingSectionTitle || ''}
+                pricingSectionSubtitle={templateData.pricingSectionSubtitle || ''}
+                contactSectionTitle={templateData.contactSectionTitle || ''}
+                contactSectionSubtitle={templateData.contactSectionSubtitle || ''}
+                contactFormPlaceholders={templateData.contactFormPlaceholders || {}}
+                footerDescription={templateData.footerDescription || ''}
+                footerProductLinks={templateData.footerProductLinks || []}
+                footerCompanyLinks={templateData.footerCompanyLinks || []}
+                landingPagesCreated={templateData.landingPagesCreated || ''}
+                heroBackgroundImage={templateData.heroBackgroundImage || null}
+                aboutBackgroundImage={templateData.aboutBackgroundImage || null}
+              />
+            </div>
           </div>
         </div>
       </div>

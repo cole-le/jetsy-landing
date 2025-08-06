@@ -1,49 +1,80 @@
-import React, { useState } from 'react'
+import React, { useState } from 'react';
 
-const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, onChatClick, onSaveChanges, isChatMode = false }) => {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, onChatClick, onSaveChanges, isChatMode = false, previewMode = 'desktop', onPreviewModeChange }) => {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handlePricingClick = (e) => {
-    e.preventDefault()
-    if (onPricingClick) {
-      onPricingClick()
-    }
-    setIsMobileMenuOpen(false)
-  }
+    e.preventDefault();
+    onPricingClick();
+  };
 
   const handleFAQClick = (e) => {
-    e.preventDefault()
-    if (onFAQClick) {
-      onFAQClick()
-    }
-    setIsMobileMenuOpen(false)
-  }
+    e.preventDefault();
+    onFAQClick();
+  };
 
   const handleLogoClick = (e) => {
-    e.preventDefault()
-    if (onLogoClick) {
-      onLogoClick()
-    }
-    setIsMobileMenuOpen(false)
-  }
+    e.preventDefault();
+    onLogoClick();
+  };
 
   const handleGetStartedClick = (e) => {
     e.preventDefault();
-    if (onGetStartedClick) {
-      onGetStartedClick();
-    }
-    setIsMobileMenuOpen(false);
+    onGetStartedClick();
   };
 
+  // Preview mode cycle: desktop -> phone -> tablet -> desktop
+  const handlePreviewModeToggle = () => {
+    const modes = ['desktop', 'phone', 'tablet'];
+    const currentIndex = modes.indexOf(previewMode);
+    const nextIndex = (currentIndex + 1) % modes.length;
+    onPreviewModeChange(modes[nextIndex]);
+  };
+
+  // Get preview mode icon and tooltip
+  const getPreviewModeInfo = () => {
+    switch (previewMode) {
+      case 'phone':
+        return {
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 -960 960 960" className="shrink-0 h-5 w-5" fill="currentColor">
+              <path d="M125-160q-18.75 0-31.87-13.18Q80-186.35 80-205.18 80-224 93.13-237q13.12-13 31.87-13h35v-490q0-24.75 17.63-42.38Q195.25-800 220-800h590q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H220v490h195q18.75 0 31.88 13.18 13.12 13.17 13.12 32Q460-186 446.88-173q-13.13 13-31.88 13zm425 0q-12.75 0-21.37-8.63Q520-177.25 520-190v-460q0-12.75 8.63-21.38Q537.25-680 550-680h300q12.75 0 21.38 8.62Q880-662.75 880-650v460q0 12.75-8.62 21.37Q862.75-160 850-160zm30-90h240v-370H580zm0 0h240z"></path>
+            </svg>
+          ),
+          tooltip: 'Show tablet preview'
+        };
+      case 'tablet':
+        return {
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 -960 960 960" className="shrink-0 h-5 w-5" fill="currentColor">
+              <path d="M125-160q-18.75 0-31.87-13.18Q80-186.35 80-205.18 80-224 93.13-237q13.12-13 31.87-13h35v-490q0-24.75 17.63-42.38Q195.25-800 220-800h590q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H220v490h195q18.75 0 31.88 13.18 13.12 13.17 13.12 32Q460-186 446.88-173q-13.13 13-31.88 13zm425 0q-12.75 0-21.37-8.63Q520-177.25 520-190v-460q0-12.75 8.63-21.38Q537.25-680 550-680h300q12.75 0 21.38 8.62Q880-662.75 880-650v460q0 12.75-8.62 21.37Q862.75-160 850-160zm30-90h240v-370H580zm0 0h240z"></path>
+            </svg>
+          ),
+          tooltip: 'Show desktop preview'
+        };
+      default: // desktop
+        return {
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 -960 960 960" className="shrink-0 h-5 w-5" fill="currentColor">
+              <path d="M125-160q-18.75 0-31.87-13.18Q80-186.35 80-205.18 80-224 93.13-237q13.12-13 31.87-13h35v-490q0-24.75 17.63-42.38Q195.25-800 220-800h590q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H220v490h195q18.75 0 31.88 13.18 13.12 13.17 13.12 32Q460-186 446.88-173q-13.13 13-31.88 13zm425 0q-12.75 0-21.37-8.63Q520-177.25 520-190v-460q0-12.75 8.63-21.38Q537.25-680 550-680h300q12.75 0 21.38 8.62Q880-662.75 880-650v460q0 12.75-8.62 21.37Q862.75-160 850-160zm30-90h240v-370H580zm0 0h240z"></path>
+            </svg>
+          ),
+          tooltip: 'Show phone preview'
+        };
+    }
+  };
+
+  const previewInfo = getPreviewModeInfo();
+
   return (
-    <nav className="relative bg-white/80 backdrop-blur-lg border-b border-gray-200/50">
-      <div className="px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center h-16">
+    <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <div className="flex items-center mr-auto">
-            <button
+          <div className="flex items-center">
+            <button 
               onClick={handleLogoClick}
-              className="flex items-center hover:opacity-80 transition-opacity duration-200"
+              className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
             >
               <img 
                 src="/jetsy_colorful_transparent_horizontal.png" 
@@ -84,7 +115,23 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
 
           {/* Save Changes button (chat mode) or Mobile menu button */}
           {isChatMode ? (
-            <div className="flex items-center">
+            <div className="flex items-center space-x-3">
+              {/* Preview Mode Toggle Button */}
+              <div className="relative group">
+                <button 
+                  onClick={handlePreviewModeToggle}
+                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all duration-200"
+                  title={previewInfo.tooltip}
+                >
+                  {previewInfo.icon}
+                </button>
+                {/* Tooltip */}
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none">
+                  {previewInfo.tooltip}
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900"></div>
+                </div>
+              </div>
+              
               <button 
                 onClick={onSaveChanges}
                 className="px-6 py-2 bg-black hover:bg-gray-800 text-white rounded-lg transition-colors duration-200 font-semibold">
