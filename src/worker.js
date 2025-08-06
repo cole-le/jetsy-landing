@@ -1378,122 +1378,7 @@ async function handleLLMOrchestration(request, env, corsHeaders) {
       return prompts[section]?.[businessType] || `A professional image for the ${section} section of ${businessName}`;
     };
 
-    // Generate context-aware image prompts based on comprehensive prompt
-    const generateContextAwareImagePrompts = (comprehensivePrompt, businessType, businessName, section) => {
-      // Extract key context from the comprehensive prompt
-      const context = comprehensivePrompt.toLowerCase();
-      
-      // Base prompts that incorporate the comprehensive context
-      const contextPrompts = {
-        hero: {
-          bar_restaurant: context.includes('space') && context.includes('theme') 
-            ? `A futuristic space-themed hero image for ${businessName} restaurant/bar with cosmic atmosphere, neon lighting, and otherworldly dining experience`
-            : `A stunning hero image for ${businessName} restaurant/bar with elegant dining atmosphere, delicious food presentation, and inviting ambiance`,
-          local_service: `A trustworthy hero image for ${businessName} local services with professional workers, quality craftsmanship, and community focus`,
-          mobile_app: `A dynamic hero image featuring ${businessName} mobile app interface with smartphone mockups, modern UI design, and tech-savvy users`,
-          consulting_service: `A professional hero image representing ${businessName} consulting services with business professionals, strategic planning, and corporate excellence`,
-          online_education: `An inspiring hero image for ${businessName} online learning platform with students, digital education, and knowledge empowerment`,
-          real_estate: `A beautiful hero image showcasing ${businessName} real estate with luxury properties, modern homes, and dream living spaces`,
-          healthcare_wellness: `A warm and caring hero image for ${businessName} healthcare services with medical professionals, wellness, and health-focused environment`,
-          creative_agency: `A creative and vibrant hero image for ${businessName} design agency with artistic elements, creative workspace, and innovative design`,
-          subscription_box: `An exciting hero image for ${businessName} subscription service with curated products, unboxing experience, and monthly surprises`,
-          saas_b2b: `A modern hero image for ${businessName} business software with enterprise technology, data visualization, and business growth`,
-          ecommerce_fashion: `A stunning hero image showcasing ${businessName} fashion collection with modern models, elegant styling, and premium fashion photography`
-        },
-        logo: {
-          bar_restaurant: context.includes('space') && context.includes('theme')
-            ? `A futuristic space-themed logo for ${businessName} with cosmic elements, neon colors, and sci-fi aesthetics`
-            : `An elegant logo for ${businessName} restaurant/bar with culinary elements and hospitality branding`,
-          local_service: `A trustworthy logo for ${businessName} local services with community focus and reliability`,
-          mobile_app: `A modern app logo for ${businessName} with clean design, tech aesthetics, and mobile-friendly iconography`,
-          consulting_service: `A professional logo for ${businessName} consulting with corporate elegance and trust-building design`,
-          online_education: `An educational logo for ${businessName} learning platform with knowledge symbols and academic excellence`,
-          real_estate: `A premium logo for ${businessName} real estate with property elements and luxury branding`,
-          healthcare_wellness: `A caring logo for ${businessName} healthcare with medical symbols and wellness focus`,
-          creative_agency: `A creative logo for ${businessName} design agency with artistic elements and innovative design`,
-          subscription_box: `A fun logo for ${businessName} subscription service with excitement and discovery themes`,
-          saas_b2b: `A modern logo for ${businessName} business software with tech elements and enterprise appeal`,
-          ecommerce_fashion: `A sophisticated logo design for ${businessName} fashion brand with elegant typography and modern fashion aesthetics`
-        },
-        feature_1: {
-          bar_restaurant: context.includes('alcohol') || context.includes('drink')
-            ? `A feature icon representing craft cocktails and premium beverages for ${businessName}`
-            : `A feature icon representing exceptional cuisine and dining experience for ${businessName}`,
-          local_service: `A feature icon representing professional service and local expertise for ${businessName}`,
-          mobile_app: `A feature icon representing task management and productivity for ${businessName} app`,
-          consulting_service: `A feature icon representing strategic planning and business growth for ${businessName}`,
-          online_education: `A feature icon representing interactive learning and skill development for ${businessName}`,
-          real_estate: `A feature icon representing property search and real estate services for ${businessName}`,
-          healthcare_wellness: `A feature icon representing health monitoring and wellness services for ${businessName}`,
-          creative_agency: `A feature icon representing creative design and branding services for ${businessName}`,
-          subscription_box: `A feature icon representing curated products and monthly surprises for ${businessName}`,
-          saas_b2b: `A feature icon representing business automation and enterprise solutions for ${businessName}`,
-          ecommerce_fashion: `A feature icon representing fashion curation and style recommendations for ${businessName}`
-        },
-        feature_2: {
-          bar_restaurant: context.includes('space') && context.includes('theme')
-            ? `A feature icon representing unique space-themed dining experience for ${businessName}`
-            : `A feature icon representing warm hospitality and customer service for ${businessName}`,
-          local_service: `A feature icon representing quick response and reliable service for ${businessName}`,
-          mobile_app: `A feature icon representing collaboration and team productivity for ${businessName} app`,
-          consulting_service: `A feature icon representing market analysis and competitive insights for ${businessName}`,
-          online_education: `A feature icon representing expert instructors and mentorship for ${businessName}`,
-          real_estate: `A feature icon representing virtual tours and property visualization for ${businessName}`,
-          healthcare_wellness: `A feature icon representing telemedicine and remote care for ${businessName}`,
-          creative_agency: `A feature icon representing digital marketing and brand strategy for ${businessName}`,
-          subscription_box: `A feature icon representing quality products and value for money for ${businessName}`,
-          saas_b2b: `A feature icon representing data analytics and business intelligence for ${businessName}`,
-          ecommerce_fashion: `A feature icon representing personalized shopping and fashion advice for ${businessName}`
-        },
-        feature_3: {
-          bar_restaurant: context.includes('futuristic') || context.includes('modern')
-            ? `A feature icon representing innovative dining technology and modern atmosphere for ${businessName}`
-            : `A feature icon representing fresh ingredients and quality dining for ${businessName}`,
-          local_service: `A feature icon representing warranty and quality assurance for ${businessName}`,
-          mobile_app: `A feature icon representing data sync and cloud storage for ${businessName} app`,
-          consulting_service: `A feature icon representing implementation support and ongoing guidance for ${businessName}`,
-          online_education: `A feature icon representing certification and achievement tracking for ${businessName}`,
-          real_estate: `A feature icon representing financing options and mortgage assistance for ${businessName}`,
-          healthcare_wellness: `A feature icon representing preventive care and health education for ${businessName}`,
-          creative_agency: `A feature icon representing project management and client collaboration for ${businessName}`,
-          subscription_box: `A feature icon representing customer support and satisfaction for ${businessName}`,
-          saas_b2b: `A feature icon representing integration and scalability for ${businessName}`,
-          ecommerce_fashion: `A feature icon representing secure payments and seamless shopping for ${businessName}`
-        },
-        about: {
-          bar_restaurant: context.includes('space') && context.includes('theme')
-            ? `An about section image showcasing ${businessName} space-themed culinary story and futuristic dining concept`
-            : `An about section image showcasing ${businessName} culinary story and chef expertise`,
-          local_service: `An about section image showcasing ${businessName} local roots and community commitment`,
-          mobile_app: `An about section image representing ${businessName} app development and user experience`,
-          consulting_service: `An about section image showing ${businessName} team expertise and company values`,
-          online_education: `An about section image representing ${businessName} educational mission and learning approach`,
-          real_estate: `An about section image showcasing ${businessName} real estate expertise and community involvement`,
-          healthcare_wellness: `An about section image representing ${businessName} healthcare mission and patient care philosophy`,
-          creative_agency: `An about section image showing ${businessName} creative process and design philosophy`,
-          subscription_box: `An about section image representing ${businessName} curation process and product selection`,
-          saas_b2b: `An about section image representing ${businessName} technology innovation and business solutions`,
-          ecommerce_fashion: `An about section image showcasing ${businessName} brand story and fashion philosophy`
-        },
-        contact: {
-          bar_restaurant: context.includes('reservation') || context.includes('booking')
-            ? `A contact section image representing reservation booking and customer service for ${businessName}`
-            : `A contact section image representing reservation booking and customer service for ${businessName}`,
-          local_service: `A contact section image representing local consultation and service coordination for ${businessName}`,
-          mobile_app: `A contact section image representing user support and feedback for ${businessName} app`,
-          consulting_service: `A contact section image representing client consultation and partnership for ${businessName}`,
-          online_education: `A contact section image representing student support and guidance for ${businessName}`,
-          real_estate: `A contact section image representing client consultation and property guidance for ${businessName}`,
-          healthcare_wellness: `A contact section image representing patient care and medical consultation for ${businessName}`,
-          creative_agency: `A contact section image representing client collaboration and project discussion for ${businessName}`,
-          subscription_box: `A contact section image representing customer service and product support for ${businessName}`,
-          saas_b2b: `A contact section image representing business consultation and technical support for ${businessName}`,
-          ecommerce_fashion: `A contact section image representing customer service and support for ${businessName} fashion`
-        }
-      };
-      
-      return contextPrompts[section]?.[businessType] || `A professional image for the ${section} section of ${businessName}`;
-    };
+
 
     // === ENHANCED PROMPT ENGINEERING USING ACE METHOD ===
     // Approach: Visualize targeted changes only
@@ -1520,6 +1405,25 @@ async function handleLLMOrchestration(request, env, corsHeaders) {
     if (response.image_requests && response.image_requests.length > 0) {
       if (isInitialPrompt) {
         console.log('🎨 Generating images for initial prompt:', response.image_requests.length, 'images');
+        
+        // Add background image requests for initial prompts
+        const heroBackgroundPrompt = generateContextAwareImagePrompts(sectionAnalysis.comprehensivePrompt || user_message, sectionAnalysis.businessType, sectionAnalysis.businessInfo.name, 'hero_background');
+        const aboutBackgroundPrompt = generateContextAwareImagePrompts(sectionAnalysis.comprehensivePrompt || user_message, sectionAnalysis.businessType, sectionAnalysis.businessInfo.name, 'about_background');
+        
+        response.image_requests.push(
+          {
+            prompt: heroBackgroundPrompt,
+            aspect_ratio: '16:9',
+            placement: 'hero_background'
+          },
+          {
+            prompt: aboutBackgroundPrompt,
+            aspect_ratio: '16:9',
+            placement: 'about_background'
+          }
+        );
+        
+        console.log('🎨 Added background image requests for initial prompt');
       } else {
         // Filter image requests to only target requested sections
         let filteredImageRequests = response.image_requests.filter(request => {
@@ -5263,18 +5167,249 @@ Return ONLY the business type code (e.g., "saas_b2b") with no other text.`;
 
 // Detect business type from user message using GPT-4o-mini
 
+// Generate context-aware image prompts based on comprehensive prompt
+function generateContextAwareImagePrompts(comprehensivePrompt, businessType, businessName, section) {
+  // Extract key context from the comprehensive prompt
+  const context = comprehensivePrompt.toLowerCase();
+  
+  // Base prompts that incorporate the comprehensive context
+  const contextPrompts = {
+        hero: {
+          bar_restaurant: context.includes('space') && context.includes('theme') 
+            ? `A futuristic space-themed hero image for ${businessName} restaurant/bar with cosmic atmosphere, neon lighting, and otherworldly dining experience`
+            : `A stunning hero image for ${businessName} restaurant/bar with elegant dining atmosphere, delicious food presentation, and inviting ambiance`,
+          local_service: `A trustworthy hero image for ${businessName} local services with professional workers, quality craftsmanship, and community focus`,
+          mobile_app: `A dynamic hero image featuring ${businessName} mobile app interface with smartphone mockups, modern UI design, and tech-savvy users`,
+          consulting_service: `A professional hero image representing ${businessName} consulting services with business professionals, strategic planning, and corporate excellence`,
+          online_education: `An inspiring hero image for ${businessName} online learning platform with students, digital education, and knowledge empowerment`,
+          real_estate: `A beautiful hero image showcasing ${businessName} real estate with luxury properties, modern homes, and dream living spaces`,
+          healthcare_wellness: `A warm and caring hero image for ${businessName} healthcare services with medical professionals, wellness, and health-focused environment`,
+          creative_agency: `A creative and vibrant hero image for ${businessName} design agency with artistic elements, creative workspace, and innovative design`,
+          subscription_box: `An exciting hero image for ${businessName} subscription service with curated products, unboxing experience, and monthly surprises`,
+          saas_b2b: `A modern hero image for ${businessName} business software with enterprise technology, data visualization, and business growth`,
+          ecommerce_fashion: `A stunning hero image showcasing ${businessName} fashion collection with modern models, elegant styling, and premium fashion photography`
+        },
+        hero_background: {
+          bar_restaurant: context.includes('space') && context.includes('theme')
+            ? `A futuristic space-themed background for ${businessName} with cosmic nebula, stars, and otherworldly atmosphere, darker tones for excellent text readability`
+            : `A warm and inviting restaurant background for ${businessName} with ambient lighting, elegant dining atmosphere, and sophisticated ambiance, darker tones for excellent text readability`,
+          local_service: `A professional service background for ${businessName} with clean workspace, tools, and community-focused environment, darker tones for excellent text readability`,
+          mobile_app: `A modern tech background for ${businessName} app with digital patterns, smartphone interfaces, and innovative technology atmosphere, darker tones for excellent text readability`,
+          consulting_service: `A corporate business background for ${businessName} with professional office environment, strategic planning elements, and executive atmosphere, darker tones for excellent text readability`,
+          online_education: `An educational background for ${businessName} with learning environment, digital education elements, and knowledge-focused atmosphere, darker tones for excellent text readability`,
+          real_estate: `A luxury real estate background for ${businessName} with beautiful properties, architectural elements, and dream home atmosphere, darker tones for excellent text readability`,
+          healthcare_wellness: `A caring healthcare background for ${businessName} with medical environment, wellness elements, and health-focused atmosphere, darker tones for excellent text readability`,
+          creative_agency: `A creative design background for ${businessName} with artistic workspace, design elements, and innovative atmosphere, darker tones for excellent text readability`,
+          subscription_box: `An exciting subscription background for ${businessName} with gift elements, delivery atmosphere, and surprise-focused environment, darker tones for excellent text readability`,
+          saas_b2b: `A modern enterprise background for ${businessName} with business technology, data visualization elements, and professional atmosphere, darker tones for excellent text readability`,
+          ecommerce_fashion: `A sophisticated fashion background for ${businessName} with runway elements, shopping environment, and luxury fashion atmosphere, darker tones for excellent text readability`
+        },
+        logo: {
+          bar_restaurant: context.includes('space') && context.includes('theme')
+            ? `A futuristic space-themed logo for ${businessName} with cosmic elements, neon colors, and sci-fi aesthetics`
+            : `An elegant logo for ${businessName} restaurant/bar with culinary elements and hospitality branding`,
+          local_service: `A trustworthy logo for ${businessName} local services with community focus and reliability`,
+          mobile_app: `A modern app logo for ${businessName} with clean design, tech aesthetics, and mobile-friendly iconography`,
+          consulting_service: `A professional logo for ${businessName} consulting with corporate elegance and trust-building design`,
+          online_education: `An educational logo for ${businessName} learning platform with knowledge symbols and academic excellence`,
+          real_estate: `A premium logo for ${businessName} real estate with property elements and luxury branding`,
+          healthcare_wellness: `A caring logo for ${businessName} healthcare with medical symbols and wellness focus`,
+          creative_agency: `A creative logo for ${businessName} design agency with artistic elements and innovative design`,
+          subscription_box: `A fun logo for ${businessName} subscription service with excitement and discovery themes`,
+          saas_b2b: `A modern logo for ${businessName} business software with tech elements and enterprise appeal`,
+          ecommerce_fashion: `A sophisticated logo design for ${businessName} fashion brand with elegant typography and modern fashion aesthetics`
+        },
+        feature_1: {
+          bar_restaurant: context.includes('alcohol') || context.includes('drink')
+            ? `A feature icon representing craft cocktails and premium beverages for ${businessName}`
+            : `A feature icon representing exceptional cuisine and dining experience for ${businessName}`,
+          local_service: `A feature icon representing professional service and local expertise for ${businessName}`,
+          mobile_app: `A feature icon representing task management and productivity for ${businessName} app`,
+          consulting_service: `A feature icon representing strategic planning and business growth for ${businessName}`,
+          online_education: `A feature icon representing interactive learning and skill development for ${businessName}`,
+          real_estate: `A feature icon representing property search and real estate services for ${businessName}`,
+          healthcare_wellness: `A feature icon representing health monitoring and wellness services for ${businessName}`,
+          creative_agency: `A feature icon representing creative design and branding services for ${businessName}`,
+          subscription_box: `A feature icon representing curated products and monthly surprises for ${businessName}`,
+          saas_b2b: `A feature icon representing business automation and enterprise solutions for ${businessName}`,
+          ecommerce_fashion: `A feature icon representing fashion curation and style recommendations for ${businessName}`
+        },
+        feature_2: {
+          bar_restaurant: context.includes('space') && context.includes('theme')
+            ? `A feature icon representing unique space-themed dining experience for ${businessName}`
+            : `A feature icon representing warm hospitality and customer service for ${businessName}`,
+          local_service: `A feature icon representing quick response and reliable service for ${businessName}`,
+          mobile_app: `A feature icon representing collaboration and team productivity for ${businessName} app`,
+          consulting_service: `A feature icon representing market analysis and competitive insights for ${businessName}`,
+          online_education: `A feature icon representing expert instructors and mentorship for ${businessName}`,
+          real_estate: `A feature icon representing virtual tours and property visualization for ${businessName}`,
+          healthcare_wellness: `A feature icon representing telemedicine and remote care for ${businessName}`,
+          creative_agency: `A feature icon representing digital marketing and brand strategy for ${businessName}`,
+          subscription_box: `A feature icon representing quality products and value for money for ${businessName}`,
+          saas_b2b: `A feature icon representing data analytics and business intelligence for ${businessName}`,
+          ecommerce_fashion: `A feature icon representing personalized shopping and fashion advice for ${businessName}`
+        },
+        feature_3: {
+          bar_restaurant: context.includes('futuristic') || context.includes('modern')
+            ? `A feature icon representing innovative dining technology and modern atmosphere for ${businessName}`
+            : `A feature icon representing fresh ingredients and quality dining for ${businessName}`,
+          local_service: `A feature icon representing warranty and quality assurance for ${businessName}`,
+          mobile_app: `A feature icon representing data sync and cloud storage for ${businessName} app`,
+          consulting_service: `A feature icon representing implementation support and ongoing guidance for ${businessName}`,
+          online_education: `A feature icon representing certification and achievement tracking for ${businessName}`,
+          real_estate: `A feature icon representing financing options and mortgage assistance for ${businessName}`,
+          healthcare_wellness: `A feature icon representing preventive care and health education for ${businessName}`,
+          creative_agency: `A feature icon representing project management and client collaboration for ${businessName}`,
+          subscription_box: `A feature icon representing customer support and satisfaction for ${businessName}`,
+          saas_b2b: `A feature icon representing integration and scalability for ${businessName}`,
+          ecommerce_fashion: `A feature icon representing secure payments and seamless shopping for ${businessName}`
+        },
+        about: {
+          bar_restaurant: context.includes('space') && context.includes('theme')
+            ? `An about section image showcasing ${businessName} space-themed culinary story and futuristic dining concept`
+            : `An about section image showcasing ${businessName} culinary story and chef expertise`,
+          local_service: `An about section image showcasing ${businessName} local roots and community commitment`,
+          mobile_app: `An about section image representing ${businessName} app development and user experience`,
+          consulting_service: `An about section image showing ${businessName} team expertise and company values`,
+          online_education: `An about section image representing ${businessName} educational mission and learning approach`,
+          real_estate: `An about section image showcasing ${businessName} real estate expertise and community involvement`,
+          healthcare_wellness: `An about section image representing ${businessName} healthcare mission and patient care philosophy`,
+          creative_agency: `An about section image showing ${businessName} creative process and design philosophy`,
+          subscription_box: `An about section image representing ${businessName} curation process and product selection`,
+          saas_b2b: `An about section image representing ${businessName} technology innovation and business solutions`,
+          ecommerce_fashion: `An about section image showcasing ${businessName} brand story and fashion philosophy`
+        },
+        about_background: {
+          bar_restaurant: context.includes('space') && context.includes('theme')
+            ? `A futuristic space-themed background for ${businessName} about section with cosmic elements, innovative atmosphere, and otherworldly dining concept, darker tones for excellent text readability`
+            : `A warm culinary background for ${businessName} about section with kitchen elements, chef expertise, and dining culture, darker tones for excellent text readability`,
+          local_service: `A community-focused background for ${businessName} about section with local elements, service commitment, and community roots, darker tones for excellent text readability`,
+          mobile_app: `A tech innovation background for ${businessName} about section with app development, user experience, and digital transformation, darker tones for excellent text readability`,
+          consulting_service: `A professional expertise background for ${businessName} about section with business strategy, corporate excellence, and team expertise, darker tones for excellent text readability`,
+          online_education: `An educational mission background for ${businessName} about section with learning environment, knowledge sharing, and educational excellence, darker tones for excellent text readability`,
+          real_estate: `A luxury property background for ${businessName} about section with architectural excellence, community involvement, and real estate expertise, darker tones for excellent text readability`,
+          healthcare_wellness: `A caring healthcare background for ${businessName} about section with medical excellence, patient care, and wellness mission, darker tones for excellent text readability`,
+          creative_agency: `A creative innovation background for ${businessName} about section with design process, artistic excellence, and creative philosophy, darker tones for excellent text readability`,
+          subscription_box: `A curated experience background for ${businessName} about section with product selection, customer satisfaction, and delivery excellence, darker tones for excellent text readability`,
+          saas_b2b: `A business technology background for ${businessName} about section with innovation, enterprise solutions, and business transformation, darker tones for excellent text readability`,
+          ecommerce_fashion: `A fashion excellence background for ${businessName} about section with brand story, fashion philosophy, and style expertise, darker tones for excellent text readability`
+        },
+        contact: {
+          bar_restaurant: context.includes('reservation') || context.includes('booking')
+            ? `A contact section image representing reservation booking and customer service for ${businessName}`
+            : `A contact section image representing reservation booking and customer service for ${businessName}`,
+          local_service: `A contact section image representing local consultation and service coordination for ${businessName}`,
+          mobile_app: `A contact section image representing user support and feedback for ${businessName} app`,
+          consulting_service: `A contact section image representing client consultation and partnership for ${businessName}`,
+          online_education: `A contact section image representing student support and guidance for ${businessName}`,
+          real_estate: `A contact section image representing client consultation and property guidance for ${businessName}`,
+          healthcare_wellness: `A contact section image representing patient care and medical consultation for ${businessName}`,
+          creative_agency: `A contact section image representing client collaboration and project discussion for ${businessName}`,
+          subscription_box: `A contact section image representing customer service and product support for ${businessName}`,
+          saas_b2b: `A contact section image representing business consultation and technical support for ${businessName}`,
+          ecommerce_fashion: `A contact section image representing customer service and support for ${businessName} fashion`
+        }
+      };
+      
+      return contextPrompts[section]?.[businessType] || `A professional image for the ${section} section of ${businessName}`;
+    };
+
 // Handle template generation for the new template-based system
 async function handleTemplateGeneration(request, env, corsHeaders) {
   try {
+    console.log('🎨 Template generation function called');
     const { project_id, user_message, current_template_data } = await request.json();
     
     // Generate template content directly from user message
     const updatedTemplateData = await generateTemplateContent(user_message, current_template_data, env);
     
+    // Generate background images for hero and about sections
+    const generatedImages = [];
+    
+    try {
+      console.log('🎨 Starting background image generation for template...');
+      
+      // Detect business type for context-aware image generation
+      const businessType = await detectBusinessType(user_message, env);
+      console.log('🏢 Detected business type:', businessType);
+      
+      const businessInfo = generateBusinessInfo(user_message, businessType);
+      console.log('🏢 Business info:', businessInfo);
+      
+      // Generate hero background image
+      const heroBackgroundPrompt = generateContextAwareImagePrompts(user_message, businessType, businessInfo.name, 'hero_background');
+      console.log('🎨 Hero background prompt:', heroBackgroundPrompt);
+      
+      const heroBackgroundResponse = await fetch(`http://localhost:8787/api/generate-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: project_id,
+          prompt: heroBackgroundPrompt,
+          aspect_ratio: '16:9',
+          number_of_images: 1
+        })
+      });
+      
+      console.log('🎨 Hero background response status:', heroBackgroundResponse.status);
+      
+      if (heroBackgroundResponse.ok) {
+        const heroBackgroundResult = await heroBackgroundResponse.json();
+        console.log('🎨 Hero background result:', heroBackgroundResult);
+        
+        if (heroBackgroundResult.success && heroBackgroundResult.images.length > 0) {
+          generatedImages.push({
+            ...heroBackgroundResult.images[0],
+            placement: 'hero_background'
+          });
+          console.log('✅ Hero background image added to generated images');
+        }
+      }
+      
+      // Generate about section background image
+      const aboutBackgroundPrompt = generateContextAwareImagePrompts(user_message, businessType, businessInfo.name, 'about_background');
+      console.log('🎨 About background prompt:', aboutBackgroundPrompt);
+      
+      const aboutBackgroundResponse = await fetch(`http://localhost:8787/api/generate-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: project_id,
+          prompt: aboutBackgroundPrompt,
+          aspect_ratio: '16:9',
+          number_of_images: 1
+        })
+      });
+      
+      console.log('🎨 About background response status:', aboutBackgroundResponse.status);
+      
+      if (aboutBackgroundResponse.ok) {
+        const aboutBackgroundResult = await aboutBackgroundResponse.json();
+        console.log('🎨 About background result:', aboutBackgroundResult);
+        
+        if (aboutBackgroundResult.success && aboutBackgroundResult.images.length > 0) {
+          generatedImages.push({
+            ...aboutBackgroundResult.images[0],
+            placement: 'about_background'
+          });
+          console.log('✅ About background image added to generated images');
+        }
+      }
+      
+      console.log('🎨 Total generated images:', generatedImages.length);
+    } catch (imageError) {
+      console.error('Background image generation error:', imageError);
+      console.error('Error stack:', imageError.stack);
+      // Continue without background images if generation fails
+    }
+    
+    console.log('🎨 Final generated images count:', generatedImages.length);
+    
     return new Response(JSON.stringify({
       success: true,
       template_data: updatedTemplateData,
-      assistant_message: 'I\'ve generated a landing page tailored to your business idea! You can now customize the content using the editor.'
+      generated_images: generatedImages,
+      assistant_message: 'I\'ve generated a landing page tailored to your business idea with custom background images! You can now customize the content using the editor.'
     }), {
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });
@@ -5335,6 +5470,8 @@ Generate content for the following sections:
 24. footerProductLinks - Generate appropriate product link texts (e.g., ["Features", "Pricing", "Templates", "API"])
 25. footerCompanyLinks - Generate appropriate company link texts (e.g., ["About", "Blog", "Careers", "Contact"])
 26. landingPagesCreated - Generate a number and text for "Landing Pages Created" (e.g., "10,000+ Landing Pages Created", "5,000+ Projects Built", etc.)
+
+IMPORTANT: This template will also generate background images for the hero and about sections using our Gemini API. The background images will be automatically generated and integrated into the template.
 
 Return ONLY a JSON object with these fields. Keep the structure exactly the same as the current template data, but add these new fields.`;
 

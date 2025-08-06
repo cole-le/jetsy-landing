@@ -392,6 +392,31 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges }, ref) => {
           }
         }
 
+        // Handle generated background images
+        if (result.generated_images && result.generated_images.length > 0) {
+          console.log('🎨 Generated background images:', result.generated_images);
+          
+          // Extract background image URLs
+          const heroBackgroundImage = result.generated_images.find(img => img.placement === 'hero_background')?.url;
+          const aboutBackgroundImage = result.generated_images.find(img => img.placement === 'about_background')?.url;
+          
+          console.log('🎨 Extracted hero background image URL:', heroBackgroundImage);
+          console.log('🎨 Extracted about background image URL:', aboutBackgroundImage);
+          
+          // Update template data with background images
+          if (heroBackgroundImage || aboutBackgroundImage) {
+            setTemplateData(prev => {
+              const updatedData = {
+                ...prev,
+                heroBackgroundImage,
+                aboutBackgroundImage
+              };
+              console.log('🎨 Updated template data with background images:', updatedData);
+              return updatedData;
+            });
+          }
+        }
+
         // Add AI response to chat
         const aiMessage = {
           id: Date.now() + 1,
@@ -1242,6 +1267,8 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges }, ref) => {
                           footerProductLinks={templateData.footerProductLinks || []}
                           footerCompanyLinks={templateData.footerCompanyLinks || []}
                           landingPagesCreated={templateData.landingPagesCreated || ''}
+                          heroBackgroundImage={templateData.heroBackgroundImage || null}
+                          aboutBackgroundImage={templateData.aboutBackgroundImage || null}
                         />
           </div>
         </div>

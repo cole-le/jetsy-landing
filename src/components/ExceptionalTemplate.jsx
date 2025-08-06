@@ -1,4 +1,82 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+
+// Utility function to calculate optimal overlay and text settings for readability
+const calculateOptimalTextColor = (imageUrl) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+      
+      try {
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        
+        let totalLuminance = 0;
+        let sampleCount = 0;
+        
+        // Sample pixels to calculate average luminance
+        for (let i = 0; i < data.length; i += 16) { // Sample every 4th pixel
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          
+          // Calculate luminance using standard formula
+          const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+          totalLuminance += luminance;
+          sampleCount++;
+        }
+        
+        const averageLuminance = totalLuminance / sampleCount;
+        
+        // Always use white text with strong black overlay for maximum readability
+        const textColor = '#ffffff'; // Always white text
+        const shadowColor = 'rgba(0, 0, 0, 0.9)'; // Strong black shadow
+        
+        // Calculate overlay opacity based on image complexity
+        // Higher opacity for lighter/more complex backgrounds
+        let overlayOpacity = 0.6; // Default strong overlay
+        if (averageLuminance > 0.6) {
+          overlayOpacity = 0.7; // Stronger overlay for very light backgrounds
+        } else if (averageLuminance < 0.3) {
+          overlayOpacity = 0.5; // Slightly lighter overlay for already dark backgrounds
+        }
+        
+        resolve({
+          textColor,
+          shadowColor,
+          luminance: averageLuminance,
+          overlayOpacity
+        });
+      } catch (error) {
+        console.warn('Could not analyze image for color optimization:', error);
+        // Fallback to strong overlay for maximum readability
+        resolve({
+          textColor: '#ffffff',
+          shadowColor: 'rgba(0, 0, 0, 0.9)',
+          luminance: 0.3,
+          overlayOpacity: 0.6
+        });
+      }
+    };
+    
+    img.onerror = () => {
+      // Fallback if image fails to load - use strong overlay
+      resolve({
+        textColor: '#ffffff',
+        shadowColor: 'rgba(0, 0, 0, 0.9)',
+        luminance: 0.3,
+        overlayOpacity: 0.6
+      });
+    };
+    
+    img.src = imageUrl;
+  });
+};
 
 const ExceptionalTemplate = ({ 
   businessName = 'Your Amazing Startup',
@@ -98,8 +176,15 @@ const ExceptionalTemplate = ({
   footerDescription = "Build beautiful, conversion-optimized landing pages with AI. Transform your ideas into reality in minutes.",
   footerProductLinks = ["Features", "Pricing", "Templates", "API"],
   footerCompanyLinks = ["About", "Blog", "Careers", "Contact"],
-  landingPagesCreated = "10,000+ Landing Pages Created"
+  landingPagesCreated = "10,000+ Landing Pages Created",
+  // Background image props
+  heroBackgroundImage = null,
+  aboutBackgroundImage = null
 }) => {
+  // Debug background images
+  console.log('🎨 ExceptionalTemplate received heroBackgroundImage:', heroBackgroundImage);
+  console.log('🎨 ExceptionalTemplate received aboutBackgroundImage:', aboutBackgroundImage);
+  
   const [isVisible, setIsVisible] = useState(false);
   const [activeSection, setActiveSection] = useState('home');
   const [formData, setFormData] = useState({
@@ -109,6 +194,18 @@ const ExceptionalTemplate = ({
     message: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // State for dynamic text colors
+  const [heroTextColors, setHeroTextColors] = useState({
+    textColor: '#ffffff',
+    shadowColor: 'rgba(0, 0, 0, 0.9)',
+    overlayOpacity: 0.6
+  });
+  const [aboutTextColors, setAboutTextColors] = useState({
+    textColor: '#ffffff',
+    shadowColor: 'rgba(0, 0, 0, 0.9)',
+    overlayOpacity: 0.6
+  });
 
   useEffect(() => {
     setIsVisible(true);
@@ -134,6 +231,27 @@ const ExceptionalTemplate = ({
       });
     };
   }, []);
+
+  // Analyze background images and update text colors
+  useEffect(() => {
+    const analyzeBackgroundImages = async () => {
+      if (heroBackgroundImage) {
+        console.log('🎨 Analyzing hero background image for color optimization...');
+        const colors = await calculateOptimalTextColor(heroBackgroundImage);
+        setHeroTextColors(colors);
+        console.log('🎨 Hero text colors optimized:', colors);
+      }
+      
+      if (aboutBackgroundImage) {
+        console.log('🎨 Analyzing about background image for color optimization...');
+        const colors = await calculateOptimalTextColor(aboutBackgroundImage);
+        setAboutTextColors(colors);
+        console.log('🎨 About text colors optimized:', colors);
+      }
+    };
+
+    analyzeBackgroundImages();
+  }, [heroBackgroundImage, aboutBackgroundImage]);
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
@@ -194,27 +312,71 @@ const ExceptionalTemplate = ({
       </nav>
 
       {/* Hero Section */}
-      <section id="home" className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-gray-50 to-blue-50 pt-0">
+      <section id="home" className="relative min-h-screen flex items-center justify-center overflow-hidden pt-0">
+        {/* Background Image */}
+        {heroBackgroundImage ? (
+          <>
+            <div 
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+              style={{ backgroundImage: `url(${heroBackgroundImage})` }}
+            ></div>
+            <div 
+              className="absolute inset-0"
+              style={{ 
+                backgroundColor: `rgba(0, 0, 0, ${heroTextColors.overlayOpacity})`,
+                backdropFilter: 'blur(2px)'
+              }}
+            ></div>
+          </>
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-blue-50"></div>
+        )}
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10"></div>
         
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className={`transform transition-all duration-1000 ${
             isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
           }`}>
-            <div className="inline-flex items-center px-4 py-2 rounded-full bg-blue-100 text-blue-800 text-sm font-medium mb-8">
-              <span className="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
+            <div 
+              className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium mb-8"
+              style={{
+                backgroundColor: heroBackgroundImage ? 'rgba(0, 0, 0, 0.8)' : 'rgb(219, 234, 254)',
+                color: heroBackgroundImage ? '#ffffff' : '#1e40af',
+                textShadow: heroBackgroundImage ? `0 1px 2px ${heroTextColors.shadowColor}` : 'none',
+                border: heroBackgroundImage ? '1px solid rgba(255, 255, 255, 0.2)' : 'none'
+              }}
+            >
+              <span className="w-2 h-2 bg-blue-400 rounded-full mr-2 animate-pulse"></span>
               {heroBadge}
             </div>
             
-            <h1 className="text-5xl md:text-7xl font-bold text-gray-900 mb-6 leading-tight">
+            <h1 
+              className="text-5xl md:text-7xl font-bold mb-6 leading-tight"
+              style={{
+                color: heroBackgroundImage ? '#ffffff' : '#1f2937',
+                textShadow: heroBackgroundImage ? `0 3px 6px ${heroTextColors.shadowColor}` : 'none'
+              }}
+            >
               {businessName}
             </h1>
             
-            <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
+            <p 
+              className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto leading-relaxed"
+              style={{
+                color: heroBackgroundImage ? '#ffffff' : '#4b5563',
+                textShadow: heroBackgroundImage ? `0 2px 4px ${heroTextColors.shadowColor}` : 'none'
+              }}
+            >
               {tagline}
             </p>
             
-            <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed">
+            <p 
+              className="text-lg mb-8 max-w-2xl mx-auto leading-relaxed"
+              style={{
+                color: heroBackgroundImage ? '#ffffff' : '#4b5563',
+                textShadow: heroBackgroundImage ? `0 2px 4px ${heroTextColors.shadowColor}` : 'none'
+              }}
+            >
               {heroDescription}
             </p>
             
@@ -225,7 +387,13 @@ const ExceptionalTemplate = ({
             </div>
             
             {/* Social Proof */}
-            <div className="flex items-center justify-center space-x-8 text-gray-500 text-sm">
+            <div 
+              className="flex items-center justify-center space-x-8 text-sm"
+              style={{
+                color: heroBackgroundImage ? '#ffffff' : '#6b7280',
+                textShadow: heroBackgroundImage ? `0 2px 4px ${heroTextColors.shadowColor}` : 'none'
+              }}
+            >
               <div className="flex items-center">
                 <div className="flex -space-x-2 mr-3">
                   {[1, 2, 3, 4].map((i) => (
@@ -280,28 +448,90 @@ const ExceptionalTemplate = ({
       </section>
 
       {/* About Section */}
-      <section id="about" className="py-20 bg-gradient-to-br from-gray-50 to-blue-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="about" className="py-20 relative">
+        {/* Background Image */}
+        {aboutBackgroundImage ? (
+          <>
+            <div 
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+              style={{ backgroundImage: `url(${aboutBackgroundImage})` }}
+            ></div>
+            <div 
+              className="absolute inset-0"
+              style={{ 
+                backgroundColor: `rgba(0, 0, 0, ${aboutTextColors.overlayOpacity})`,
+                backdropFilter: 'blur(2px)'
+              }}
+            ></div>
+          </>
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-blue-50"></div>
+        )}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+              <h2 
+                className="text-4xl md:text-5xl font-bold mb-6"
+                style={{
+                  color: aboutBackgroundImage ? '#ffffff' : '#1f2937',
+                  textShadow: aboutBackgroundImage ? `0 3px 6px ${aboutTextColors.shadowColor}` : 'none'
+                }}
+              >
                 {aboutSectionTitle.split(',')[0]},
                 <br />
-                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{aboutSectionTitle.split(',')[1]}</span>
+                <span 
+                  style={{
+                    background: aboutBackgroundImage 
+                      ? 'linear-gradient(to right, #ffffff, #e5e7eb)' 
+                      : 'linear-gradient(to right, #2563eb, #7c3aed)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                    textShadow: aboutBackgroundImage ? `0 3px 6px ${aboutTextColors.shadowColor}` : 'none'
+                  }}
+                >
+                  {aboutSectionTitle.split(',')[1]}
+                </span>
               </h2>
-              <p className="text-xl text-gray-600 mb-8 leading-relaxed">
+              <p 
+                className="text-xl mb-8 leading-relaxed"
+                style={{
+                  color: aboutBackgroundImage ? '#ffffff' : '#4b5563',
+                  textShadow: aboutBackgroundImage ? `0 2px 4px ${aboutTextColors.shadowColor}` : 'none'
+                }}
+              >
                 {aboutSectionSubtitle}
               </p>
               
               <div className="space-y-4">
                 {aboutBenefits.map((benefit, index) => (
                   <div key={index} className="flex items-center">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-4">
-                      <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                    <div 
+                      className="w-8 h-8 rounded-full flex items-center justify-center mr-4"
+                      style={{
+                        backgroundColor: aboutBackgroundImage ? 'rgba(0, 0, 0, 0.8)' : 'rgb(219, 234, 254)',
+                        border: aboutBackgroundImage ? '1px solid rgba(255, 255, 255, 0.2)' : 'none'
+                      }}
+                    >
+                      <svg 
+                        className="w-4 h-4" 
+                        fill="currentColor" 
+                        viewBox="0 0 20 20"
+                        style={{
+                          color: aboutBackgroundImage ? '#60a5fa' : '#2563eb'
+                        }}
+                      >
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
                     </div>
-                    <span className="text-gray-700">{benefit}</span>
+                    <span 
+                      style={{
+                        color: aboutBackgroundImage ? '#ffffff' : '#374151',
+                        textShadow: aboutBackgroundImage ? `0 2px 4px ${aboutTextColors.shadowColor}` : 'none'
+                      }}
+                    >
+                      {benefit}
+                    </span>
                   </div>
                 ))}
               </div>
