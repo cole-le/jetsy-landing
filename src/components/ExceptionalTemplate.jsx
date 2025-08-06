@@ -187,6 +187,7 @@ const ExceptionalTemplate = ({
   
   const [isVisible, setIsVisible] = useState(false);
   const [activeSection, setActiveSection] = useState('home');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -221,16 +222,35 @@ const ExceptionalTemplate = ({
       }
     };
 
+    // Close mobile menu when clicking outside
+    const handleClickOutside = (e) => {
+      if (isMobileMenuOpen && !e.target.closest('nav')) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    // Close mobile menu on window resize
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
       anchor.addEventListener('click', handleSmoothScroll);
     });
+
+    document.addEventListener('click', handleClickOutside);
+    window.addEventListener('resize', handleResize);
 
     return () => {
       document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.removeEventListener('click', handleSmoothScroll);
       });
+      document.removeEventListener('click', handleClickOutside);
+      window.removeEventListener('resize', handleResize);
     };
-  }, []);
+  }, [isMobileMenuOpen]);
 
   // Analyze background images and update text colors
   useEffect(() => {
@@ -289,6 +309,7 @@ const ExceptionalTemplate = ({
               </div>
             </div>
             
+            {/* Desktop Navigation */}
             <div className="hidden md:block">
               <div className="ml-10 flex items-baseline space-x-8">
                 <a href="#home" className="text-gray-900 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">Home</a>
@@ -303,9 +324,74 @@ const ExceptionalTemplate = ({
             </div>
             
             <div className="flex items-center space-x-4">
-              <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-full text-sm font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-300 transform hover:scale-105">
+              {/* Desktop CTA Button */}
+              <button className="hidden md:block bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-full text-sm font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-300 transform hover:scale-105">
                 Get Started
               </button>
+              
+              {/* Mobile menu button */}
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+              >
+                <span className="sr-only">Open main menu</span>
+                {isMobileMenuOpen ? (
+                  <svg className="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                ) : (
+                  <svg className="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
+          
+          {/* Mobile Navigation Menu */}
+          <div className={`md:hidden ${isMobileMenuOpen ? 'block' : 'hidden'}`}>
+            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-gray-100">
+              <a 
+                href="#home" 
+                className="text-gray-900 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Home
+              </a>
+              <a 
+                href={`#${sectionType}`} 
+                className="text-gray-500 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                {sectionType === 'features' ? 'Features' : 
+                 sectionType === 'services' ? 'Services' : 'Highlights'}
+              </a>
+              <a 
+                href="#about" 
+                className="text-gray-500 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                About
+              </a>
+              <a 
+                href="#pricing" 
+                className="text-gray-500 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Pricing
+              </a>
+              <a 
+                href="#contact" 
+                className="text-gray-500 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Contact
+              </a>
+              <div className="pt-4 pb-3 border-t border-gray-200">
+                <button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-full text-base font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-300">
+                  Get Started
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -351,7 +437,7 @@ const ExceptionalTemplate = ({
             </div>
             
             <h1 
-              className="text-5xl md:text-7xl font-bold mb-6 leading-tight"
+              className="text-4xl sm:text-5xl md:text-7xl font-bold mb-6 leading-tight px-4"
               style={{
                 color: heroBackgroundImage ? '#ffffff' : '#1f2937',
                 textShadow: heroBackgroundImage ? `0 3px 6px ${heroTextColors.shadowColor}` : 'none'
@@ -361,7 +447,7 @@ const ExceptionalTemplate = ({
             </h1>
             
             <p 
-              className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto leading-relaxed"
+              className="text-lg sm:text-xl md:text-2xl mb-8 max-w-3xl mx-auto leading-relaxed px-4"
               style={{
                 color: heroBackgroundImage ? '#ffffff' : '#4b5563',
                 textShadow: heroBackgroundImage ? `0 2px 4px ${heroTextColors.shadowColor}` : 'none'
@@ -371,7 +457,7 @@ const ExceptionalTemplate = ({
             </p>
             
             <p 
-              className="text-lg mb-8 max-w-2xl mx-auto leading-relaxed"
+              className="text-base sm:text-lg mb-8 max-w-2xl mx-auto leading-relaxed px-4"
               style={{
                 color: heroBackgroundImage ? '#ffffff' : '#4b5563',
                 textShadow: heroBackgroundImage ? `0 2px 4px ${heroTextColors.shadowColor}` : 'none'
@@ -388,7 +474,7 @@ const ExceptionalTemplate = ({
             
             {/* Social Proof */}
             <div 
-              className="flex items-center justify-center space-x-8 text-sm"
+              className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-8 text-sm px-4"
               style={{
                 color: heroBackgroundImage ? '#ffffff' : '#6b7280',
                 textShadow: heroBackgroundImage ? `0 2px 4px ${heroTextColors.shadowColor}` : 'none'
@@ -432,12 +518,12 @@ const ExceptionalTemplate = ({
             </p>
           </div>
           
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
             {features.map((feature, index) => (
-              <div key={index} className="group p-8 rounded-2xl bg-gray-50 hover:bg-white hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-                <div className="text-4xl mb-4">{feature.icon}</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">{feature.title}</h3>
-                <p className="text-gray-600 leading-relaxed">{feature.description}</p>
+              <div key={index} className="group p-6 md:p-8 rounded-2xl bg-gray-50 hover:bg-white hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
+                <div className="text-3xl md:text-4xl mb-4">{feature.icon}</div>
+                <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-3">{feature.title}</h3>
+                <p className="text-gray-600 leading-relaxed text-sm md:text-base">{feature.description}</p>
               </div>
             ))}
           </div>
@@ -465,7 +551,7 @@ const ExceptionalTemplate = ({
           <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-blue-50"></div>
         )}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             <div>
               <h2 
                 className="text-4xl md:text-5xl font-bold mb-6"
@@ -567,9 +653,9 @@ const ExceptionalTemplate = ({
             </p>
           </div>
           
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 max-w-5xl mx-auto">
             {pricing.map((plan, index) => (
-              <div key={index} className={`relative p-8 rounded-2xl border-2 transition-all duration-300 transform hover:-translate-y-2 ${
+              <div key={index} className={`relative p-6 md:p-8 rounded-2xl border-2 transition-all duration-300 transform hover:-translate-y-2 ${
                 plan.popular 
                   ? 'border-blue-600 bg-gradient-to-br from-blue-50 to-purple-50 shadow-2xl' 
                   : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-xl'
@@ -618,7 +704,7 @@ const ExceptionalTemplate = ({
       {/* Contact Section */}
       <section id="contact" className="py-20 bg-gradient-to-br from-gray-50 to-blue-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-12">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
             <div>
               <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
                 {contactSectionTitle.split(' ').slice(0, -1).join(' ')}
@@ -668,9 +754,9 @@ const ExceptionalTemplate = ({
               </div>
             </div>
             
-            <div className="bg-white rounded-2xl shadow-xl p-8">
+            <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
               <form onSubmit={handleFormSubmit} className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
                     <input
@@ -738,8 +824,8 @@ const ExceptionalTemplate = ({
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="md:col-span-2">
               <div className="flex items-center mb-4">
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center mr-3">
                   <span className="text-white font-bold text-sm">J</span>
