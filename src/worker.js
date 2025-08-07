@@ -5409,7 +5409,7 @@ async function handleTemplateGeneration(request, env, corsHeaders) {
       success: true,
       template_data: updatedTemplateData,
       generated_images: generatedImages,
-      assistant_message: 'I\'ve generated a landing page tailored to your business idea with custom background images! You can now customize the content using the editor.'
+      assistant_message: 'I\'ve generated a responsive landing page tailored to your business idea with custom background images! The template automatically adapts to all screen sizes.'
     }), {
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });
@@ -5426,8 +5426,18 @@ async function handleTemplateGeneration(request, env, corsHeaders) {
 }
 
 // Generate template content based on user message
+
 async function generateTemplateContent(userMessage, currentTemplateData, env) {
   const systemPrompt = `You are an expert landing page content generator. Based on the user's business description, generate compelling content for their landing page template.
+
+RESPONSIVE DESIGN REQUIREMENTS:
+- All content must be responsive and work well on all screen sizes (desktop and mobile)
+- Navigation should adapt: desktop shows horizontal menu, mobile shows hamburger menu
+- Grid layouts should stack vertically on mobile (grid-cols-1 md:grid-cols-3)
+- Text sizes should scale appropriately (text-sm md:text-base lg:text-lg)
+- Spacing should adjust for different screen sizes (p-4 md:p-6 lg:p-8)
+- Buttons and CTAs should be touch-friendly on mobile
+- Images should be responsive and maintain aspect ratios
 
 User Message: ${userMessage}
 
@@ -5470,6 +5480,28 @@ Generate content for the following sections:
 24. footerProductLinks - Generate appropriate product link texts (e.g., ["Features", "Pricing", "Templates", "API"])
 25. footerCompanyLinks - Generate appropriate company link texts (e.g., ["About", "Blog", "Careers", "Contact"])
 26. landingPagesCreated - Generate a number and text for "Landing Pages Created" (e.g., "10,000+ Landing Pages Created", "5,000+ Projects Built", etc.)
+
+RESPONSIVE DESIGN GUIDELINES:
+- Navigation: Use mobile-first responsive navigation with hamburger menu for mobile
+- Typography: Use responsive text classes (text-sm md:text-base lg:text-lg)
+- Layouts: Use responsive grid classes (grid-cols-1 md:grid-cols-2 lg:grid-cols-3)
+- Spacing: Use responsive padding/margin (p-4 md:p-6 lg:p-8)
+- Images: Use responsive image classes with proper aspect ratios
+- Buttons: Ensure touch-friendly sizing on mobile (min-h-12 for mobile)
+- Forms: Use responsive form layouts with proper mobile spacing
+
+MOBILE OPTIMIZATION:
+- Stack all sections vertically on mobile
+- Use larger touch targets (buttons, links)
+- Optimize text for mobile reading
+- Ensure proper contrast and readability
+- Use mobile-friendly navigation patterns
+
+DESKTOP OPTIMIZATION:
+- Use multi-column layouts where appropriate
+- Larger text and spacing for desktop viewing
+- Horizontal navigation menus
+- Hover effects and desktop interactions
 
 IMPORTANT: This template will also generate background images for the hero and about sections using our Gemini API. The background images will be automatically generated and integrated into the template.
 

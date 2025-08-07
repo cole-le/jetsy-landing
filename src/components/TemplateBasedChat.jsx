@@ -2,6 +2,160 @@ import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } f
 import ProjectSelector from './ProjectSelector';
 import ExceptionalTemplate from './ExceptionalTemplate';
 
+// Mobile CSS overrides for viewport simulation
+const getMobileViewportStyles = (previewMode) => {
+  if (previewMode === 'desktop') return '';
+  
+  const isPhone = previewMode === 'phone';
+  const scale = isPhone ? 0.6 : 0.7; // Increased scale for bigger viewport
+  const width = isPhone ? '375px' : '768px';
+  const height = isPhone ? '667px' : '1024px';
+  
+  return `
+    .mobile-viewport-simulator {
+      width: ${width} !important;
+      height: ${height} !important;
+      transform: scale(${scale}) !important;
+      transform-origin: top center !important;
+      overflow: visible !important;
+      border: 2px solid #374151 !important;
+      border-radius: ${isPhone ? '20px' : '12px'} !important;
+      background: white !important;
+      position: relative !important;
+      margin: 0 auto !important;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    /* Force mobile breakpoints - override all md: and lg: classes */
+    .mobile-viewport-simulator .md\\:block { display: none !important; }
+    .mobile-viewport-simulator .md\\:hidden { display: block !important; }
+    .mobile-viewport-simulator .md\\:grid { display: block !important; }
+    .mobile-viewport-simulator .md\\:grid-cols-3 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
+    .mobile-viewport-simulator .md\\:grid-cols-2 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
+    
+    /* Responsive text sizing for mobile viewport */
+    .mobile-viewport-simulator .md\\:text-7xl { font-size: 2.5rem !important; line-height: 1.1 !important; }
+    .mobile-viewport-simulator .md\\:text-5xl { font-size: 2rem !important; line-height: 1.2 !important; }
+    .mobile-viewport-simulator .md\\:text-3xl { font-size: 1.5rem !important; line-height: 1.3 !important; }
+    .mobile-viewport-simulator .md\\:text-2xl { font-size: 1.25rem !important; line-height: 1.4 !important; }
+    .mobile-viewport-simulator .md\\:text-xl { font-size: 1.125rem !important; line-height: 1.4 !important; }
+    .mobile-viewport-simulator .md\\:text-lg { font-size: 1rem !important; line-height: 1.5 !important; }
+    .mobile-viewport-simulator .md\\:text-base { font-size: 0.875rem !important; line-height: 1.5 !important; }
+    
+    /* Mobile spacing adjustments */
+    .mobile-viewport-simulator .md\\:p-8 { padding: 1rem !important; }
+    .mobile-viewport-simulator .md\\:p-6 { padding: 0.75rem !important; }
+    .mobile-viewport-simulator .md\\:gap-8 { gap: 1rem !important; }
+    .mobile-viewport-simulator .md\\:gap-6 { gap: 0.75rem !important; }
+    .mobile-viewport-simulator .md\\:space-x-8 { margin-left: 0 !important; }
+    .mobile-viewport-simulator .md\\:space-x-8 > * + * { margin-left: 0 !important; }
+    .mobile-viewport-simulator .md\\:flex-row { flex-direction: column !important; }
+    .mobile-viewport-simulator .md\\:space-y-0 { margin-top: 0 !important; }
+    .mobile-viewport-simulator .md\\:space-y-0 > * + * { margin-top: 0.75rem !important; }
+    
+    /* Hero section specific mobile adjustments */
+    .mobile-viewport-simulator .min-h-screen { min-height: 100vh !important; }
+    .mobile-viewport-simulator .max-w-7xl { max-width: 100% !important; }
+    .mobile-viewport-simulator .px-4 { padding-left: 1rem !important; padding-right: 1rem !important; }
+    .mobile-viewport-simulator .sm\\:px-6 { padding-left: 1rem !important; padding-right: 1rem !important; }
+    .mobile-viewport-simulator .lg\\:px-8 { padding-left: 1rem !important; padding-right: 1rem !important; }
+    
+    /* Hero text spacing and sizing */
+    .mobile-viewport-simulator .text-4xl { font-size: 1.75rem !important; line-height: 1.2 !important; }
+    .mobile-viewport-simulator .sm\\:text-5xl { font-size: 2rem !important; line-height: 1.2 !important; }
+    .mobile-viewport-simulator .text-lg { font-size: 1rem !important; line-height: 1.5 !important; }
+    .mobile-viewport-simulator .sm\\:text-xl { font-size: 1.125rem !important; line-height: 1.4 !important; }
+    .mobile-viewport-simulator .text-base { font-size: 0.875rem !important; line-height: 1.5 !important; }
+    .mobile-viewport-simulator .sm\\:text-lg { font-size: 1rem !important; line-height: 1.5 !important; }
+    
+    /* Hero section margins and spacing */
+    .mobile-viewport-simulator .mb-8 { margin-bottom: 1.5rem !important; }
+    .mobile-viewport-simulator .mb-6 { margin-bottom: 1rem !important; }
+    .mobile-viewport-simulator .mb-12 { margin-bottom: 2rem !important; }
+    .mobile-viewport-simulator .max-w-3xl { max-width: 100% !important; }
+    .mobile-viewport-simulator .max-w-2xl { max-width: 100% !important; }
+    
+    /* Hero badge adjustments */
+    .mobile-viewport-simulator .px-4 { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
+    .mobile-viewport-simulator .py-2 { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
+    .mobile-viewport-simulator .text-sm { font-size: 0.75rem !important; }
+    
+    /* CTA button mobile adjustments */
+    .mobile-viewport-simulator .px-8 { padding-left: 1.5rem !important; padding-right: 1.5rem !important; }
+    .mobile-viewport-simulator .py-4 { padding-top: 0.75rem !important; padding-bottom: 0.75rem !important; }
+    .mobile-viewport-simulator .text-sm { font-size: 0.875rem !important; }
+    
+    /* Social proof section mobile adjustments */
+    .mobile-viewport-simulator .space-y-4 { margin-top: 0 !important; }
+    .mobile-viewport-simulator .space-y-4 > * + * { margin-top: 0.75rem !important; }
+    .mobile-viewport-simulator .sm\\:space-y-0 { margin-top: 0 !important; }
+    .mobile-viewport-simulator .sm\\:space-y-0 > * + * { margin-top: 0.75rem !important; }
+    .mobile-viewport-simulator .sm\\:space-x-8 { margin-left: 0 !important; }
+    .mobile-viewport-simulator .sm\\:space-x-8 > * + * { margin-left: 0 !important; }
+    .mobile-viewport-simulator .sm\\:flex-row { flex-direction: column !important; }
+    
+    /* Special handling for mobile menu - don't override md:hidden for menu items */
+    .mobile-viewport-simulator .md\\:hidden.block { display: block !important; }
+    .mobile-viewport-simulator .md\\:hidden.hidden { display: none !important; }
+    
+    /* Mobile button styling */
+    .mobile-viewport-simulator .mobile-cta { 
+      width: 100% !important; 
+      padding: 1rem !important; 
+      font-size: 1.125rem !important; 
+    }
+    
+    /* Enable scrolling within the mobile viewport */
+    .mobile-viewport-simulator {
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+    }
+    
+    .mobile-viewport-simulator html, 
+    .mobile-viewport-simulator body {
+      overflow-x: hidden !important;
+      width: 100% !important;
+      height: auto !important;
+    }
+    
+    /* Ensure proper text colors */
+    .mobile-viewport-simulator .text-gray-900 { color: #111827 !important; }
+    .mobile-viewport-simulator .text-gray-700 { color: #374151 !important; }
+    .mobile-viewport-simulator .text-gray-600 { color: #4b5563 !important; }
+    .mobile-viewport-simulator .text-gray-500 { color: #6b7280 !important; }
+    .mobile-viewport-simulator .text-gray-400 { color: #9ca3af !important; }
+    
+    /* Ensure background images work */
+    .mobile-viewport-simulator .bg-cover { background-size: cover !important; }
+    .mobile-viewport-simulator .bg-center { background-position: center !important; }
+    .mobile-viewport-simulator .bg-no-repeat { background-repeat: no-repeat !important; }
+    
+    /* Force mobile layout */
+    .mobile-viewport-simulator .grid { display: grid !important; }
+    .mobile-viewport-simulator .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
+    
+    /* Ensure proper z-index for overlays */
+    .mobile-viewport-simulator .relative { position: relative !important; }
+    .mobile-viewport-simulator .absolute { position: absolute !important; }
+    .mobile-viewport-simulator .z-10 { z-index: 10 !important; }
+    
+    /* Fix mobile menu - ensure it's closed by default and toggle works */
+    .mobile-viewport-simulator .md\\:hidden { display: none !important; }
+    .mobile-viewport-simulator .md\\:hidden.block { display: block !important; }
+    
+    /* Ensure mobile menu toggle works */
+    .mobile-viewport-simulator button { 
+      cursor: pointer !important; 
+      pointer-events: auto !important; 
+    }
+    
+    /* Ensure mobile menu toggle button is visible and clickable */
+    .mobile-viewport-simulator .md\\:hidden.inline-flex { 
+      display: inline-flex !important; 
+    }
+  `;
+};
+
 // Default template data for new projects
 export const DEFAULT_TEMPLATE_DATA = {
   businessName: 'Your Amazing Startup',
@@ -392,6 +546,8 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
           }
         }
 
+
+
         // Handle generated background images
         if (result.generated_images && result.generated_images.length > 0) {
           console.log('🎨 Generated background images:', result.generated_images);
@@ -503,6 +659,8 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
 
   return (
     <div className="flex h-screen bg-gray-50">
+      {/* Inject mobile viewport styles */}
+      <style dangerouslySetInnerHTML={{ __html: getMobileViewportStyles(previewMode) }} />
       {/* Left Side - Chat/Editor Panel */}
       <div className="w-1/4 bg-white border-r border-gray-200 flex flex-col">
         {/* Header */}
@@ -1238,37 +1396,45 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
           </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto bg-gray-100">
-          <div className={`mx-auto transition-all duration-300 ${
-            previewMode === 'phone' 
-              ? 'max-w-sm' 
-              : previewMode === 'tablet' 
-                ? 'max-w-2xl' 
-                : 'max-w-full'
-          }`}>
-            <div className={`bg-white shadow-lg rounded-lg overflow-hidden ${
-              previewMode === 'phone' 
-                ? 'border-8 border-gray-800 rounded-3xl relative' 
-                : previewMode === 'tablet' 
-                  ? 'border-4 border-gray-800 rounded-2xl relative' 
-                  : ''
-            }`}>
-              {/* Device frame indicators */}
-              {previewMode === 'phone' && (
-                <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded-full z-10">
-                  📱 Phone
-                </div>
-              )}
-              {previewMode === 'tablet' && (
-                <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded-full z-10">
-                  💻 Tablet
-                </div>
-              )}
-              {previewMode === 'desktop' && (
-                <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded-full z-10">
-                  🖥️ Desktop
-                </div>
-              )}
+                 <div className="flex-1 overflow-y-auto bg-gray-100 p-8">
+           {/* CSS Transform-based Mobile/Tablet Preview */}
+           {previewMode === 'phone' || previewMode === 'tablet' ? (
+             <div className="flex justify-center items-start min-h-full">
+               <div className="mobile-viewport-simulator">
+                <ExceptionalTemplate 
+                  businessName={templateData.businessName || ''}
+                  tagline={templateData.tagline || ''}
+                  heroDescription={templateData.heroDescription || ''}
+                  ctaButtonText={templateData.ctaButtonText || ''}
+                  sectionType={templateData.sectionType || 'features'}
+                  sectionTitle={templateData.sectionTitle || ''}
+                  sectionSubtitle={templateData.sectionSubtitle || ''}
+                  features={templateData.features || []}
+                  aboutContent={templateData.aboutContent || ''}
+                  pricing={templateData.pricing || []}
+                  contactInfo={templateData.contactInfo || {}}
+                  trustIndicator1={templateData.trustIndicator1 || ''}
+                  trustIndicator2={templateData.trustIndicator2 || ''}
+                  heroBadge={templateData.heroBadge || ''}
+                  aboutSectionTitle={templateData.aboutSectionTitle || ''}
+                  aboutSectionSubtitle={templateData.aboutSectionSubtitle || ''}
+                  aboutBenefits={templateData.aboutBenefits || []}
+                  pricingSectionTitle={templateData.pricingSectionTitle || ''}
+                  pricingSectionSubtitle={templateData.pricingSectionSubtitle || ''}
+                  contactSectionTitle={templateData.contactSectionTitle || ''}
+                  contactSectionSubtitle={templateData.contactSectionSubtitle || ''}
+                  contactFormPlaceholders={templateData.contactFormPlaceholders || {}}
+                  footerDescription={templateData.footerDescription || ''}
+                  footerProductLinks={templateData.footerProductLinks || []}
+                  footerCompanyLinks={templateData.footerCompanyLinks || []}
+                  landingPagesCreated={templateData.landingPagesCreated || ''}
+                  heroBackgroundImage={templateData.heroBackgroundImage || null}
+                  aboutBackgroundImage={templateData.aboutBackgroundImage || null}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="max-w-full">
               <ExceptionalTemplate 
                 businessName={templateData.businessName || ''}
                 tagline={templateData.tagline || ''}
@@ -1300,7 +1466,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                 aboutBackgroundImage={templateData.aboutBackgroundImage || null}
               />
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
