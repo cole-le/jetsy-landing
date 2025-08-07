@@ -7,7 +7,7 @@ const getMobileViewportStyles = (previewMode) => {
   if (previewMode === 'desktop') return '';
   
   const isPhone = previewMode === 'phone';
-  const scale = isPhone ? 0.6 : 0.7; // Increased scale for bigger viewport
+  const scale = isPhone ? 0.95 : 0.9; // Further increased scale for bigger viewport
   const width = isPhone ? '375px' : '768px';
   const height = isPhone ? '667px' : '1024px';
   
@@ -18,7 +18,6 @@ const getMobileViewportStyles = (previewMode) => {
       transform: scale(${scale}) !important;
       transform-origin: top center !important;
       overflow: visible !important;
-      border: 2px solid #374151 !important;
       border-radius: ${isPhone ? '20px' : '12px'} !important;
       background: white !important;
       position: relative !important;
@@ -1396,7 +1395,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
           </div>
         </div>
         
-                 <div className="flex-1 overflow-y-auto bg-gray-100 p-8">
+                 <div className="flex-1 overflow-y-auto bg-gray-100">
            {/* CSS Transform-based Mobile/Tablet Preview */}
            {previewMode === 'phone' || previewMode === 'tablet' ? (
              <div className="flex justify-center items-start min-h-full">
