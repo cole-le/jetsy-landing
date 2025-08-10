@@ -547,10 +547,12 @@ const ExceptionalTemplate = ({
             <div 
               className="absolute inset-0"
               style={{ 
-                backgroundColor: `rgba(0, 0, 0, ${aboutTextColors.overlayOpacity})`,
+                backgroundColor: `rgba(0, 0, 0, ${Math.min(aboutTextColors.overlayOpacity, 0.5)})`,
                 backdropFilter: 'blur(2px)'
               }}
             ></div>
+            {/* Subtle color wash to match hero section aesthetics */}
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10"></div>
           </>
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-blue-50"></div>
