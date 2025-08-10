@@ -158,6 +158,7 @@ const getMobileViewportStyles = (previewMode) => {
 // Default template data for new projects
 export const DEFAULT_TEMPLATE_DATA = {
   businessName: 'Your Amazing Startup',
+  businessLogoUrl: null,
   tagline: 'Transform your idea into reality with our innovative solution',
   heroDescription: 'Join thousands of satisfied customers who have already made the leap.',
   ctaButtonText: 'Start Building Free',
@@ -547,24 +548,27 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
 
 
 
-        // Handle generated background images
+        // Handle generated background images and AI-generated logo
         if (result.generated_images && result.generated_images.length > 0) {
           console.log('🎨 Generated background images:', result.generated_images);
           
           // Extract background image URLs
           const heroBackgroundImage = result.generated_images.find(img => img.placement === 'hero_background')?.url;
           const aboutBackgroundImage = result.generated_images.find(img => img.placement === 'about_background')?.url;
+          const businessLogoUrl = result.generated_images.find(img => img.placement === 'logo')?.url;
           
           console.log('🎨 Extracted hero background image URL:', heroBackgroundImage);
           console.log('🎨 Extracted about background image URL:', aboutBackgroundImage);
+          console.log('🎨 Extracted business logo URL:', businessLogoUrl);
           
           // Update template data with background images
-          if (heroBackgroundImage || aboutBackgroundImage) {
+          if (heroBackgroundImage || aboutBackgroundImage || businessLogoUrl) {
             setTemplateData(prev => {
               const updatedData = {
                 ...prev,
                 heroBackgroundImage,
-                aboutBackgroundImage
+                aboutBackgroundImage,
+                businessLogoUrl
               };
               console.log('🎨 Updated template data with background images:', updatedData);
               return updatedData;
@@ -788,6 +792,49 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                   </p>
                 </div>
                 
+                {/* Business Logo (above Hero Section) */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center">
+                    <span className="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+                    Business Logo
+                  </h4>
+                  <div className="space-y-4">
+                    {templateData.businessLogoUrl ? (
+                      <div className="flex items-center space-x-4">
+                        <img src={templateData.businessLogoUrl} alt="Logo" className="h-12 w-auto border rounded" />
+                        <button
+                          onClick={() => setTemplateData(prev => ({ ...prev, businessLogoUrl: null }))}
+                          className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded"
+                        >Remove</button>
+                      </div>
+                    ) : null}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Upload Logo</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file || !currentProject?.id) return;
+                          const formData = new FormData();
+                          formData.append('project_id', currentProject.id);
+                          formData.append('file', file);
+                          try {
+                            const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
+                            if (res.ok) {
+                              const data = await res.json();
+                              setTemplateData(prev => ({ ...prev, businessLogoUrl: data.url }));
+                            }
+                          } catch (err) {
+                            console.error('Logo upload failed', err);
+                          }
+                        }}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 {/* Hero Section Editor */}
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                   <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center">
@@ -1402,6 +1449,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                <div className="mobile-viewport-simulator">
                 <ExceptionalTemplate 
                   businessName={templateData.businessName || ''}
+                  businessLogoUrl={templateData.businessLogoUrl || null}
                   tagline={templateData.tagline || ''}
                   heroDescription={templateData.heroDescription || ''}
                   ctaButtonText={templateData.ctaButtonText || ''}
@@ -1436,6 +1484,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             <div className="max-w-full">
               <ExceptionalTemplate 
                 businessName={templateData.businessName || ''}
+                businessLogoUrl={templateData.businessLogoUrl || null}
                 tagline={templateData.tagline || ''}
                 heroDescription={templateData.heroDescription || ''}
                 ctaButtonText={templateData.ctaButtonText || ''}

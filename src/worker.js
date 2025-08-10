@@ -133,6 +133,14 @@ export default {
         return new Response(null, { status: 200, headers: corsHeaders });
       }
 
+      // --- Image Upload API (user-provided images e.g., logo) ---
+      if (path === '/api/upload-image' && request.method === 'POST') {
+        return await handleUploadImage(request, env, corsHeaders);
+      }
+      if (path === '/api/upload-image' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
       // --- R2 Test API ---
       if (path === '/api/test-r2-access' && request.method === 'GET') {
         return await handleTestR2Access(request, env, corsHeaders);
@@ -2629,7 +2637,7 @@ async function handleImageGeneration(request, env, corsHeaders) {
       
       if (imageResult.success) {
         // Upload to R2
-        const uploadResult = await uploadImageToR2(imageResult.imageData, env, request);
+        const uploadResult = await uploadImageToR2(imageResult.imageData, env, request, 'image/jpeg');
         
         if (uploadResult.success) {
           // Save to database (skip if project doesn't exist)
@@ -2756,10 +2764,11 @@ async function generateImageWithGemini(prompt, aspectRatio, env) {
 }
 
 // Upload image to Cloudflare R2
-async function uploadImageToR2(imageBytes, env, request) {
+async function uploadImageToR2(imageBytes, env, request, mimeType = 'image/jpeg') {
   try {
     const imageId = generateImageId();
-    const filename = `${imageId}.jpg`;
+    const extension = mimeType === 'image/png' ? 'png' : 'jpg';
+    const filename = `${imageId}.${extension}`;
     
     console.log('☁️ Uploading to R2...');
 
@@ -2776,7 +2785,7 @@ async function uploadImageToR2(imageBytes, env, request) {
     // Upload to R2
     const uploadResult = await env.IMAGES_BUCKET.put(filename, uploadData, {
       httpMetadata: {
-        contentType: 'image/jpeg',
+        contentType: mimeType,
         cacheControl: 'public, max-age=31536000', // 1 year cache
       },
     });
@@ -3556,6 +3565,77 @@ async function handleServeImage(request, env, corsHeaders) {
 // Generate unique backup ID
 function generateBackupId() {
   return `backup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// === USER IMAGE UPLOAD HANDLER ===
+// Accepts multipart/form-data or base64 JSON body and uploads to R2, returns a public serving URL
+async function handleUploadImage(request, env, corsHeaders) {
+  try {
+    const contentType = request.headers.get('Content-Type') || '';
+    let project_id = null;
+    let fileBytes = null;
+    let mimeType = 'image/jpeg';
+
+    if (contentType.includes('multipart/form-data')) {
+      const form = await request.formData();
+      project_id = form.get('project_id');
+      const file = form.get('file');
+      if (!file || typeof file.arrayBuffer !== 'function') {
+        return new Response(JSON.stringify({ error: 'file is required' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+      }
+      mimeType = file.type || 'image/jpeg';
+      fileBytes = new Uint8Array(await file.arrayBuffer());
+    } else {
+      // JSON body: { project_id, data_url }
+      const body = await request.json();
+      project_id = body.project_id;
+      const dataUrl = body.data_url;
+      if (!dataUrl) {
+        return new Response(JSON.stringify({ error: 'data_url is required' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+      }
+      // dataUrl format: data:<mime>;base64,<payload>
+      const match = dataUrl.match(/^data:(.*?);base64,(.*)$/);
+      if (!match) {
+        return new Response(JSON.stringify({ error: 'Invalid data_url format' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+      }
+      mimeType = match[1] || 'image/jpeg';
+      const base64 = match[2];
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+      fileBytes = bytes;
+    }
+
+    if (!project_id) {
+      return new Response(JSON.stringify({ error: 'project_id is required' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+
+    const uploadResult = await uploadImageToR2(fileBytes, env, request, mimeType);
+    if (!uploadResult.success) {
+      return new Response(JSON.stringify({ error: 'Upload failed', details: uploadResult.error }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+
+    // Optionally store metadata in DB
+    try {
+      await saveImageToDatabase({
+        project_id,
+        prompt: 'user-upload',
+        aspect_ratio: 'custom',
+        filename: uploadResult.filename,
+        r2_url: uploadResult.url,
+        file_size: fileBytes.length,
+        width: 0,
+        height: 0,
+        mime_type: mimeType,
+        imageId: uploadResult.imageId
+      }, env);
+    } catch (_) {}
+
+    return new Response(JSON.stringify({ success: true, url: uploadResult.url, image_id: uploadResult.imageId }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  } catch (error) {
+    console.error('Upload image error:', error);
+    return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  }
 }
 
 // Store file backup in database
@@ -5323,7 +5403,7 @@ async function handleTemplateGeneration(request, env, corsHeaders) {
     // Generate template content directly from user message
     const updatedTemplateData = await generateTemplateContent(user_message, current_template_data, env);
     
-    // Generate background images for hero and about sections
+    // Generate background images for hero and about sections, and an initial logo
     const generatedImages = [];
     
     try {
@@ -5368,6 +5448,29 @@ async function handleTemplateGeneration(request, env, corsHeaders) {
       
       // Generate about section background image
       const aboutBackgroundPrompt = generateContextAwareImagePrompts(user_message, businessType, businessInfo.name, 'about_background');
+      // Generate logo (square)
+      const logoPrompt = generateContextAwareImagePrompts(user_message, businessType, businessInfo.name, 'logo');
+      console.log('🎨 Logo prompt:', logoPrompt);
+      const logoResponse = await fetch(`http://localhost:8787/api/generate-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: project_id,
+          prompt: logoPrompt,
+          aspect_ratio: '1:1',
+          number_of_images: 1
+        })
+      });
+      console.log('🎨 Logo response status:', logoResponse.status);
+      if (logoResponse.ok) {
+        const logoResult = await logoResponse.json();
+        if (logoResult.success && logoResult.images.length > 0) {
+          generatedImages.push({
+            ...logoResult.images[0],
+            placement: 'logo'
+          });
+        }
+      }
       console.log('🎨 About background prompt:', aboutBackgroundPrompt);
       
       const aboutBackgroundResponse = await fetch(`http://localhost:8787/api/generate-image`, {
@@ -5405,9 +5508,18 @@ async function handleTemplateGeneration(request, env, corsHeaders) {
     
     console.log('🎨 Final generated images count:', generatedImages.length);
     
+    // Attach generated asset URLs to template_data for persistence
+    let templateWithAssets = { ...updatedTemplateData };
+    const heroBg = generatedImages.find(i => i.placement === 'hero_background')?.url;
+    const aboutBg = generatedImages.find(i => i.placement === 'about_background')?.url;
+    const logoUrl = generatedImages.find(i => i.placement === 'logo')?.url;
+    if (heroBg) templateWithAssets.heroBackgroundImage = heroBg;
+    if (aboutBg) templateWithAssets.aboutBackgroundImage = aboutBg;
+    if (logoUrl) templateWithAssets.businessLogoUrl = logoUrl;
+
     return new Response(JSON.stringify({
       success: true,
-      template_data: updatedTemplateData,
+      template_data: templateWithAssets,
       generated_images: generatedImages,
       assistant_message: 'I\'ve generated a responsive landing page tailored to your business idea with custom background images! The template automatically adapts to all screen sizes.'
     }), {

@@ -80,6 +80,7 @@ const calculateOptimalTextColor = (imageUrl) => {
 
 const ExceptionalTemplate = ({ 
   businessName = 'Your Amazing Startup',
+  businessLogoUrl = null,
   tagline = 'Transform your idea into reality with our innovative solution',
   heroDescription = 'Join thousands of satisfied customers who have already made the leap.',
   ctaButtonText = 'Start Building Free',
@@ -300,9 +301,13 @@ const ExceptionalTemplate = ({
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">J</span>
-                </div>
+                {businessLogoUrl ? (
+                  <img src={businessLogoUrl} alt={businessName} className="h-8 w-auto" />
+                ) : (
+                  <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">J</span>
+                  </div>
+                )}
               </div>
               <div className="ml-3">
                 <span className="text-xl font-bold text-gray-900">{businessName}</span>
