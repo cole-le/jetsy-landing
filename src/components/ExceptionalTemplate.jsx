@@ -197,6 +197,36 @@ const ExceptionalTemplate = ({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // Pool of avatar images to randomly display for social proof
+  const avatarImagePool = [
+    'https://randomuser.me/api/portraits/women/68.jpg',
+    'https://randomuser.me/api/portraits/men/32.jpg',
+    'https://randomuser.me/api/portraits/women/12.jpg',
+    'https://randomuser.me/api/portraits/men/77.jpg',
+    'https://randomuser.me/api/portraits/women/65.jpg',
+    'https://randomuser.me/api/portraits/men/41.jpg',
+    'https://randomuser.me/api/portraits/women/29.jpg',
+    'https://randomuser.me/api/portraits/men/81.jpg',
+    'https://randomuser.me/api/portraits/women/44.jpg',
+    'https://randomuser.me/api/portraits/men/67.jpg'
+  ];
+
+  const [selectedAvatars, setSelectedAvatars] = useState([]);
+
+  // Utility to select n unique random items from an array
+  const selectRandomUnique = (items, count) => {
+    const pool = [...items];
+    for (let i = pool.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    return pool.slice(0, count);
+  };
+
+  useEffect(() => {
+    setSelectedAvatars(selectRandomUnique(avatarImagePool, 4));
+  }, []);
+  
   // State for dynamic text colors
   const [heroTextColors, setHeroTextColors] = useState({
     textColor: '#ffffff',
@@ -487,8 +517,23 @@ const ExceptionalTemplate = ({
             >
               <div className="flex items-center">
                 <div className="flex -space-x-2 mr-3">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-400 to-purple-400 border-2 border-white"></div>
+                  {(selectedAvatars.length ? selectedAvatars : selectRandomUnique(avatarImagePool, 4)).map((src, index) => (
+                    <div
+                      key={`${src}-${index}`}
+                      className="w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-gradient-to-r from-blue-400 to-purple-400"
+                      title="Happy customer"
+                    >
+                      <img
+                        src={src}
+                        alt="Customer avatar"
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        onError={(e) => {
+                          // Graceful fallback to local logo if remote avatar fails
+                          e.currentTarget.src = '/jetsy_logo.png';
+                        }}
+                      />
+                    </div>
                   ))}
                 </div>
                 <span>{trustIndicator1}</span>
