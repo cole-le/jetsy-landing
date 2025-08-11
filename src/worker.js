@@ -247,6 +247,79 @@ export default {
   },
 };
 
+// Store contact form submissions
+async function handleContactSubmission(request, env, corsHeaders) {
+  try {
+    const body = await request.json();
+    const { name, email, company, message, project_id, submitted_at } = body;
+    if (!email || !message) {
+      return new Response(JSON.stringify({ error: 'Email and message are required' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return new Response(JSON.stringify({ error: 'Invalid email format' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+    const db = env.DB;
+    // Ensure table exists in dev/prod without manual migration
+    await ensureContactSubmissionsTable(db);
+    const now = submitted_at || new Date().toISOString();
+    const pid = project_id || 1;
+    const result = await db.prepare(
+      `INSERT INTO contact_submissions (name, email, company, message, project_id, submitted_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).bind(name || '', email, company || '', message, pid, now, now).run();
+    if (!result.success) throw new Error('Insert failed');
+    return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  } catch (err) {
+    console.error('Contact submission error:', err);
+    return new Response(JSON.stringify({ error: 'Failed to store contact submission' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  }
+}
+
+// Get contact form submissions
+async function getContactSubmissions(request, env, corsHeaders) {
+  try {
+    const url = new URL(request.url);
+    const limit = parseInt(url.searchParams.get('limit')) || 50;
+    const offset = parseInt(url.searchParams.get('offset')) || 0;
+    const projectId = url.searchParams.get('project_id');
+    const db = env.DB;
+    // Ensure table exists; return empty if not present
+    await ensureContactSubmissionsTable(db);
+    let query = `SELECT id, name, email, company, message, project_id, submitted_at, created_at FROM contact_submissions`;
+    const params = [];
+    if (projectId) {
+      query += ` WHERE project_id = ?`;
+      params.push(parseInt(projectId, 10));
+    }
+    query += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+    params.push(limit, offset);
+    const result = await db.prepare(query).bind(...params).all();
+    return new Response(JSON.stringify({ success: true, submissions: result.results }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  } catch (err) {
+    console.error('Get contact submissions error:', err);
+    return new Response(JSON.stringify({ error: 'Failed to retrieve contact submissions' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  }
+}
+
+// Ensure contact_submissions table and indexes exist
+async function ensureContactSubmissionsTable(db) {
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS contact_submissions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT,
+      email TEXT NOT NULL,
+      company TEXT,
+      message TEXT NOT NULL,
+      project_id INTEGER,
+      submitted_at TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+  `).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_contact_project_id ON contact_submissions(project_id);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_contact_created_at ON contact_submissions(created_at);`).run();
+}
+
 // Handle lead submission with enhanced data
 async function handleLeadSubmission(request, env, corsHeaders) {
   try {
@@ -2286,56 +2359,6 @@ Return only the JSON response with assistant_message, updated_files, image_reque
     throw new Error(`OpenAI API error: ${response.status} ${response.statusText} - ${errorText}`);
   }
 
-  // Store contact form submissions
-  async function handleContactSubmission(request, env, corsHeaders) {
-    try {
-      const body = await request.json();
-      const { name, email, company, message, project_id, submitted_at } = body;
-      if (!email || !message) {
-        return new Response(JSON.stringify({ error: 'Email and message are required' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
-      }
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        return new Response(JSON.stringify({ error: 'Invalid email format' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
-      }
-      const db = env.DB;
-      const now = submitted_at || new Date().toISOString();
-      const pid = project_id || 1;
-      const result = await db.prepare(
-        `INSERT INTO contact_submissions (name, email, company, message, project_id, submitted_at, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
-      ).bind(name || '', email, company || '', message, pid, now, now).run();
-      if (!result.success) throw new Error('Insert failed');
-      return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
-    } catch (err) {
-      console.error('Contact submission error:', err);
-      return new Response(JSON.stringify({ error: 'Failed to store contact submission' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
-    }
-  }
-
-  // Get contact form submissions
-  async function getContactSubmissions(request, env, corsHeaders) {
-    try {
-      const url = new URL(request.url);
-      const limit = parseInt(url.searchParams.get('limit')) || 50;
-      const offset = parseInt(url.searchParams.get('offset')) || 0;
-      const projectId = url.searchParams.get('project_id');
-      const db = env.DB;
-      let query = `SELECT id, name, email, company, message, project_id, submitted_at, created_at FROM contact_submissions`;
-      const params = [];
-      if (projectId) {
-        query += ` WHERE project_id = ?`;
-        params.push(parseInt(projectId, 10));
-      }
-      query += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
-      params.push(limit, offset);
-      const result = await db.prepare(query).bind(...params).all();
-      return new Response(JSON.stringify({ success: true, submissions: result.results }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
-    } catch (err) {
-      console.error('Get contact submissions error:', err);
-      return new Response(JSON.stringify({ error: 'Failed to retrieve contact submissions' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
-    }
-  }
   const data = await response.json();
   
   // Track token usage and calculate cost for GPT-4o-mini
