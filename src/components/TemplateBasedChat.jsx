@@ -294,6 +294,19 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const [showProjectPanel, setShowProjectPanel] = useState(false);
   const [isEditorMode, setIsEditorMode] = useState(false);
   const [templateData, setTemplateData] = useState(DEFAULT_TEMPLATE_DATA);
+  
+  // Compute the initial user idea message for display in editor mode
+  const initialUserIdea = React.useMemo(() => {
+    if (!messages || messages.length === 0) return null;
+    // Prefer explicit flag if available
+    const flagged = messages.find((m) => m.is_initial_message && m.role === 'user');
+    if (flagged) return flagged;
+    // Fallback: earliest user message by timestamp
+    const userMessages = messages.filter((m) => m.role === 'user' && m.timestamp);
+    if (userMessages.length === 0) return null;
+    userMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    return userMessages[0] || null;
+  }, [messages]);
 
   // Expose saveTemplateData method to parent component
   useImperativeHandle(ref, () => ({
@@ -814,6 +827,18 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             <div className="flex-1 p-6 overflow-y-auto">
               <div className="space-y-6">
                 <div>
+                  {initialUserIdea ? (
+                    <div className="mb-4">
+                      <div className="flex justify-end">
+                        <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg bg-blue-600 text-white`}>
+                          <p className="text-sm whitespace-pre-wrap">{initialUserIdea.message}</p>
+                          {initialUserIdea.timestamp ? (
+                            <p className="text-xs opacity-70 mt-1">{new Date(initialUserIdea.timestamp).toLocaleString()}</p>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
                   <p className="text-gray-600 mb-6">
                     Your landing page has been generated! Customize the content below and see changes in real-time.
                   </p>
