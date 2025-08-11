@@ -125,9 +125,12 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
                         window.location.href = `/data_analytics/project_1`;
                       }
                     }}
-                    className="px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700"
+                    className="px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700 inline-flex items-center gap-2"
                   >
-                    Data Analytics
+                    <span>Data Analytics</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-gray-500">
+                      <path d="M5 3a1 1 0 0 1 1 1v14h12a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2V4a1 1 0 0 1 1-1h1Zm4.5 5a1 1 0 0 1 1 1v7h-2v-7a1 1 0 0 1 1-1Zm4 -2a1 1 0 0 1 1 1v9h-2V7a1 1 0 0 1 1-1Zm4 4a1 1 0 0 1 1 1v5h-2v-5a1 1 0 0 1 1-1Z" />
+                    </svg>
                   </button>
                   {/* Preview Mode Toggle Button */}
                   <div className="relative group">
