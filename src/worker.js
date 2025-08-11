@@ -2088,7 +2088,7 @@ IMAGE PLACEHOLDER REQUIREMENTS:
 - About section with business story
 - Pricing section (if applicable)
 - Contact/location section (if applicable)
-- Footer with social links
+- Footer without social links or external links (no anchor tags). Use plain text only; do not include social media icons.
 
 3. HERO SECTION REQUIREMENTS:
 - Must be the first section of the page
