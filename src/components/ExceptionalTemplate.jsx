@@ -181,6 +181,9 @@ const ExceptionalTemplate = ({
   // Background image props
   heroBackgroundImage = null,
   aboutBackgroundImage = null,
+  // Lead form options
+  showLeadPhoneField = true,
+  projectId = null,
   // Visibility flags
   showHeroSection = true,
   showHeroBadge = true,
@@ -217,6 +220,9 @@ const ExceptionalTemplate = ({
     message: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
+  const [leadEmail, setLeadEmail] = useState('');
+  const [leadPhone, setLeadPhone] = useState('');
   
   // Pool of avatar images to randomly display for social proof
   const avatarImagePool = [
@@ -543,7 +549,7 @@ const ExceptionalTemplate = ({
             
             {showHeroCTA && (
               <div className="flex justify-center items-center mb-12">
-                <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:from-blue-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-300 shadow-2xl">
+                <button onClick={() => setIsLeadModalOpen(true)} className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:from-blue-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-300 shadow-2xl">
                   {ctaButtonText}
                 </button>
               </div>
@@ -926,6 +932,89 @@ const ExceptionalTemplate = ({
             </div>
           </div>
         </footer>
+      )}
+
+      {/* Lead Capture Modal */}
+      {isLeadModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setIsLeadModalOpen(false)}></div>
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+            <div className="mb-4">
+              <h3 className="text-2xl font-semibold text-gray-900">Create Your Account</h3>
+              <p className="text-gray-600 mt-1">
+                {showLeadPhoneField ? 'Enter your email and phone number to get started' : 'Enter your email to get started'}
+              </p>
+            </div>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setIsSubmitting(true);
+                try {
+                  const res = await fetch('/api/leads', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      email: leadEmail,
+                      phone: showLeadPhoneField ? leadPhone : '',
+                      project_id: projectId || 1,
+                      submitted_at: new Date().toISOString(),
+                    })
+                  });
+                  if (res.ok) {
+                    setIsLeadModalOpen(false);
+                    setLeadEmail('');
+                    setLeadPhone('');
+                    alert('Thanks! Your account has been created.');
+                  } else {
+                    const data = await res.json().catch(() => ({}));
+                    alert(data?.error || 'Failed to submit. Please try again.');
+                  }
+                } catch (err) {
+                  console.error(err);
+                  alert('Network error. Please try again.');
+                } finally {
+                  setIsSubmitting(false);
+                }
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email Address *</label>
+                <input
+                  type="email"
+                  required
+                  value={leadEmail}
+                  onChange={(e) => setLeadEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              {showLeadPhoneField && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+                  <input
+                    type="tel"
+                    required
+                    value={leadPhone}
+                    onChange={(e) => setLeadPhone(e.target.value)}
+                    placeholder="1 555 123 4567"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all disabled:opacity-50"
+              >
+                {isSubmitting ? 'Submitting...' : 'Create your Account'}
+              </button>
+              <div className="text-center text-sm text-gray-600">
+                Already have an account? <a href="#" className="text-blue-600 hover:underline">Log in</a>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

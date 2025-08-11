@@ -21,9 +21,9 @@ export async function onRequestPost(context) {
       submitted_at // New: allow submitted_at from request
     } = body;
 
-    // Validate required fields
-    if (!email || !phone) {
-      return new Response(JSON.stringify({ error: 'Email and phone are required' }), {
+    // Validate required fields (phone optional)
+    if (!email) {
+      return new Response(JSON.stringify({ error: 'Email is required' }), {
         status: 400,
         headers: {
           'Content-Type': 'application/json',
@@ -52,7 +52,7 @@ export async function onRequestPost(context) {
     // Store lead in D1 database
     const leadResult = await db.prepare(
       "INSERT INTO leads (email, phone, user_id, project_id, submitted_at, created_at) VALUES (?, ?, ?, ?, ?, ?)"
-    ).bind(email, phone, uid, pid, submissionTime, submissionTime).run();
+    ).bind(email, phone || '', uid, pid, submissionTime, submissionTime).run();
 
     if (!leadResult.success) {
       throw new Error('Failed to store lead');
@@ -120,29 +120,27 @@ export async function onRequestGet(context) {
     const url = new URL(request.url);
     const limit = parseInt(url.searchParams.get('limit')) || 100;
     const offset = parseInt(url.searchParams.get('offset')) || 0;
+    const projectId = url.searchParams.get('project_id');
 
     const db = env.DB;
-    const result = await db.prepare(`
+    let query = `
       SELECT 
-        l.id, 
-        l.email, 
-        l.phone, 
-        l.ts, 
+        l.id,
+        l.email,
+        l.phone,
+        l.submitted_at,
         l.created_at,
-        i.idea_name,
-        i.idea_description,
-        ps.plan_type,
-        fc.completed_at,
-        od.audience,
-        od.validation_goal
+        l.project_id
       FROM leads l
-      LEFT JOIN ideas i ON l.id = i.lead_id
-      LEFT JOIN plan_selections ps ON l.id = ps.lead_id
-      LEFT JOIN funnel_completions fc ON l.id = fc.lead_id
-      LEFT JOIN onboarding_data od ON l.id = od.lead_id
-      ORDER BY l.created_at DESC 
-      LIMIT ? OFFSET ?
-    `).bind(limit, offset).all();
+    `;
+    const binds = [];
+    if (projectId) {
+      query += ` WHERE l.project_id = ?`;
+      binds.push(parseInt(projectId, 10));
+    }
+    query += ` ORDER BY l.created_at DESC LIMIT ? OFFSET ?`;
+    binds.push(limit, offset);
+    const result = await db.prepare(query).bind(...binds).all();
 
     return new Response(JSON.stringify({ 
       success: true, 

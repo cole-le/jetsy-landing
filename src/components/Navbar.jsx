@@ -115,6 +115,20 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
               {/* Save Changes button (chat mode) or Mobile menu button */}
               {isChatMode ? (
                 <div className="flex items-center space-x-3">
+                  {/* Data Analytics button - left of preview toggle */}
+                  <button
+                    onClick={() => {
+                      try {
+                        const pid = localStorage.getItem('jetsy_current_project_id') || '1';
+                        window.location.href = `/data_analytics/project_${pid}`;
+                      } catch (_) {
+                        window.location.href = `/data_analytics/project_1`;
+                      }
+                    }}
+                    className="px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700"
+                  >
+                    Data Analytics
+                  </button>
                   {/* Preview Mode Toggle Button */}
                   <div className="relative group">
                     <button 

@@ -30,10 +30,16 @@ export default {
           headers: corsHeaders,
         });
       }
-      // Remove or comment out the old /api/leads POST route
-      // if (path === '/api/leads' && request.method === 'POST') {
-      //   return await handleLeadSubmission(request, env, corsHeaders);
-      // }
+      // Support both /api/lead and /api/leads for POST
+      if (path === '/api/leads' && request.method === 'POST') {
+        return await handleLeadSubmissionV2(request, env, corsHeaders);
+      }
+      if (path === '/api/leads' && request.method === 'OPTIONS') {
+        return new Response(null, {
+          status: 200,
+          headers: corsHeaders,
+        });
+      }
 
       if (path === '/api/onboarding' && request.method === 'POST') {
         return await handleOnboardingSubmission(request, env, corsHeaders);
@@ -327,7 +333,7 @@ async function handleLeadSubmission(request, env, corsHeaders) {
   }
 }
 
-// Add the new handler logic from functions/api/leads.js
+  // Add the new handler logic (align with functions/api/leads.js and UI expectations)
 async function handleLeadSubmissionV2(request, env, corsHeaders) {
   try {
     const body = await request.json();
@@ -342,9 +348,9 @@ async function handleLeadSubmissionV2(request, env, corsHeaders) {
       submitted_at // New: allow submitted_at from request
     } = body;
 
-    // Validate required fields
-    if (!email || !phone) {
-      return new Response(JSON.stringify({ error: 'Email and phone are required' }), {
+      // Validate required fields: phone is optional to support editor toggle
+      if (!email) {
+        return new Response(JSON.stringify({ error: 'Email is required' }), {
         status: 400,
         headers: {
           'Content-Type': 'application/json',
@@ -373,7 +379,7 @@ async function handleLeadSubmissionV2(request, env, corsHeaders) {
     // Store lead in D1 database
     const leadResult = await db.prepare(
       "INSERT INTO leads (email, phone, user_id, project_id, submitted_at, created_at) VALUES (?, ?, ?, ?, ?, ?)"
-    ).bind(email, phone, uid, pid, submissionTime, submissionTime).run();
+      ).bind(email, phone || '', uid, pid, submissionTime, submissionTime).run();
 
     if (!leadResult.success) {
       throw new Error('Failed to store lead');
@@ -854,29 +860,27 @@ async function getLeads(request, env, corsHeaders) {
     const url = new URL(request.url);
     const limit = parseInt(url.searchParams.get('limit')) || 100;
     const offset = parseInt(url.searchParams.get('offset')) || 0;
+    const projectId = url.searchParams.get('project_id');
 
     const db = env.DB;
-    const result = await db.prepare(`
+    let query = `
       SELECT 
-        l.id, 
-        l.email, 
-        l.phone, 
-        l.ts, 
+        l.id,
+        l.email,
+        l.phone,
+        l.submitted_at,
         l.created_at,
-        i.idea_name,
-        i.idea_description,
-        ps.plan_type,
-        fc.completed_at,
-        od.audience,
-        od.validation_goal
+        l.project_id
       FROM leads l
-      LEFT JOIN ideas i ON l.id = i.lead_id
-      LEFT JOIN plan_selections ps ON l.id = ps.lead_id
-      LEFT JOIN funnel_completions fc ON l.id = fc.lead_id
-      LEFT JOIN onboarding_data od ON l.id = od.lead_id
-      ORDER BY l.created_at DESC 
-      LIMIT ? OFFSET ?
-    `).bind(limit, offset).all();
+    `;
+    const params = [];
+    if (projectId) {
+      query += ` WHERE l.project_id = ?`;
+      params.push(parseInt(projectId, 10));
+    }
+    query += ` ORDER BY l.created_at DESC LIMIT ? OFFSET ?`;
+    params.push(limit, offset);
+    const result = await db.prepare(query).bind(...params).all();
 
     return new Response(JSON.stringify({ 
       success: true, 

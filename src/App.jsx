@@ -15,6 +15,7 @@ import ChatInputWithToggle from './components/ChatInputWithToggle'
 import ChatPage from './components/ChatPage'
 import TemplateBasedChat from './components/TemplateBasedChat'
 import ExceptionalTemplate from './components/ExceptionalTemplate'
+import ProjectDataAnalytics from './components/ProjectDataAnalytics'
 
 function App() {
   const [currentStep, setCurrentStep] = useState('hero') // hero, faq, pricing, lead-capture, onboarding, login, demo-booking, demo-thankyou, chat
@@ -29,6 +30,7 @@ function App() {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [previewMode, setPreviewMode] = useState('desktop'); // desktop, phone, tablet
   const templateChatRef = useRef(null);
+  const [analyticsProjectId, setAnalyticsProjectId] = useState(null);
 
   useEffect(() => {
     // Track page view
@@ -43,6 +45,13 @@ function App() {
     if (path === '/chat') {
       console.log('Setting currentStep to chat');
       setCurrentStep('chat');
+    } else if (path.startsWith('/data_analytics/project_')) {
+      const num = path.replace('/data_analytics/project_', '');
+      const pid = parseInt(num, 10);
+      if (!isNaN(pid)) {
+        setAnalyticsProjectId(pid);
+        setCurrentStep('data-analytics');
+      }
     } else if (path === '/faq') {
       setCurrentStep('faq');
     } else if (path === '/template') {
@@ -66,6 +75,8 @@ function App() {
     // Only update URL if it doesn't match the current step
     if (currentStep === 'chat' && path !== '/chat') {
       window.history.pushState({}, '', '/chat');
+    } else if (currentStep === 'data-analytics' && analyticsProjectId && path !== `/data_analytics/project_${analyticsProjectId}`) {
+      window.history.pushState({}, '', `/data_analytics/project_${analyticsProjectId}`);
     } else if (currentStep === 'faq' && path !== '/faq') {
       window.history.pushState({}, '', '/faq');
     } else if (currentStep === 'template' && path !== '/template') {
@@ -73,7 +84,7 @@ function App() {
     } else if (currentStep === 'hero' && path !== '/') {
       window.history.pushState({}, '', '/');
     }
-  }, [currentStep, isInitialLoad]);
+  }, [currentStep, isInitialLoad, analyticsProjectId]);
 
   const handleChatClick = () => {
     setCurrentStep('chat');
@@ -493,6 +504,17 @@ function App() {
           onBackToHome={() => setCurrentStep('hero')} 
           onSaveChanges={handleSaveChanges}
           previewMode={previewMode}
+        />
+      )}
+
+      {/* Data Analytics Page */}
+      {currentStep === 'data-analytics' && analyticsProjectId && (
+        <ProjectDataAnalytics 
+          projectId={analyticsProjectId}
+          onBack={() => {
+            try { localStorage.setItem('jetsy_current_project_id', String(analyticsProjectId)); } catch {}
+            setCurrentStep('chat');
+          }}
         />
       )}
 
