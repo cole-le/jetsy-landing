@@ -383,12 +383,32 @@ const ExceptionalTemplate = ({
     e.preventDefault();
     setIsSubmitting(true);
     
-    // Simulate form submission
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    alert('Thank you! We\'ll be in touch soon.');
-    setFormData({ name: '', email: '', company: '', message: '' });
-    setIsSubmitting(false);
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          company: formData.company,
+          message: formData.message,
+          project_id: projectId || 1,
+          submitted_at: new Date().toISOString(),
+        })
+      });
+      if (res.ok) {
+        alert('Thank you! We\'ll be in touch soon.');
+        setFormData({ name: '', email: '', company: '', message: '' });
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data?.error || 'Failed to submit. Please try again.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleInputChange = (e) => {

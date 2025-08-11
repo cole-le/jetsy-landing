@@ -64,6 +64,21 @@ CREATE TABLE IF NOT EXISTS onboarding_data (
     FOREIGN KEY (lead_id) REFERENCES leads(id)
 );
 
+-- Contact submissions from the website contact form
+CREATE TABLE IF NOT EXISTS contact_submissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT,
+    email TEXT NOT NULL,
+    company TEXT,
+    message TEXT NOT NULL,
+    project_id INTEGER,
+    submitted_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_contact_project_id ON contact_submissions(project_id);
+CREATE INDEX IF NOT EXISTS idx_contact_created_at ON contact_submissions(created_at);
+
 -- Funnel completions table to track successful conversions
 CREATE TABLE IF NOT EXISTS funnel_completions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
