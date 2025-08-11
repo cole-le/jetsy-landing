@@ -558,7 +558,7 @@ const ExceptionalTemplate = ({
           <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-blue-50"></div>
         )}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+          <div className="grid grid-cols-1 gap-8 lg:gap-12 items-center">
             <div>
               <h2 
                 className="text-4xl md:text-5xl font-bold mb-6"
@@ -569,19 +569,7 @@ const ExceptionalTemplate = ({
               >
                 {aboutSectionTitle.split(',')[0]},
                 <br />
-                <span 
-                  style={{
-                    background: aboutBackgroundImage 
-                      ? 'linear-gradient(to right, #ffffff, #e5e7eb)' 
-                      : 'linear-gradient(to right, #2563eb, #7c3aed)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                    textShadow: aboutBackgroundImage ? `0 3px 6px ${aboutTextColors.shadowColor}` : 'none'
-                  }}
-                >
-                  {aboutSectionTitle.split(',')[1]}
-                </span>
+                {aboutSectionTitle.split(',')[1]}
               </h2>
               <p 
                 className="text-xl mb-8 leading-relaxed"
@@ -624,23 +612,6 @@ const ExceptionalTemplate = ({
                     </span>
                   </div>
                 ))}
-              </div>
-            </div>
-            
-            <div className="relative">
-              <div className="bg-white rounded-2xl shadow-2xl p-8 transform rotate-3 hover:rotate-0 transition-transform duration-300">
-                <div className="space-y-4">
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                  <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-                  <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-                </div>
-              </div>
-              <div className="absolute -top-4 -right-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-2xl p-8 transform -rotate-3 hover:rotate-0 transition-transform duration-300">
-                <div className="text-white text-center">
-                  <div className="text-3xl font-bold mb-2">{landingPagesCreated.split(' ')[0]}</div>
-                  <div className="text-sm opacity-90">{landingPagesCreated.split(' ').slice(1).join(' ')}</div>
-                </div>
               </div>
             </div>
           </div>
