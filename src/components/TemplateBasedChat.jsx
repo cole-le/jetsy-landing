@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } f
 import ProjectSelector from './ProjectSelector';
 import ExceptionalTemplate from './ExceptionalTemplate';
 
+// Fixed trust/rating text to ensure consistent partial star rendering on the frontend
+const FIXED_RATING_TEXT = '4.8/5 customer satisfaction rating';
+
 // Mobile CSS overrides for viewport simulation
 const getMobileViewportStyles = (previewMode) => {
   if (previewMode === 'desktop') return '';
@@ -232,7 +235,7 @@ export const DEFAULT_TEMPLATE_DATA = {
     office: "San Francisco, CA"
   },
   trustIndicator1: "Join 10,000+ creators",
-  trustIndicator2: "4.9/5 rating",
+  trustIndicator2: FIXED_RATING_TEXT,
   // New dynamic fields
   heroBadge: "Now Available - AI-Powered Landing Pages",
   aboutSectionTitle: "Built by creators, for creators",
@@ -1735,7 +1738,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                   pricing={templateData.pricing || []}
                   contactInfo={templateData.contactInfo || {}}
                   trustIndicator1={templateData.trustIndicator1 || ''}
-                  trustIndicator2={templateData.trustIndicator2 || ''}
+                  trustIndicator2={FIXED_RATING_TEXT}
                   heroBadge={templateData.heroBadge || ''}
                   aboutSectionTitle={templateData.aboutSectionTitle || ''}
                   aboutSectionSubtitle={templateData.aboutSectionSubtitle || ''}
@@ -1792,7 +1795,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                 pricing={templateData.pricing || []}
                 contactInfo={templateData.contactInfo || {}}
                 trustIndicator1={templateData.trustIndicator1 || ''}
-                trustIndicator2={templateData.trustIndicator2 || ''}
+                trustIndicator2={FIXED_RATING_TEXT}
                 heroBadge={templateData.heroBadge || ''}
                 aboutSectionTitle={templateData.aboutSectionTitle || ''}
                 aboutSectionSubtitle={templateData.aboutSectionSubtitle || ''}
