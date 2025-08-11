@@ -433,7 +433,7 @@ const ExceptionalTemplate = ({
       </nav>
 
       {/* Hero Section */}
-      <section id="home" className="relative min-h-screen flex items-center justify-center overflow-hidden pt-0">
+      <section id="home" className="relative min-h-screen flex items-start justify-center overflow-hidden pt-8 sm:pt-12 md:pt-16">
         {/* Background Image */}
         {heroBackgroundImage ? (
           <>
@@ -459,7 +459,7 @@ const ExceptionalTemplate = ({
             isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
           }`}>
             <div 
-              className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium mb-8"
+              className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium mb-4 sm:mb-6"
               style={{
                 backgroundColor: heroBackgroundImage ? 'rgba(0, 0, 0, 0.8)' : 'rgb(219, 234, 254)',
                 color: heroBackgroundImage ? '#ffffff' : '#1e40af',
