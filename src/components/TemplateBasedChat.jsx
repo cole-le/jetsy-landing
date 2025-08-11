@@ -255,7 +255,10 @@ export const DEFAULT_TEMPLATE_DATA = {
   footerDescription: "Build beautiful, conversion-optimized landing pages with AI. Transform your ideas into reality in minutes.",
   footerProductLinks: ["Features", "Pricing", "Templates", "API"],
   footerCompanyLinks: ["About", "Blog", "Careers", "Contact"],
-  landingPagesCreated: "10,000+ Landing Pages Created"
+  landingPagesCreated: "10,000+ Landing Pages Created",
+  // Background image URLs (user-uploaded or AI-generated)
+  heroBackgroundImage: null,
+  aboutBackgroundImage: null
 };
 
 const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode = 'desktop' }, ref) => {
@@ -892,6 +895,44 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                         placeholder="Enter your hero badge text"
                       />
                     </div>
+                    {/* Hero Background Image Uploader */}
+                    <div className="pt-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Hero Background Image</label>
+                      {templateData.heroBackgroundImage ? (
+                        <div className="flex items-center space-x-4 mb-3">
+                          <div
+                            className="h-12 w-20 rounded border bg-cover bg-center"
+                            style={{ backgroundImage: `url(${templateData.heroBackgroundImage})` }}
+                          />
+                          <button
+                            onClick={() => setTemplateData(prev => ({ ...prev, heroBackgroundImage: null }))}
+                            className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded"
+                          >Remove</button>
+                        </div>
+                      ) : null }
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file || !currentProject?.id) return;
+                          const formData = new FormData();
+                          formData.append('project_id', currentProject.id);
+                          formData.append('file', file);
+                          try {
+                            const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
+                            if (res.ok) {
+                              const data = await res.json();
+                              setTemplateData(prev => ({ ...prev, heroBackgroundImage: data.url }));
+                            }
+                          } catch (err) {
+                            console.error('Hero background upload failed', err);
+                          }
+                        }}
+                        className="w-full"
+                      />
+                      <p className="text-xs text-gray-500 mt-2">We automatically add a dark overlay for readability with white text.</p>
+                    </div>
                   </div>
                 </div>
 
@@ -1086,6 +1127,44 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                         className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="e.g., 10,000+ Landing Pages Created"
                       />
+                    </div>
+                    {/* About Background Image Uploader */}
+                    <div className="pt-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">About Background Image</label>
+                      {templateData.aboutBackgroundImage ? (
+                        <div className="flex items-center space-x-4 mb-3">
+                          <div
+                            className="h-12 w-20 rounded border bg-cover bg-center"
+                            style={{ backgroundImage: `url(${templateData.aboutBackgroundImage})` }}
+                          />
+                          <button
+                            onClick={() => setTemplateData(prev => ({ ...prev, aboutBackgroundImage: null }))}
+                            className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded"
+                          >Remove</button>
+                        </div>
+                      ) : null }
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file || !currentProject?.id) return;
+                          const formData = new FormData();
+                          formData.append('project_id', currentProject.id);
+                          formData.append('file', file);
+                          try {
+                            const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
+                            if (res.ok) {
+                              const data = await res.json();
+                              setTemplateData(prev => ({ ...prev, aboutBackgroundImage: data.url }));
+                            }
+                          } catch (err) {
+                            console.error('About background upload failed', err);
+                          }
+                        }}
+                        className="w-full"
+                      />
+                      <p className="text-xs text-gray-500 mt-2">We automatically add a dark overlay for readability with white text.</p>
                     </div>
                   </div>
                 </div>
