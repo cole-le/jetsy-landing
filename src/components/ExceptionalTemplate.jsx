@@ -180,7 +180,28 @@ const ExceptionalTemplate = ({
   landingPagesCreated = "10,000+ Landing Pages Created",
   // Background image props
   heroBackgroundImage = null,
-  aboutBackgroundImage = null
+  aboutBackgroundImage = null,
+  // Visibility flags
+  showHeroSection = true,
+  showHeroBadge = true,
+  showHeroCTA = true,
+  showHeroSocialProof = true,
+  showDynamicSection = true,
+  showSectionTitle = true,
+  showSectionSubtitle = true,
+  showAboutSection = true,
+  showAboutTitle = true,
+  showAboutSubtitle = true,
+  showAboutBenefits = true,
+  showPricingSection = true,
+  showPricingTitle = true,
+  showPricingSubtitle = true,
+  showContactSection = true,
+  showContactTitle = true,
+  showContactSubtitle = true,
+  showContactInfoList = true,
+  showContactForm = true,
+  showFooter = true
 }) => {
   // Debug background images
   console.log('🎨 ExceptionalTemplate received heroBackgroundImage:', heroBackgroundImage);
@@ -348,13 +369,21 @@ const ExceptionalTemplate = ({
             <div className="hidden md:block">
               <div className="ml-10 flex items-baseline space-x-8">
                 <a href="#home" className="text-gray-900 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">Home</a>
-                <a href={`#${sectionType}`} className="text-gray-500 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">
-                  {sectionType === 'features' ? 'Features' : 
-                   sectionType === 'services' ? 'Services' : 'Highlights'}
-                </a>
-                <a href="#about" className="text-gray-500 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">About</a>
-                <a href="#pricing" className="text-gray-500 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">Pricing</a>
-                <a href="#contact" className="text-gray-500 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">Contact</a>
+                {showDynamicSection && (
+                  <a href={`#${sectionType}`} className="text-gray-500 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">
+                    {sectionType === 'features' ? 'Features' : 
+                     sectionType === 'services' ? 'Services' : 'Highlights'}
+                  </a>
+                )}
+                {showAboutSection && (
+                  <a href="#about" className="text-gray-500 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">About</a>
+                )}
+                {showPricingSection && (
+                  <a href="#pricing" className="text-gray-500 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">Pricing</a>
+                )}
+                {showContactSection && (
+                  <a href="#contact" className="text-gray-500 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">Contact</a>
+                )}
               </div>
             </div>
             
@@ -393,35 +422,43 @@ const ExceptionalTemplate = ({
               >
                 Home
               </a>
-              <a 
-                href={`#${sectionType}`} 
-                className="text-gray-500 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {sectionType === 'features' ? 'Features' : 
-                 sectionType === 'services' ? 'Services' : 'Highlights'}
-              </a>
-              <a 
-                href="#about" 
-                className="text-gray-500 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                About
-              </a>
-              <a 
-                href="#pricing" 
-                className="text-gray-500 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Pricing
-              </a>
-              <a 
-                href="#contact" 
-                className="text-gray-500 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Contact
-              </a>
+              {showDynamicSection && (
+                <a 
+                  href={`#${sectionType}`} 
+                  className="text-gray-500 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  {sectionType === 'features' ? 'Features' : 
+                   sectionType === 'services' ? 'Services' : 'Highlights'}
+                </a>
+              )}
+              {showAboutSection && (
+                <a 
+                  href="#about" 
+                  className="text-gray-500 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  About
+                </a>
+              )}
+              {showPricingSection && (
+                <a 
+                  href="#pricing" 
+                  className="text-gray-500 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Pricing
+                </a>
+              )}
+              {showContactSection && (
+                <a 
+                  href="#contact" 
+                  className="text-gray-500 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Contact
+                </a>
+              )}
               <div className="pt-4 pb-3 border-t border-gray-200">
                 <button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-full text-base font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-300">
                   Get Started
@@ -433,6 +470,7 @@ const ExceptionalTemplate = ({
       </nav>
 
       {/* Hero Section */}
+      {showHeroSection && (
       <section id="home" className="relative min-h-screen flex items-start justify-center overflow-hidden pt-8 sm:pt-12 md:pt-16">
         {/* Background Image */}
         {heroBackgroundImage ? (
@@ -458,18 +496,20 @@ const ExceptionalTemplate = ({
           <div className={`transform transition-all duration-1000 ${
             isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
           }`}>
-            <div 
-              className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium mb-4 sm:mb-6"
-              style={{
-                backgroundColor: heroBackgroundImage ? 'rgba(0, 0, 0, 0.8)' : 'rgb(219, 234, 254)',
-                color: heroBackgroundImage ? '#ffffff' : '#1e40af',
-                textShadow: heroBackgroundImage ? `0 1px 2px ${heroTextColors.shadowColor}` : 'none',
-                border: heroBackgroundImage ? '1px solid rgba(255, 255, 255, 0.2)' : 'none'
-              }}
-            >
-              <span className="w-2 h-2 bg-blue-400 rounded-full mr-2 animate-pulse"></span>
-              {heroBadge}
-            </div>
+            {showHeroBadge && (
+              <div 
+                className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium mb-4 sm:mb-6"
+                style={{
+                  backgroundColor: heroBackgroundImage ? 'rgba(0, 0, 0, 0.8)' : 'rgb(219, 234, 254)',
+                  color: heroBackgroundImage ? '#ffffff' : '#1e40af',
+                  textShadow: heroBackgroundImage ? `0 1px 2px ${heroTextColors.shadowColor}` : 'none',
+                  border: heroBackgroundImage ? '1px solid rgba(255, 255, 255, 0.2)' : 'none'
+                }}
+              >
+                <span className="w-2 h-2 bg-blue-400 rounded-full mr-2 animate-pulse"></span>
+                {heroBadge}
+              </div>
+            )}
             
             <h1 
               className="text-4xl sm:text-5xl md:text-7xl font-bold mb-6 leading-tight px-4"
@@ -501,61 +541,65 @@ const ExceptionalTemplate = ({
               {heroDescription}
             </p>
             
-            <div className="flex justify-center items-center mb-12">
-              <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:from-blue-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-300 shadow-2xl">
-                {ctaButtonText}
-              </button>
-            </div>
+            {showHeroCTA && (
+              <div className="flex justify-center items-center mb-12">
+                <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:from-blue-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-300 shadow-2xl">
+                  {ctaButtonText}
+                </button>
+              </div>
+            )}
             
-            {/* Social Proof */}
-            <div 
-              className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-8 text-sm px-4"
-              style={{
-                color: heroBackgroundImage ? '#ffffff' : '#6b7280',
-                textShadow: heroBackgroundImage ? `0 2px 4px ${heroTextColors.shadowColor}` : 'none'
-              }}
-            >
-              <div className="flex items-center">
-                <div className="flex -space-x-2 mr-3">
-                  {(selectedAvatars.length ? selectedAvatars : selectRandomUnique(avatarImagePool, 4)).map((src, index) => (
-                    <div
-                      key={`${src}-${index}`}
-                      className="w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-gradient-to-r from-blue-400 to-purple-400"
-                      title="Happy customer"
-                    >
-                      <img
-                        src={src}
-                        alt="Customer avatar"
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                        onError={(e) => {
-                          // Graceful fallback to local logo if remote avatar fails
-                          e.currentTarget.src = '/jetsy_logo.png';
-                        }}
-                      />
-                    </div>
-                  ))}
+            {showHeroSocialProof && (
+              <div 
+                className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-8 text-sm px-4"
+                style={{
+                  color: heroBackgroundImage ? '#ffffff' : '#6b7280',
+                  textShadow: heroBackgroundImage ? `0 2px 4px ${heroTextColors.shadowColor}` : 'none'
+                }}
+              >
+                <div className="flex items-center">
+                  <div className="flex -space-x-2 mr-3">
+                    {(selectedAvatars.length ? selectedAvatars : selectRandomUnique(avatarImagePool, 4)).map((src, index) => (
+                      <div
+                        key={`${src}-${index}`}
+                        className="w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-gradient-to-r from-blue-400 to-purple-400"
+                        title="Happy customer"
+                      >
+                        <img
+                          src={src}
+                          alt="Customer avatar"
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                          onError={(e) => {
+                            e.currentTarget.src = '/jetsy_logo.png';
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <span>{trustIndicator1}</span>
                 </div>
-                <span>{trustIndicator1}</span>
-              </div>
-              <div className="flex items-center">
-                <div className="flex text-yellow-400 mr-2">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <svg key={i} className="w-4 h-4 fill-current" viewBox="0 0 20 20">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
+                <div className="flex items-center">
+                  <div className="flex text-yellow-400 mr-2">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <svg key={i} className="w-4 h-4 fill-current" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                    ))}
+                  </div>
+                  <span>{trustIndicator2}</span>
                 </div>
-                <span>{trustIndicator2}</span>
               </div>
-            </div>
+            )}
           </div>
         </div>
         
         {/* Floating Elements - Removed blinking circles animation */}
       </section>
+      )}
 
       {/* Dynamic Section (Features/Services/Highlights) */}
+      {showDynamicSection && (
       <section id={sectionType} className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
@@ -579,8 +623,10 @@ const ExceptionalTemplate = ({
           </div>
         </div>
       </section>
+      )}
 
       {/* About Section */}
+      {showAboutSection && (
       <section id="about" className="py-20 relative">
         {/* Background Image */}
         {aboutBackgroundImage ? (
@@ -605,26 +651,30 @@ const ExceptionalTemplate = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid grid-cols-1 gap-8 lg:gap-12 items-center">
             <div>
-              <h2 
-                className="text-4xl md:text-5xl font-bold mb-6"
-                style={{
-                  color: aboutBackgroundImage ? '#ffffff' : '#1f2937',
-                  textShadow: aboutBackgroundImage ? `0 3px 6px ${aboutTextColors.shadowColor}` : 'none'
-                }}
-              >
-                {aboutSectionTitle.split(',')[0]},
-                <br />
-                {aboutSectionTitle.split(',')[1]}
-              </h2>
-              <p 
-                className="text-xl mb-8 leading-relaxed"
-                style={{
-                  color: aboutBackgroundImage ? '#ffffff' : '#4b5563',
-                  textShadow: aboutBackgroundImage ? `0 2px 4px ${aboutTextColors.shadowColor}` : 'none'
-                }}
-              >
-                {aboutSectionSubtitle}
-              </p>
+              {showAboutTitle && (
+                <h2 
+                  className="text-4xl md:text-5xl font-bold mb-6"
+                  style={{
+                    color: aboutBackgroundImage ? '#ffffff' : '#1f2937',
+                    textShadow: aboutBackgroundImage ? `0 3px 6px ${aboutTextColors.shadowColor}` : 'none'
+                  }}
+                >
+                  {aboutSectionTitle.split(',')[0]},
+                  <br />
+                  {aboutSectionTitle.split(',')[1]}
+                </h2>
+              )}
+              {showAboutSubtitle && (
+                <p 
+                  className="text-xl mb-8 leading-relaxed"
+                  style={{
+                    color: aboutBackgroundImage ? '#ffffff' : '#4b5563',
+                    textShadow: aboutBackgroundImage ? `0 2px 4px ${aboutTextColors.shadowColor}` : 'none'
+                  }}
+                >
+                  {aboutSectionSubtitle}
+                </p>
+              )}
               
               <div className="space-y-4">
                 {aboutBenefits.map((benefit, index) => (
@@ -662,8 +712,10 @@ const ExceptionalTemplate = ({
           </div>
         </div>
       </section>
+      )}
 
       {/* Pricing Section */}
+      {showPricingSection && (
       <section id="pricing" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
@@ -723,8 +775,10 @@ const ExceptionalTemplate = ({
           </div>
         </div>
       </section>
+      )}
 
       {/* Contact Section */}
+      {showContactSection && (
       <section id="contact" className="py-20 bg-gradient-to-br from-gray-50 to-blue-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
@@ -843,34 +897,36 @@ const ExceptionalTemplate = ({
           </div>
         </div>
       </section>
+      )}
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 gap-8">
-            <div>
-              <div className="flex items-center mb-4">
-                <div className="flex-shrink-0 mr-3">
-                  {businessLogoUrl ? (
-                    <img src={businessLogoUrl} alt={businessName} className="h-8 w-auto" />
-                  ) : (
-                    <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">J</span>
-                    </div>
-                  )}
+      {showFooter && (
+        <footer className="bg-gray-900 text-white py-12">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 gap-8">
+              <div>
+                <div className="flex items-center mb-4">
+                  <div className="flex-shrink-0 mr-3">
+                    {businessLogoUrl ? (
+                      <img src={businessLogoUrl} alt={businessName} className="h-8 w-auto" />
+                    ) : (
+                      <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+                        <span className="text-white font-bold text-sm">J</span>
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-xl font-bold">{businessName}</span>
                 </div>
-                <span className="text-xl font-bold">{businessName}</span>
+                <p className="text-gray-400 mb-6 max-w-md">{footerDescription}</p>
               </div>
-              <p className="text-gray-400 mb-6 max-w-md">{footerDescription}</p>
-              {/* Social icons and other columns removed */}
+            </div>
+            
+            <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
+              <p>&copy; 2024 {businessName}. All rights reserved.</p>
             </div>
           </div>
-          
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 {businessName}. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      )}
     </div>
   );
 };

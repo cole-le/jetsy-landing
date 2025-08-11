@@ -259,6 +259,28 @@ export const DEFAULT_TEMPLATE_DATA = {
   // Background image URLs (user-uploaded or AI-generated)
   heroBackgroundImage: null,
   aboutBackgroundImage: null
+  ,
+  // Visibility flags for removing sections/components
+  showHeroSection: true,
+  showHeroBadge: true,
+  showHeroCTA: true,
+  showHeroSocialProof: true,
+  showDynamicSection: true,
+  showSectionTitle: true,
+  showSectionSubtitle: true,
+  showAboutSection: true,
+  showAboutTitle: true,
+  showAboutSubtitle: true,
+  showAboutBenefits: true,
+  showPricingSection: true,
+  showPricingTitle: true,
+  showPricingSubtitle: true,
+  showContactSection: true,
+  showContactTitle: true,
+  showContactSubtitle: true,
+  showContactInfoList: true,
+  showContactForm: true,
+  showFooter: true
 };
 
 const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode = 'desktop' }, ref) => {
@@ -844,6 +866,32 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                     <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
                     Hero Section
                   </h4>
+                  <div className="flex flex-wrap items-center gap-3 mb-4">
+                    <button
+                      onClick={() => setTemplateData(prev => ({ ...prev, showHeroSection: !prev.showHeroSection }))}
+                      className={`px-3 py-1 text-xs rounded ${templateData.showHeroSection ? 'bg-gray-100' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {templateData.showHeroSection ? 'Hide entire section' : 'Show section'}
+                    </button>
+                    <button
+                      onClick={() => setTemplateData(prev => ({ ...prev, showHeroBadge: !prev.showHeroBadge }))}
+                      className={`px-3 py-1 text-xs rounded ${templateData.showHeroBadge ? 'bg-gray-100' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {templateData.showHeroBadge ? 'Hide badge' : 'Show badge'}
+                    </button>
+                    <button
+                      onClick={() => setTemplateData(prev => ({ ...prev, showHeroCTA: !prev.showHeroCTA }))}
+                      className={`px-3 py-1 text-xs rounded ${templateData.showHeroCTA ? 'bg-gray-100' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {templateData.showHeroCTA ? 'Hide CTA' : 'Show CTA'}
+                    </button>
+                    <button
+                      onClick={() => setTemplateData(prev => ({ ...prev, showHeroSocialProof: !prev.showHeroSocialProof }))}
+                      className={`px-3 py-1 text-xs rounded ${templateData.showHeroSocialProof ? 'bg-gray-100' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {templateData.showHeroSocialProof ? 'Hide social proof' : 'Show social proof'}
+                    </button>
+                  </div>
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Business Name</label>
@@ -943,6 +991,26 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                     {templateData.sectionType === 'features' ? 'Features' : 
                      templateData.sectionType === 'services' ? 'Services' : 'Highlights'} Section
                   </h4>
+                  <div className="flex flex-wrap items-center gap-3 mb-4">
+                    <button
+                      onClick={() => setTemplateData(prev => ({ ...prev, showDynamicSection: !prev.showDynamicSection }))}
+                      className={`px-3 py-1 text-xs rounded ${templateData.showDynamicSection ? 'bg-gray-100' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {templateData.showDynamicSection ? 'Hide entire section' : 'Show section'}
+                    </button>
+                    <button
+                      onClick={() => setTemplateData(prev => ({ ...prev, showSectionTitle: !prev.showSectionTitle }))}
+                      className={`px-3 py-1 text-xs rounded ${templateData.showSectionTitle ? 'bg-gray-100' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {templateData.showSectionTitle ? 'Hide title' : 'Show title'}
+                    </button>
+                    <button
+                      onClick={() => setTemplateData(prev => ({ ...prev, showSectionSubtitle: !prev.showSectionSubtitle }))}
+                      className={`px-3 py-1 text-xs rounded ${templateData.showSectionSubtitle ? 'bg-gray-100' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {templateData.showSectionSubtitle ? 'Hide subtitle' : 'Show subtitle'}
+                    </button>
+                  </div>
                   <div className="space-y-4 mb-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Section Type</label>
@@ -1069,6 +1137,32 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                     <span className="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
                     About Section
                   </h4>
+                  <div className="flex flex-wrap items-center gap-3 mb-4">
+                    <button
+                      onClick={() => setTemplateData(prev => ({ ...prev, showAboutSection: !prev.showAboutSection }))}
+                      className={`px-3 py-1 text-xs rounded ${templateData.showAboutSection ? 'bg-gray-100' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {templateData.showAboutSection ? 'Hide entire section' : 'Show section'}
+                    </button>
+                    <button
+                      onClick={() => setTemplateData(prev => ({ ...prev, showAboutTitle: !prev.showAboutTitle }))}
+                      className={`px-3 py-1 text-xs rounded ${templateData.showAboutTitle ? 'bg-gray-100' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {templateData.showAboutTitle ? 'Hide title' : 'Show title'}
+                    </button>
+                    <button
+                      onClick={() => setTemplateData(prev => ({ ...prev, showAboutSubtitle: !prev.showAboutSubtitle }))}
+                      className={`px-3 py-1 text-xs rounded ${templateData.showAboutSubtitle ? 'bg-gray-100' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {templateData.showAboutSubtitle ? 'Hide subtitle' : 'Show subtitle'}
+                    </button>
+                    <button
+                      onClick={() => setTemplateData(prev => ({ ...prev, showAboutBenefits: !prev.showAboutBenefits }))}
+                      className={`px-3 py-1 text-xs rounded ${templateData.showAboutBenefits ? 'bg-gray-100' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {templateData.showAboutBenefits ? 'Hide benefits list' : 'Show benefits list'}
+                    </button>
+                  </div>
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">About Content</label>
@@ -1175,6 +1269,26 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                     <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
                     Pricing Section
                   </h4>
+                  <div className="flex flex-wrap items-center gap-3 mb-4">
+                    <button
+                      onClick={() => setTemplateData(prev => ({ ...prev, showPricingSection: !prev.showPricingSection }))}
+                      className={`px-3 py-1 text-xs rounded ${templateData.showPricingSection ? 'bg-gray-100' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {templateData.showPricingSection ? 'Hide entire section' : 'Show section'}
+                    </button>
+                    <button
+                      onClick={() => setTemplateData(prev => ({ ...prev, showPricingTitle: !prev.showPricingTitle }))}
+                      className={`px-3 py-1 text-xs rounded ${templateData.showPricingTitle ? 'bg-gray-100' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {templateData.showPricingTitle ? 'Hide title' : 'Show title'}
+                    </button>
+                    <button
+                      onClick={() => setTemplateData(prev => ({ ...prev, showPricingSubtitle: !prev.showPricingSubtitle }))}
+                      className={`px-3 py-1 text-xs rounded ${templateData.showPricingSubtitle ? 'bg-gray-100' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {templateData.showPricingSubtitle ? 'Hide subtitle' : 'Show subtitle'}
+                    </button>
+                  </div>
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Pricing Section Title</label>
@@ -1294,6 +1408,38 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                     <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
                     Contact Section
                   </h4>
+                  <div className="flex flex-wrap items-center gap-3 mb-4">
+                    <button
+                      onClick={() => setTemplateData(prev => ({ ...prev, showContactSection: !prev.showContactSection }))}
+                      className={`px-3 py-1 text-xs rounded ${templateData.showContactSection ? 'bg-gray-100' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {templateData.showContactSection ? 'Hide entire section' : 'Show section'}
+                    </button>
+                    <button
+                      onClick={() => setTemplateData(prev => ({ ...prev, showContactTitle: !prev.showContactTitle }))}
+                      className={`px-3 py-1 text-xs rounded ${templateData.showContactTitle ? 'bg-gray-100' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {templateData.showContactTitle ? 'Hide title' : 'Show title'}
+                    </button>
+                    <button
+                      onClick={() => setTemplateData(prev => ({ ...prev, showContactSubtitle: !prev.showContactSubtitle }))}
+                      className={`px-3 py-1 text-xs rounded ${templateData.showContactSubtitle ? 'bg-gray-100' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {templateData.showContactSubtitle ? 'Hide subtitle' : 'Show subtitle'}
+                    </button>
+                    <button
+                      onClick={() => setTemplateData(prev => ({ ...prev, showContactInfoList: !prev.showContactInfoList }))}
+                      className={`px-3 py-1 text-xs rounded ${templateData.showContactInfoList ? 'bg-gray-100' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {templateData.showContactInfoList ? 'Hide info list' : 'Show info list'}
+                    </button>
+                    <button
+                      onClick={() => setTemplateData(prev => ({ ...prev, showContactForm: !prev.showContactForm }))}
+                      className={`px-3 py-1 text-xs rounded ${templateData.showContactForm ? 'bg-gray-100' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {templateData.showContactForm ? 'Hide form' : 'Show form'}
+                    </button>
+                  </div>
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Contact Section Title</label>
@@ -1425,6 +1571,14 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                     <span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span>
                     Footer Content
                   </h4>
+                  <div className="flex flex-wrap items-center gap-3 mb-4">
+                    <button
+                      onClick={() => setTemplateData(prev => ({ ...prev, showFooter: !prev.showFooter }))}
+                      className={`px-3 py-1 text-xs rounded ${templateData.showFooter ? 'bg-gray-100' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {templateData.showFooter ? 'Hide entire footer' : 'Show footer'}
+                    </button>
+                  </div>
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Footer Description</label>
@@ -1555,7 +1709,27 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                   footerCompanyLinks={templateData.footerCompanyLinks || []}
                   landingPagesCreated={templateData.landingPagesCreated || ''}
                   heroBackgroundImage={templateData.heroBackgroundImage || null}
-                  aboutBackgroundImage={templateData.aboutBackgroundImage || null}
+                   aboutBackgroundImage={templateData.aboutBackgroundImage || null}
+                   showHeroSection={templateData.showHeroSection}
+                   showHeroBadge={templateData.showHeroBadge}
+                   showHeroCTA={templateData.showHeroCTA}
+                   showHeroSocialProof={templateData.showHeroSocialProof}
+                   showDynamicSection={templateData.showDynamicSection}
+                   showSectionTitle={templateData.showSectionTitle}
+                   showSectionSubtitle={templateData.showSectionSubtitle}
+                   showAboutSection={templateData.showAboutSection}
+                   showAboutTitle={templateData.showAboutTitle}
+                   showAboutSubtitle={templateData.showAboutSubtitle}
+                   showAboutBenefits={templateData.showAboutBenefits}
+                   showPricingSection={templateData.showPricingSection}
+                   showPricingTitle={templateData.showPricingTitle}
+                   showPricingSubtitle={templateData.showPricingSubtitle}
+                   showContactSection={templateData.showContactSection}
+                   showContactTitle={templateData.showContactTitle}
+                   showContactSubtitle={templateData.showContactSubtitle}
+                   showContactInfoList={templateData.showContactInfoList}
+                   showContactForm={templateData.showContactForm}
+                   showFooter={templateData.showFooter}
                 />
               </div>
             </div>
@@ -1591,6 +1765,26 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                 landingPagesCreated={templateData.landingPagesCreated || ''}
                 heroBackgroundImage={templateData.heroBackgroundImage || null}
                 aboutBackgroundImage={templateData.aboutBackgroundImage || null}
+                showHeroSection={templateData.showHeroSection}
+                showHeroBadge={templateData.showHeroBadge}
+                showHeroCTA={templateData.showHeroCTA}
+                showHeroSocialProof={templateData.showHeroSocialProof}
+                showDynamicSection={templateData.showDynamicSection}
+                showSectionTitle={templateData.showSectionTitle}
+                showSectionSubtitle={templateData.showSectionSubtitle}
+                showAboutSection={templateData.showAboutSection}
+                showAboutTitle={templateData.showAboutTitle}
+                showAboutSubtitle={templateData.showAboutSubtitle}
+                showAboutBenefits={templateData.showAboutBenefits}
+                showPricingSection={templateData.showPricingSection}
+                showPricingTitle={templateData.showPricingTitle}
+                showPricingSubtitle={templateData.showPricingSubtitle}
+                showContactSection={templateData.showContactSection}
+                showContactTitle={templateData.showContactTitle}
+                showContactSubtitle={templateData.showContactSubtitle}
+                showContactInfoList={templateData.showContactInfoList}
+                showContactForm={templateData.showContactForm}
+                showFooter={templateData.showFooter}
               />
             </div>
           )}
