@@ -221,6 +221,9 @@ const ExceptionalTemplate = ({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
+  const rootRef = useRef(null);
+  const [overlayRect, setOverlayRect] = useState({ top: 0, height: 0 });
+  const scrollContainerRef = useRef(null);
   const [leadEmail, setLeadEmail] = useState('');
   const [leadPhone, setLeadPhone] = useState('');
   
@@ -253,6 +256,51 @@ const ExceptionalTemplate = ({
   useEffect(() => {
     setSelectedAvatars(selectRandomUnique(avatarImagePool, 4));
   }, []);
+
+  // Find nearest scrollable ancestor for positioning modal within the visible Live Preview area
+  const findScrollContainer = (node) => {
+    let current = node?.parentElement || null;
+    while (current) {
+      const style = window.getComputedStyle(current);
+      const overflowY = style.overflowY;
+      const isScrollable = (overflowY === 'auto' || overflowY === 'scroll') && current.scrollHeight > current.clientHeight;
+      if (isScrollable) return current;
+      current = current.parentElement;
+    }
+    return null;
+  };
+
+  const updateOverlayPosition = () => {
+    const rootEl = rootRef.current;
+    if (!rootEl) return;
+    const scroller = scrollContainerRef.current || findScrollContainer(rootEl);
+    if (!scroller) {
+      setOverlayRect({ top: 0, height: rootEl.clientHeight });
+      return;
+    }
+    scrollContainerRef.current = scroller;
+    const scrollerRect = scroller.getBoundingClientRect();
+    const rootRect = rootEl.getBoundingClientRect();
+    // Compute the visible top in root coordinates
+    const rootOffsetWithinScroller = rootRect.top - scrollerRect.top + scroller.scrollTop;
+    const visibleTopInRoot = scroller.scrollTop - rootOffsetWithinScroller;
+    const clampedTop = Math.max(0, Math.min(visibleTopInRoot, Math.max(rootEl.scrollHeight - scroller.clientHeight, 0)));
+    setOverlayRect({ top: clampedTop, height: scroller.clientHeight });
+  };
+
+  useEffect(() => {
+    if (!isLeadModalOpen) return;
+    updateOverlayPosition();
+    const scroller = scrollContainerRef.current || findScrollContainer(rootRef.current);
+    const onScroll = () => updateOverlayPosition();
+    const onResize = () => updateOverlayPosition();
+    if (scroller) scroller.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onResize);
+    return () => {
+      if (scroller) scroller.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [isLeadModalOpen]);
   
   // State for dynamic text colors
   const [heroTextColors, setHeroTextColors] = useState({
@@ -351,7 +399,7 @@ const ExceptionalTemplate = ({
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div ref={rootRef} className="relative min-h-screen bg-white">
       {/* Navigation */}
       <nav className="relative bg-white/90 backdrop-blur-md border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -395,7 +443,7 @@ const ExceptionalTemplate = ({
             
             <div className="flex items-center space-x-4">
               {/* Desktop CTA Button */}
-              <button className="hidden md:block bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-full text-sm font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-300 transform hover:scale-105">
+              <button onClick={() => setIsLeadModalOpen(true)} className="hidden md:block bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-full text-sm font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-300 transform hover:scale-105">
                 Get Started
               </button>
               
@@ -466,7 +514,7 @@ const ExceptionalTemplate = ({
                 </a>
               )}
               <div className="pt-4 pb-3 border-t border-gray-200">
-                <button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-full text-base font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-300">
+                <button onClick={() => { setIsLeadModalOpen(true); setIsMobileMenuOpen(false); }} className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-full text-base font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-300">
                   Get Started
                 </button>
               </div>
@@ -936,9 +984,21 @@ const ExceptionalTemplate = ({
 
       {/* Lead Capture Modal */}
       {isLeadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="absolute z-50 w-full" style={{ left: 0, right: 0, top: overlayRect.top, height: overlayRect.height }}>
           <div className="absolute inset-0 bg-black/60" onClick={() => setIsLeadModalOpen(false)}></div>
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+          <div className="relative w-full h-full flex items-center justify-center p-4" onClick={() => setIsLeadModalOpen(false)}>
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+              {/* Close button */}
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => setIsLeadModalOpen(false)}
+                className="absolute top-3 right-3 p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
             <div className="mb-4">
               <h3 className="text-2xl font-semibold text-gray-900">Create Your Account</h3>
               <p className="text-gray-600 mt-1">
@@ -1013,6 +1073,7 @@ const ExceptionalTemplate = ({
                 Already have an account? <a href="#" className="text-blue-600 hover:underline">Log in</a>
               </div>
             </form>
+            </div>
           </div>
         </div>
       )}
