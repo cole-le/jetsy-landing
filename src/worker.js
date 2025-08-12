@@ -153,6 +153,14 @@ export default {
         return new Response(null, { status: 200, headers: corsHeaders });
       }
 
+      // --- Ads Copy Generation API ---
+      if (path === '/api/ads/generate-copy' && request.method === 'POST') {
+        return await handleGenerateAdsCopy(request, env, corsHeaders);
+      }
+      if (path === '/api/ads/generate-copy' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
       // --- Image Generation API ---
       if (path === '/api/generate-image' && request.method === 'POST') {
         return await handleImageGeneration(request, env, corsHeaders);
@@ -4076,6 +4084,133 @@ async function handleServeImage(request, env, corsHeaders) {
 // Generate unique backup ID
 function generateBackupId() {
   return `backup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// === ADS COPY GENERATION HANDLER ===
+// Generates ad copy variants for image ads using OpenAI
+async function handleGenerateAdsCopy(request, env, corsHeaders) {
+  try {
+    const body = await request.json();
+    const {
+      productName = '',
+      productDescription = '',
+      targetAudience = '',
+      tone = 'concise',
+      numVariants = 3,
+      constraints = {}
+    } = body || {};
+
+    if (!env.OPENAI_API_KEY) {
+      console.error('OPENAI_API_KEY is missing');
+      return new Response(JSON.stringify({
+        success: true,
+        variants: buildFallbackVariants(productName, productDescription, targetAudience, tone, numVariants, constraints),
+        note: 'Returned fallback variants because OPENAI_API_KEY is not set'
+      }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+
+    const prompt = buildAdsCopyPrompt({ productName, productDescription, targetAudience, tone, numVariants, constraints });
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${env.OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'You write short, high-converting ad copy for display/image ads. Output strict JSON only.' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.6,
+        max_tokens: 400
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('OpenAI error (ads copy):', response.status, errText);
+      return new Response(JSON.stringify({
+        success: true,
+        variants: buildFallbackVariants(productName, productDescription, targetAudience, tone, numVariants, constraints),
+        note: 'Returned fallback variants due to OpenAI error'
+      }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+
+    const data = await response.json();
+    const content = data?.choices?.[0]?.message?.content || '';
+
+    let parsed;
+    try {
+      parsed = JSON.parse(extractJson(content));
+    } catch (e) {
+      console.warn('Failed to parse OpenAI JSON; using fallback.');
+      return new Response(JSON.stringify({
+        success: true,
+        variants: buildFallbackVariants(productName, productDescription, targetAudience, tone, numVariants, constraints),
+        note: 'Returned fallback variants due to parse error'
+      }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+
+    const variants = Array.isArray(parsed?.variants) ? parsed.variants : [];
+    if (!variants.length) {
+      return new Response(JSON.stringify({
+        success: true,
+        variants: buildFallbackVariants(productName, productDescription, targetAudience, tone, numVariants, constraints),
+        note: 'Returned fallback variants due to empty LLM output'
+      }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+
+    return new Response(JSON.stringify({ success: true, variants }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
+  } catch (error) {
+    console.error('handleGenerateAdsCopy error:', error);
+    return new Response(JSON.stringify({ error: 'Failed to generate ads copy' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
+  }
+}
+
+function buildAdsCopyPrompt({ productName, productDescription, targetAudience, tone, numVariants, constraints }) {
+  return `Create ${numVariants} short ad copy variants for a display/image ad.
+Return strict JSON with this shape:
+{ "variants": [ { "headline": string, "subheadline": string, "cta": string, "alt_text": string } ] }
+
+Constraints:
+- Product: ${productName}
+- Description: ${productDescription}
+- Audience: ${targetAudience}
+- Tone: ${tone}
+- Headline <= 40 chars; Subheadline <= 70 chars; CTA <= 20 chars
+- Avoid punctuation-heavy or spammy wording
+- Provide accessible alt_text describing the visual ad idea
+- Optional constraints: ${JSON.stringify(constraints || {})}`;
+}
+
+function buildFallbackVariants(productName, productDescription, targetAudience, tone, numVariants, constraints) {
+  const base = [
+    { headline: `${productName || 'Your product'}, made simple`, subheadline: truncate(`${productDescription || 'Describe benefits clearly.'}`, 68), cta: 'Get started', alt_text: `Simple, clean ad for ${productName || 'product'} targeting ${targetAudience || 'audience'}` },
+    { headline: `Boost results with ${productName || 'this tool'}`, subheadline: truncate(`Built for ${targetAudience || 'busy teams'} — ${productDescription || 'fast, reliable, intuitive'}`, 68), cta: 'Try it free', alt_text: `Modern ad mockup featuring ${productName || 'tool'} benefits` },
+    { headline: `${productName || 'Product'} that just works`, subheadline: truncate(`${productDescription || 'Powerful features without the clutter'}`, 68), cta: 'See how', alt_text: `Clean layout showcasing ${productName || 'product'} in action` }
+  ];
+  return base.slice(0, Math.max(1, Math.min(numVariants || 3, base.length)));
+}
+
+function truncate(text, max) {
+  if (!text) return '';
+  return text.length > max ? text.slice(0, max - 1) + '…' : text;
+}
+
+function extractJson(text) {
+  if (!text) return '{}';
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) return text.trim();
+  return text.slice(start, end + 1);
 }
 
 // === USER IMAGE UPLOAD HANDLER ===
