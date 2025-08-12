@@ -1,7 +1,68 @@
 import React, { useState } from 'react';
 
-const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, onChatClick, onSaveChanges, isChatMode = false, previewMode = 'desktop', onPreviewModeChange }) => {
+const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, onChatClick, onSaveChanges, isChatMode = false, previewMode = 'desktop', onPreviewModeChange, currentProjectId }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [deployState, setDeployState] = useState({ loading: false, isDeployed: false, liveUrl: null, monthlyCount: 0, monthlyLimit: 10 });
+
+  // Fetch deployment status for current project (if any)
+  React.useEffect(() => {
+    if (!isChatMode) return;
+    if (!currentProjectId) {
+      setDeployState({ loading: false, isDeployed: false, liveUrl: null, monthlyCount: 0, monthlyLimit: 10 });
+      return;
+    }
+    (async () => {
+      setDeployState((s) => ({ ...s, loading: true, isDeployed: false, liveUrl: null }));
+      try {
+        const res = await fetch(`/api/projects/${currentProjectId}/deploy-status`);
+        if (res.ok) {
+          const data = await res.json();
+          setDeployState({
+            loading: false,
+            isDeployed: !!data.is_deployed,
+            liveUrl: data.live_url || null,
+            monthlyCount: data.monthly_count ?? 0,
+            monthlyLimit: data.monthly_limit ?? 10,
+          });
+        } else {
+          setDeployState({ loading: false, isDeployed: false, liveUrl: null, monthlyCount: 0, monthlyLimit: 10 });
+        }
+      } catch (_) {
+        setDeployState({ loading: false, isDeployed: false, liveUrl: null, monthlyCount: 0, monthlyLimit: 10 });
+      }
+    })();
+  }, [isChatMode, currentProjectId]);
+
+  const handleDeploy = async () => {
+    try {
+      const pid = currentProjectId;
+      if (!pid) return;
+      setDeployState((s) => ({ ...s, loading: true }));
+      const res = await fetch(`/api/projects/${pid}/deploy`, { method: 'POST' });
+      if (res.status === 429) {
+        // Limit reached
+        alert('You reached the 10 deployments/month limit on the Free plan. Upgrade to a Business plan to deploy more.');
+        setDeployState((s) => ({ ...s, loading: false }));
+        return;
+      }
+      if (!res.ok) {
+        alert('Deployment failed. Please try again.');
+        setDeployState((s) => ({ ...s, loading: false }));
+        return;
+      }
+      const data = await res.json();
+      setDeployState((s) => ({ ...s, loading: false, isDeployed: true, liveUrl: data.live_url, monthlyCount: (s.monthlyCount || 0) + 1 }));
+      alert('Deployment successful!');
+    } catch (e) {
+      setDeployState((s) => ({ ...s, loading: false }));
+      alert('Deployment error.');
+    }
+  };
+
+  const handleUpgrade = () => {
+    // Placeholder upgrade flow
+    alert('Upgrade to Business plan coming soon.');
+  };
 
   const handlePricingClick = (e) => {
     e.preventDefault();
@@ -153,6 +214,39 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
                     className="px-6 py-2 bg-black hover:bg-gray-800 text-white rounded-lg transition-colors duration-200 font-semibold">
                     Save Changes
                   </button>
+                  {/* Deployment buttons */}
+                  {!deployState.isDeployed ? (
+                    <button
+                      onClick={handleDeploy}
+                      disabled={deployState.loading}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors duration-200 text-sm disabled:opacity-60">
+                      {deployState.loading ? 'Publishing…' : 'Publish website to Internet'}
+                    </button>
+                  ) : (
+                    <>
+                      <a
+                        href={deployState.liveUrl || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700 text-sm"
+                      >
+                        View Live Website
+                      </a>
+                      <button
+                        onClick={handleDeploy}
+                        disabled={deployState.loading}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors duration-200 text-sm disabled:opacity-60"
+                      >
+                        {deployState.loading ? 'Updating…' : 'Update changes to live website'}
+                      </button>
+                    </>
+                  )}
+                  {/* Upgrade CTA when limit reached */}
+                  {deployState.monthlyCount >= (deployState.monthlyLimit ?? 10) && (
+                    <button onClick={handleUpgrade} className="px-3 py-2 text-sm bg-yellow-100 text-yellow-800 rounded-lg hover:bg-yellow-200">
+                      Upgrade to a Business plan to deploy more
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="md:hidden">

@@ -288,7 +288,7 @@ export const DEFAULT_TEMPLATE_DATA = {
   showFooter: true
 };
 
-const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode = 'desktop' }, ref) => {
+const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode = 'desktop', onProjectChange }, ref) => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -343,6 +343,13 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   useEffect(() => {
     loadOrRestoreProject();
   }, []);
+
+  // Notify parent when project changes
+  useEffect(() => {
+    if (typeof onProjectChange === 'function') {
+      onProjectChange(currentProject?.id || null);
+    }
+  }, [currentProject?.id]);
 
   // Auto-save template data when it changes
   useEffect(() => {

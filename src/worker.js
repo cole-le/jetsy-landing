@@ -6,7 +6,7 @@ export default {
     // CORS headers
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     };
 
@@ -87,6 +87,8 @@ export default {
       if (path.startsWith('/api/projects')) {
         // Extract project id if present
         const projectIdMatch = path.match(/^\/api\/projects\/(\d+)$/);
+        const deployMatch = path.match(/^\/api\/projects\/(\d+)\/deploy$/);
+        const deployStatusMatch = path.match(/^\/api\/projects\/(\d+)\/deploy-status$/);
         if (request.method === 'GET' && path === '/api/projects') {
           // GET /api/projects - list all projects for user
           return await getProjects(request, env, corsHeaders);
@@ -107,10 +109,19 @@ export default {
           // DELETE /api/projects/:id
           return await deleteProject(projectIdMatch[1], env, corsHeaders);
         }
+        // --- Deployment API ---
+        if (request.method === 'GET' && deployStatusMatch) {
+          return await getDeployStatus(deployStatusMatch[1], env, corsHeaders, request);
+        }
+        if (request.method === 'POST' && deployMatch) {
+          return await deployProject(deployMatch[1], env, corsHeaders, request);
+        }
         if (request.method === 'OPTIONS') {
           return new Response(null, { status: 200, headers: corsHeaders });
         }
       }
+
+      // Removed internal /live/:id fallback route
       // --- Chat Messages API ---
       if (path === '/api/chat_messages') {
         if (request.method === 'GET') {
@@ -416,7 +427,6 @@ async function handleLeadSubmission(request, env, corsHeaders) {
     });
   }
 }
-
   // Add the new handler logic (align with functions/api/leads.js and UI expectations)
 async function handleLeadSubmissionV2(request, env, corsHeaders) {
   try {
@@ -605,7 +615,6 @@ async function handleOnboardingSubmission(request, env, corsHeaders) {
     });
   }
 }
-
 // Handle priority access attempts
 async function handlePriorityAccess(request, env, corsHeaders) {
   try {
@@ -914,7 +923,6 @@ async function handleFunnelTracking(db, event, data, sessionId, websiteId, times
     console.error('Funnel tracking error:', error);
   }
 }
-
 // Handle performance tracking
 async function handlePerformanceTracking(db, data, websiteId, userAgent, url, timestamp, currentTime) {
   try {
@@ -1209,6 +1217,429 @@ async function addChatMessage(request, env, corsHeaders) {
   }
 }
 
+// --- Deployments: helpers and handlers ---
+async function ensureDeploymentsTableExists(env) {
+  const db = env.DB;
+  const createSql = `
+    CREATE TABLE IF NOT EXISTS deployments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL,
+      live_url TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (project_id) REFERENCES projects(id)
+    );
+  `;
+  await db.prepare(createSql).run();
+  await db.prepare('CREATE INDEX IF NOT EXISTS idx_deployments_project_created ON deployments(project_id, created_at)').run();
+}
+
+function getMonthStartISOString(date = new Date()) {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1, 0, 0, 0));
+  return d.toISOString();
+}
+async function getDeployStatus(projectId, env, corsHeaders, request) {
+  try {
+    await ensureDeploymentsTableExists(env);
+    const db = env.DB;
+    const monthStart = getMonthStartISOString();
+    const monthly = await db
+      .prepare('SELECT COUNT(*) AS cnt FROM deployments WHERE project_id = ? AND created_at >= ?')
+      .bind(projectId, monthStart)
+      .first();
+    const latest = await db
+      .prepare('SELECT live_url, created_at FROM deployments WHERE project_id = ? ORDER BY created_at DESC LIMIT 1')
+      .bind(projectId)
+      .first();
+    const monthlyLimit = 10; // free plan default
+    const isDeployed = !!latest?.live_url;
+    const response = {
+      success: true,
+      is_deployed: isDeployed,
+      live_url: latest?.live_url || null,
+      last_deployed_at: latest?.created_at || null,
+      monthly_count: Number(monthly?.cnt || 0),
+      monthly_limit: monthlyLimit,
+    };
+    return new Response(JSON.stringify(response), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: 'Failed to get deployment status' }), { status: 500, headers: corsHeaders });
+  }
+}
+async function deployProject(projectId, env, corsHeaders, request) {
+  try {
+    console.log(`[deploy] start projectId=${projectId}`);
+    await ensureDeploymentsTableExists(env);
+    const db = env.DB;
+    // Enforce monthly limit for free plan
+    const monthStart = getMonthStartISOString();
+    const monthly = await db
+      .prepare('SELECT COUNT(*) AS cnt FROM deployments WHERE project_id = ? AND created_at >= ?')
+      .bind(projectId, monthStart)
+      .first();
+    const monthlyCount = Number(monthly?.cnt || 0);
+    const monthlyLimit = 10;
+    console.log(`[deploy] monthlyCount=${monthlyCount} limit=${monthlyLimit}`);
+    if (monthlyCount >= monthlyLimit) {
+      console.warn(`[deploy] limit reached for projectId=${projectId}`);
+      return new Response(
+        JSON.stringify({ error: 'Monthly deployment limit reached', code: 'limit_reached', monthly_count: monthlyCount, monthly_limit: monthlyLimit }),
+        { status: 429, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    // Retrieve project to ensure it exists
+    const project = await env.DB.prepare('SELECT id, user_id, project_name, template_data FROM projects WHERE id = ?').bind(projectId).first();
+    if (!project) {
+      console.error(`[deploy] project not found id=${projectId}`);
+      return new Response(JSON.stringify({ error: 'Project not found' }), { status: 404, headers: corsHeaders });
+    }
+    console.log(`[deploy] project fetched user_id=${project.user_id} name="${project.project_name}"`);
+
+    // Attempt Cloudflare Pages deployment; no fallback
+    const accountId = env.CF_ACCOUNT_ID;
+    const apiToken = env.CF_PAGES_API_TOKEN;
+    if (!accountId || !apiToken) {
+      console.error('[deploy] Missing CF_ACCOUNT_ID or CF_PAGES_API_TOKEN');
+      return new Response(JSON.stringify({ error: 'Cloudflare credentials missing (CF_ACCOUNT_ID / CF_PAGES_API_TOKEN)' }), { status: 500, headers: corsHeaders });
+    }
+    const projectName = pagesProjectName(project.user_id || 1, projectId);
+    console.log(`[deploy] pages projectName=${projectName}`);
+    await ensurePagesProject(accountId, apiToken, projectName);
+    console.log('[deploy] ensured Pages project exists');
+    const html = generatePublishedHtml(project);
+    console.log(`[deploy] generated index.html length=${html?.length || 0}`);
+    const deployRes = await deployToPagesDirectUpload(accountId, apiToken, projectName, [{ path: 'index.html', contentType: 'text/html; charset=utf-8', content: html }]);
+    const liveUrl = deployRes.liveUrl || `https://${projectName}.pages.dev`;
+    const deployedAt = deployRes.deployedAt || new Date().toISOString();
+    console.log(`[deploy] success liveUrl=${liveUrl} deployedAt=${deployedAt}`);
+
+    await env.DB.prepare('INSERT INTO deployments (project_id, live_url, created_at) VALUES (?, ?, ?)').bind(projectId, liveUrl, deployedAt).run();
+    console.log('[deploy] recorded deployment in DB');
+
+    return new Response(JSON.stringify({ success: true, live_url: liveUrl, deployed_at: deployedAt }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
+  } catch (error) {
+    console.error('[deploy] error', error && error.stack ? error.stack : error);
+    return new Response(JSON.stringify({ error: 'Failed to deploy project', details: String((error && error.message) || error) }), { status: 500, headers: corsHeaders });
+  }
+}
+
+function escapeHtml(input) {
+  return String(input)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// Build Pages project name per scheme: jetsy-u<userId>-p<projectId>
+function pagesProjectName(userId, projectId) {
+  return `jetsy-u${String(userId).toLowerCase().replace(/[^a-z0-9]/g, '')}-p${String(projectId).toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+}
+
+// Generate minimal HTML for published site from project row
+function generatePublishedHtml(projectRow) {
+  let data = {};
+  try {
+    data = typeof projectRow.template_data === 'string' ? JSON.parse(projectRow.template_data) : (projectRow.template_data || {});
+  } catch { data = {}; }
+  const title = data.businessName || projectRow.project_name || 'Jetsy Site';
+  const heroBadge = data.heroBadge || '';
+  const tagline = data.tagline || '';
+  const description = data.heroDescription || '';
+  const cta = data.ctaButtonText || 'Get Started';
+  const trust1 = data.trustIndicator1 || '';
+  const trust2 = '4.8/5 customer satisfaction rating';
+  const heroBg = data.heroBackgroundImage || '';
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(title)}</title>
+    <style>
+      body { margin:0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol'; color:#111827; }
+      .hero { min-height: 70vh; display:flex; align-items:center; justify-content:center; text-align:center; padding: 48px 16px; color: #fff; background: ${heroBg ? `linear-gradient(rgba(0,0,0,.4), rgba(0,0,0,.5)), url('${escapeHtml(heroBg)}') center/cover no-repeat` : '#111827'}; }
+      .container { max-width: 1000px; margin: 0 auto; padding: 0 16px; }
+      .badge { display:inline-block; background: rgba(255,255,255,0.15); padding:6px 10px; border-radius:9999px; font-size:12px; letter-spacing:.3px; }
+      h1 { font-size: 40px; line-height:1.1; margin: 16px 0; }
+      p.lead { font-size: 18px; opacity: .95; }
+      .cta { margin-top: 24px; display:inline-block; background:#111827; color:#fff; padding:12px 18px; border-radius:10px; text-decoration:none; }
+      .section { padding: 48px 16px; background:#fff; }
+      .muted { color:#6b7280; font-size:14px; }
+      footer { padding:32px 16px; text-align:center; color:#6b7280; font-size:14px; border-top:1px solid #e5e7eb; }
+    </style>
+  </head>
+  <body>
+    <section class="hero">
+      <div class="container">
+        ${heroBadge ? `<div class="badge">${escapeHtml(heroBadge)}</div>` : ''}
+        <h1>${escapeHtml(title)}</h1>
+        ${tagline ? `<p class="lead">${escapeHtml(tagline)}</p>` : ''}
+        ${description ? `<p class="lead" style="margin-top:8px">${escapeHtml(description)}</p>` : ''}
+        <div style="margin-top: 20px">
+          <a class="cta" href="#contact">${escapeHtml(cta)}</a>
+        </div>
+        <div style="margin-top:16px" class="muted">${escapeHtml(trust1)} ${trust2 ? `• ${escapeHtml(trust2)}` : ''}</div>
+      </div>
+    </section>
+    <section id="contact" class="section">
+      <div class="container">
+        <h2>Contact us</h2>
+        <p class="muted">This live page was published with Jetsy. Add a contact form in the editor to collect leads.</p>
+      </div>
+    </section>
+    <footer>Powered by Jetsy</footer>
+  </body>
+</html>`;
+}
+
+// Create Pages project if it does not exist (idempotent)
+async function ensurePagesProject(accountId, apiToken, projectName) {
+  const base = `https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects`;
+  // Check if exists
+  const getRes = await fetch(`${base}/${projectName}`, {
+    headers: { Authorization: `Bearer ${apiToken}` },
+  });
+  console.log(`[pages] check project ${projectName} status=${getRes.status}`);
+  if (getRes.status === 200) return;
+  // Create
+  const createRes = await fetch(base, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ name: projectName, production_branch: 'main' })
+  });
+  console.log(`[pages] create project ${projectName} status=${createRes.status}`);
+  if (!createRes.ok) {
+    const text = await createRes.text();
+    console.error('[pages] create project error body:', text);
+    throw new Error(`Pages project create failed: ${createRes.status}`);
+  }
+}
+// Direct Upload deployment to Pages using zip upload_url flow
+async function deployToPagesDirectUpload(accountId, apiToken, projectName, files) {
+  // 1) Create a deployment to get an upload_url
+  // Build manifest with file hashes for direct upload (no leading slash in keys)
+  const manifest = {};
+  for (const file of files) {
+    const content = typeof file.content === 'string' ? file.content : String(file.content);
+    const bytes = new TextEncoder().encode(content);
+    const hash = await sha256Hex(bytes);
+    const normalizedPath = String(file.path).replace(/^\/+/, '');
+    manifest[normalizedPath] = hash;
+  }
+  const manifestJson = JSON.stringify(manifest);
+  console.log('[pages] manifest (sha256):', manifestJson);
+
+  // Use multipart/form-data with a 'manifest' field (as required by API)
+  const form = new FormData();
+  form.append('manifest', manifestJson);
+  form.append('branch', 'main');
+
+  const createDeployment = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects/${projectName}/deployments`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiToken}`,
+      Accept: 'application/json'
+      // Note: do NOT set Content-Type; fetch will set the correct multipart boundary
+    },
+    body: form
+  });
+  console.log('[pages] sent multipart form with manifest');
+  // Log response headers for debugging
+  console.log('[pages] response headers:', JSON.stringify([...createDeployment.headers.entries()]));
+
+  const responseText = await createDeployment.text();
+  console.log('[pages] raw response:', responseText);
+
+  let depJson;
+  try {
+    depJson = JSON.parse(responseText);
+  } catch (e) {
+    console.error('[pages] Failed to parse response as JSON');
+    throw new Error(`Invalid JSON response: ${createDeployment.status}`);
+  }
+
+  const deploymentId = depJson?.result?.id;
+  const createdUrl = depJson?.result?.url;
+  console.log(`[pages] create deployment status=${createDeployment.status} uploadUrl=${depJson?.result?.upload_url || 'none'} resultUrl=${createdUrl || 'none'}`);
+  if (!createDeployment.ok) {
+    console.error('[pages] create deployment response:', JSON.stringify(depJson));
+    throw new Error(`Failed to create deployment: ${createDeployment.status}`);
+  }
+
+  // Flow A: upload_url provided -> upload zip artifact
+  if (depJson?.result?.upload_url) {
+    const uploadUrl = depJson.result.upload_url;
+    console.log('[pages] obtained upload_url');
+
+    // 2) Create a minimal zip (in-memory) with provided files
+    const zipBytes = await createZipFromFiles(files);
+
+    // 3) Upload zip to upload_url
+    const uploadRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/zip' },
+      body: zipBytes
+    });
+    console.log(`[pages] artifact upload status=${uploadRes.status}`);
+    if (!uploadRes.ok) {
+      const text = await uploadRes.text();
+      console.error('[pages] upload error body:', text);
+      throw new Error(`Pages artifact upload failed: ${uploadRes.status}`);
+    }
+
+    // 4) Poll deployment status briefly
+    let liveUrl = `https://${projectName}.pages.dev`;
+    let deployedAt = new Date().toISOString();
+    try {
+      await new Promise(r => setTimeout(r, 1500));
+      const depGet = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects/${projectName}/deployments/${deploymentId}`, {
+        headers: { Authorization: `Bearer ${apiToken}` }
+      });
+      console.log(`[pages] get deployment status=${depGet.status}`);
+      if (depGet.ok) {
+        const depInfo = await depGet.json();
+        liveUrl = depInfo?.result?.url || liveUrl;
+        deployedAt = depInfo?.result?.created_on || deployedAt;
+        console.log(`[pages] deployment url=${liveUrl}`);
+      }
+    } catch { /* best effort */ }
+
+    return { liveUrl, deployedAt };
+  }
+
+  // Flow B: manifest-based create returned a deployment URL. Use it directly and poll briefly.
+  if (createdUrl) {
+    let liveUrl = createdUrl;
+    let deployedAt = depJson?.result?.created_on || new Date().toISOString();
+    try {
+      await new Promise(r => setTimeout(r, 1500));
+      const depGet = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects/${projectName}/deployments/${deploymentId}`, {
+        headers: { Authorization: `Bearer ${apiToken}` }
+      });
+      console.log(`[pages] get deployment (manifest flow) status=${depGet.status}`);
+      if (depGet.ok) {
+        const depInfo = await depGet.json();
+        liveUrl = depInfo?.result?.url || liveUrl;
+        deployedAt = depInfo?.result?.created_on || deployedAt;
+      }
+    } catch { /* best effort */ }
+    return { liveUrl, deployedAt };
+  }
+
+  throw new Error('Unexpected Pages deployment response: neither upload_url nor result.url present');
+}
+
+// Create a minimal zip file in Workers runtime (no external libs)
+// Note: This is a very small implementation for a single-file zip (store only)
+async function createZipFromFiles(files) {
+  // files: [{ path, contentType, content }], content is string
+  // We'll store one file (index.html). A naive store-only ZIP per spec.
+  // For multiple files, extend central dir entries accordingly.
+  const encoder = new TextEncoder();
+  const file = files[0];
+  const data = encoder.encode(typeof file.content === 'string' ? file.content : String(file.content));
+
+  function writeUint32LE(n) { return new Uint8Array([n & 0xff, (n >> 8) & 0xff, (n >> 16) & 0xff, (n >> 24) & 0xff]); }
+  function writeUint16LE(n) { return new Uint8Array([n & 0xff, (n >> 8) & 0xff]); }
+
+  const filenameBytes = encoder.encode(file.path);
+  const localHeaderSig = new Uint8Array([0x50,0x4b,0x03,0x04]);
+  const version = writeUint16LE(20);
+  const flags = writeUint16LE(0);
+  const compression = writeUint16LE(0); // store only
+  const modTime = writeUint16LE(0);
+  const modDate = writeUint16LE(0);
+  const crcVal = crc32(data);
+  const crc32le = writeUint32LE(crcVal >>> 0);
+  const compSize = writeUint32LE(data.byteLength);
+  const uncompSize = writeUint32LE(data.byteLength);
+  const fnameLen = writeUint16LE(filenameBytes.byteLength);
+  const extraLen = writeUint16LE(0);
+
+  const localHeader = concatBytes([
+    localHeaderSig, version, flags, compression, modTime, modDate, crc32le, compSize, uncompSize, fnameLen, extraLen, filenameBytes, data
+  ]);
+
+  const centralHeaderSig = new Uint8Array([0x50,0x4b,0x01,0x02]);
+  const versionMade = writeUint16LE(20);
+  const versionNeeded = writeUint16LE(20);
+  const gpFlag = writeUint16LE(0);
+  const compMethod = writeUint16LE(0);
+  const cModTime = writeUint16LE(0);
+  const cModDate = writeUint16LE(0);
+  const cCrc32 = writeUint32LE(crcVal >>> 0);
+  const cCompSize = writeUint32LE(data.byteLength);
+  const cUncompSize = writeUint32LE(data.byteLength);
+  const cFnameLen = writeUint16LE(filenameBytes.byteLength);
+  const cExtraLen = writeUint16LE(0);
+  const cCommentLen = writeUint16LE(0);
+  const cDiskStart = writeUint16LE(0);
+  const cIntAttr = writeUint16LE(0);
+  const cExtAttr = writeUint32LE(0);
+  const localHeaderOffset = writeUint32LE(0);
+
+  const centralHeader = concatBytes([
+    centralHeaderSig, versionMade, versionNeeded, gpFlag, compMethod, cModTime, cModDate, cCrc32, cCompSize, cUncompSize,
+    cFnameLen, cExtraLen, cCommentLen, cDiskStart, cIntAttr, cExtAttr, localHeaderOffset, filenameBytes
+  ]);
+
+  const endSig = new Uint8Array([0x50,0x4b,0x05,0x06]);
+  const diskNum = writeUint16LE(0);
+  const cdStartDisk = writeUint16LE(0);
+  const totalEntries = writeUint16LE(1);
+  const totalEntries2 = writeUint16LE(1);
+  const cdSize = writeUint32LE(centralHeader.byteLength);
+  const cdOffset = writeUint32LE(localHeader.byteLength);
+  const commentLen = writeUint16LE(0);
+
+  const endRecord = concatBytes([endSig, diskNum, cdStartDisk, totalEntries, totalEntries2, cdSize, cdOffset, commentLen]);
+
+  return new Uint8Array(concatBytes([localHeader, centralHeader, endRecord]).buffer);
+}
+
+function concatBytes(chunks) {
+  let total = 0;
+  for (const c of chunks) total += c.byteLength;
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) { out.set(c, offset); offset += c.byteLength; }
+  return out;
+}
+
+// CRC32 (IEEE 802.3) for Uint8Array
+const CRC32_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let j = 0; j < 8; j++) {
+      c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    }
+    table[i] = c >>> 0;
+  }
+  return table;
+})();
+function crc32(bytes) {
+  let c = 0 ^ (-1);
+  for (let i = 0; i < bytes.length; i++) {
+    c = (c >>> 8) ^ CRC32_TABLE[(c ^ bytes[i]) & 0xFF];
+  }
+  return (c ^ (-1)) >>> 0;
+}
+
+// SHA-256 hex for manifest hashes
+async function sha256Hex(bytes) {
+  const hash = await crypto.subtle.digest('SHA-256', bytes);
+  const hashArray = new Uint8Array(hash);
+  return Array.from(hashArray).map(b => b.toString(16).padStart(2, '0')).join('');
+}
 // --- LLM Orchestration Handler ---
 async function handleLLMOrchestration(request, env, corsHeaders) {
   try {
@@ -1496,7 +1927,6 @@ async function handleLLMOrchestration(request, env, corsHeaders) {
       console.log(`🎯 Applying targeted updates to preserve existing code...`);
       response.updated_files = await applyTargetedUpdates(response.updated_files, projectFiles, sectionAnalysis, env);
     }
-    
     // === INTELLIGENT IMAGE GENERATION ===
     if (response.image_requests && response.image_requests.length > 0) {
       if (isInitialPrompt) {
@@ -1700,11 +2130,9 @@ OUTPUT FORMAT (JSON ONLY):
   ],
   "processed_prompt": "cleaned_and_structured_prompt_for_stage_2"
 }
-
 Examples:
 - "add image to About section" → {"is_multi_step": false, "total_tasks": 1, "tasks": [{"id": 1, "type": "add_image", "section": "about", "details": "add image to About section", "priority": 1}], "processed_prompt": "add image to About section"}
 - "add image to About section, then change text in Hero section" → {"is_multi_step": true, "total_tasks": 2, "tasks": [{"id": 1, "type": "add_image", "section": "about", "details": "add image to About section", "priority": 1}, {"id": 2, "type": "change_text", "section": "hero", "details": "change text in Hero section", "priority": 2}], "processed_prompt": "add image to About section, then change text in Hero section"}
-
 Parse this request and return ONLY the JSON object.`;
 
   try {
@@ -2312,7 +2740,6 @@ AUTOMATIC PLACEHOLDER GENERATION:
 - When user says "add new section called Team" → Automatically create {GENERATED_IMAGE_URL_TEAM} and generate complete Team section code
 - NO MANUAL PLACEHOLDER SPECIFICATION NEEDED - The system automatically detects and includes the correct placeholders
 - CUSTOM SECTIONS: For any new section name, automatically create placeholder in format {GENERATED_IMAGE_URL_SECTIONNAME}
-
 TARGETED EDITING REQUIREMENTS:
 - When user requests changes to a specific section (e.g., "add image to About Us section"), ONLY modify that section
 - Preserve ALL existing images and sections that are not being modified
@@ -2321,7 +2748,6 @@ TARGETED EDITING REQUIREMENTS:
 - If a section already has an image placeholder, replace it with the new image URL
 - If a section doesn't have an image, add the appropriate placeholder
 - NEVER regenerate the entire file unless explicitly requested
-
 MULTI-STEP TASK HANDLING:
 - When user requests multiple changes (e.g., "add image to About section, then change text in Hero section, then delete Contact section"), execute ALL tasks in sequence
 - Parse complex requests into individual tasks and execute them one by one
@@ -2909,7 +3335,6 @@ async function uploadImageToR2(imageBytes, env, request, mimeType = 'image/jpeg'
     };
   }
 }
-
 // Save image metadata to database
 async function saveImageToDatabase(imageData, env) {
   try {
@@ -2973,7 +3398,6 @@ async function saveImageToDatabase(imageData, env) {
     };
   }
 }
-
 // Get images for a project
 async function handleGetImages(request, env, corsHeaders) {
   try {
@@ -3326,7 +3750,6 @@ async function handleParseMultiTask(request, env, corsHeaders) {
     });
   }
 }
-
 // Handle code analysis for targeted changes
 async function handleAnalyzeCode(request, env, corsHeaders) {
   try {
@@ -3464,7 +3887,6 @@ async function handleAnalyzeCode(request, env, corsHeaders) {
     });
   }
 }
-
 // Handle smart placeholder generation
 async function handleGeneratePlaceholders(request, env, corsHeaders) {
   try {
@@ -3611,7 +4033,6 @@ async function handleGeneratePlaceholders(request, env, corsHeaders) {
     });
   }
 }
-
 // Serve image directly from R2
 async function handleServeImage(request, env, corsHeaders) {
   try {
@@ -3826,7 +4247,6 @@ const COLOR_SCHEMES = {
     gradient: "linear-gradient(135deg, #1E40AF 0%, #374151 100%)"
   }
 };
-
 // Detect business type from user message
 // Detect business type from user message using GPT-4o-mini
 async function detectBusinessType(userMessage, env) {
@@ -4079,7 +4499,6 @@ function generateIntelligentQuestions(userMessage) {
   
   return questions;
 }
-
 // Generate business info based on detected type
 function generateBusinessInfo(userMessage, detectedType) {
   const colorScheme = COLOR_SCHEMES[detectedType];
@@ -4199,7 +4618,6 @@ function generateBusinessInfo(userMessage, detectedType) {
     colors: colorScheme
   };
 }
-
 // Analyze user request for section targeting
 async function analyzeUserRequest(userMessage, projectFiles, env, projectId = null) {
   const messageLower = userMessage.toLowerCase();
@@ -4699,7 +5117,6 @@ function getBusinessSpecificRequirements(businessType) {
 `,
     mobile_app: `
 CRITICAL: You MUST create a mobile app landing page with these EXACT sections and features.
-
 REQUIRED SECTIONS (ALL MUST BE INCLUDED):
 1. Hero - with app name, tagline, and app store badges
 2. App Preview/Screenshots - mobile mockups and app screenshots
@@ -5177,7 +5594,6 @@ async function replaceImageInSection(updatedFiles, placement, imageUrl, original
     }
   }
 }
-
 // === RESTORE WEB FUNCTIONALITY ===
 
 // Add restore web endpoint
@@ -5348,7 +5764,6 @@ async function generateWebSearchedBackgroundPrompts(businessIdeaText, businessTy
     const instruction = `You are an expert prompt engineer for background image generation.
 Conduct a brief web search to understand visual themes relevant to the business idea and type.
 Then return STRICT JSON with two fields only: hero_background_prompt and about_background_prompt.
-
 Constraints for both prompts:
 - Ultra-relevant to the business idea and audience
 - 16:9 cinematic background, photographic or high-quality illustration
@@ -5486,7 +5901,6 @@ Output JSON example:
     throw err;
   }
 }
-
 // Remove legacy context-aware prompt fallback. All prompts come from web-searched generator now.
 
 // Handle template generation for the new template-based system

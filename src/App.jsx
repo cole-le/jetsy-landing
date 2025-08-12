@@ -31,6 +31,7 @@ function App() {
   const [previewMode, setPreviewMode] = useState('desktop'); // desktop, phone, tablet
   const templateChatRef = useRef(null);
   const [analyticsProjectId, setAnalyticsProjectId] = useState(null);
+  const [currentProjectId, setCurrentProjectId] = useState(null);
 
   useEffect(() => {
     // Track page view
@@ -329,6 +330,11 @@ function App() {
     setPreviewMode(newMode);
   };
 
+  // Track current project id when TemplateBasedChat loads or switches
+  const handleProjectChange = (projectId) => {
+    setCurrentProjectId(projectId || null);
+  };
+
   return (
     <div className="min-h-screen">
       {/* Navbar */}
@@ -342,6 +348,7 @@ function App() {
         isChatMode={currentStep === 'chat'}
         previewMode={previewMode}
         onPreviewModeChange={handlePreviewModeChange}
+        currentProjectId={currentProjectId}
       />
       
       {/* Hero Section */}
@@ -504,6 +511,7 @@ function App() {
           onBackToHome={() => setCurrentStep('hero')} 
           onSaveChanges={handleSaveChanges}
           previewMode={previewMode}
+          onProjectChange={handleProjectChange}
         />
       )}
 
