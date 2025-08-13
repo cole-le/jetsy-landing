@@ -16,6 +16,7 @@ import ChatPage from './components/ChatPage'
 import TemplateBasedChat from './components/TemplateBasedChat'
 import ExceptionalTemplate from './components/ExceptionalTemplate'
 import ProjectDataAnalytics from './components/ProjectDataAnalytics'
+import PublicRouteView from './components/PublicRouteView'
 
 function App() {
   const [currentStep, setCurrentStep] = useState('hero') // hero, faq, pricing, lead-capture, onboarding, login, demo-booking, demo-thankyou, chat
@@ -31,6 +32,8 @@ function App() {
   const [previewMode, setPreviewMode] = useState('desktop'); // desktop, phone, tablet
   const templateChatRef = useRef(null);
   const [analyticsProjectId, setAnalyticsProjectId] = useState(null);
+  const [routeUserId, setRouteUserId] = useState(null);
+  const [routeProjectId, setRouteProjectId] = useState(null);
 
   useEffect(() => {
     // Track page view
@@ -45,6 +48,26 @@ function App() {
     if (path === '/chat') {
       console.log('Setting currentStep to chat');
       setCurrentStep('chat');
+    } else if (path.startsWith('/route/')) {
+      const pair = path.slice('/route/'.length);
+      const [userIdStr, projectIdStr] = pair.split('-');
+      const pid = parseInt(projectIdStr, 10);
+      const uid = parseInt(userIdStr, 10);
+      if (!isNaN(pid)) {
+        setRouteProjectId(pid);
+        if (!isNaN(uid)) setRouteUserId(uid);
+        setCurrentStep('public-route');
+      }
+    } else if (/^\/[0-9]+-[0-9]+$/.test(path)) {
+      const pair = path.slice(1);
+      const [userIdStr, projectIdStr] = pair.split('-');
+      const pid = parseInt(projectIdStr, 10);
+      const uid = parseInt(userIdStr, 10);
+      if (!isNaN(pid)) {
+        setRouteProjectId(pid);
+        if (!isNaN(uid)) setRouteUserId(uid);
+        setCurrentStep('public-route');
+      }
     } else if (path.startsWith('/data_analytics/project_')) {
       const num = path.replace('/data_analytics/project_', '');
       const pid = parseInt(num, 10);
@@ -331,18 +354,20 @@ function App() {
 
   return (
     <div className="min-h-screen">
-      {/* Navbar */}
-      <Navbar 
-        onPricingClick={handleNavbarPricingClick} 
-        onFAQClick={handleFAQClick} 
-        onLogoClick={handleLogoClick} 
-        onGetStartedClick={handleGetStartedClick}
-        onChatClick={handleChatClick}
-        onSaveChanges={handleSaveChanges}
-        isChatMode={currentStep === 'chat'}
-        previewMode={previewMode}
-        onPreviewModeChange={handlePreviewModeChange}
-      />
+      {/* Navbar (hidden on public full-screen route) */}
+      {currentStep !== 'public-route' && (
+        <Navbar 
+          onPricingClick={handleNavbarPricingClick} 
+          onFAQClick={handleFAQClick} 
+          onLogoClick={handleLogoClick} 
+          onGetStartedClick={handleGetStartedClick}
+          onChatClick={handleChatClick}
+          onSaveChanges={handleSaveChanges}
+          isChatMode={currentStep === 'chat'}
+          previewMode={previewMode}
+          onPreviewModeChange={handlePreviewModeChange}
+        />
+      )}
       
       {/* Hero Section */}
       {currentStep === 'hero' && (
@@ -507,6 +532,11 @@ function App() {
         />
       )}
 
+      {/* Public full-screen route */}
+      {currentStep === 'public-route' && routeProjectId && (
+        <PublicRouteView userId={routeUserId} projectId={routeProjectId} />
+      )}
+
       {/* Data Analytics Page */}
       {currentStep === 'data-analytics' && analyticsProjectId && (
         <ProjectDataAnalytics 
@@ -524,7 +554,7 @@ function App() {
       )}
 
       {/* Footer */}
-      {currentStep !== 'template' && <Footer />}
+      {currentStep !== 'template' && currentStep !== 'public-route' && <Footer />}
 
     </div>
   )

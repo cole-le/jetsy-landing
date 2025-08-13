@@ -392,6 +392,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
           const project = result.project;
           setCurrentProject({
             id: project.id,
+            user_id: project.user_id,
             project_name: project.project_name,
             files: JSON.parse(project.files)
           });
@@ -433,6 +434,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
           const mostRecent = result.projects[0];
           setCurrentProject({
             id: mostRecent.id,
+            user_id: mostRecent.user_id,
             project_name: mostRecent.project_name,
             files: JSON.parse(mostRecent.files)
           });
@@ -662,6 +664,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const handleProjectSelect = async (project) => {
     setCurrentProject({
       id: project.id,
+      user_id: project.user_id,
       project_name: project.project_name,
       files: typeof project.files === 'string' ? JSON.parse(project.files) : project.files
     });
@@ -1712,9 +1715,19 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         <div className="bg-gray-50 border-b border-gray-200 px-6 py-3">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">Live Preview</h2>
-            <div className="flex items-center space-x-2 text-sm text-gray-500">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              <span>Real-time updates</span>
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2 text-sm text-gray-500">
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                <span>Real-time updates</span>
+              </div>
+              {currentProject?.id ? (
+                <a
+                  href={`/route/${(currentProject?.user_id || 1)}-${currentProject.id}`}
+                  className="px-6 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200 inline-flex items-center gap-2"
+                >
+                  <span>View Live Website 🌐</span>
+                </a>
+              ) : null}
             </div>
           </div>
         </div>
