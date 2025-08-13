@@ -1722,7 +1722,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
               </div>
               {currentProject?.id ? (
                 <a
-                  href={`/route/${(currentProject?.user_id || 1)}-${currentProject.id}`}
+                  href={`/${(currentProject?.user_id || 1)}-${currentProject.id}`}
                   className="px-6 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200 inline-flex items-center gap-2"
                 >
                   <span>View Live Website 🌐</span>

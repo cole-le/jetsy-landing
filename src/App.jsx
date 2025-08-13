@@ -48,16 +48,6 @@ function App() {
     if (path === '/chat') {
       console.log('Setting currentStep to chat');
       setCurrentStep('chat');
-    } else if (path.startsWith('/route/')) {
-      const pair = path.slice('/route/'.length);
-      const [userIdStr, projectIdStr] = pair.split('-');
-      const pid = parseInt(projectIdStr, 10);
-      const uid = parseInt(userIdStr, 10);
-      if (!isNaN(pid)) {
-        setRouteProjectId(pid);
-        if (!isNaN(uid)) setRouteUserId(uid);
-        setCurrentStep('public-route');
-      }
     } else if (/^\/[0-9]+-[0-9]+$/.test(path)) {
       const pair = path.slice(1);
       const [userIdStr, projectIdStr] = pair.split('-');
@@ -67,6 +57,20 @@ function App() {
         setRouteProjectId(pid);
         if (!isNaN(uid)) setRouteUserId(uid);
         setCurrentStep('public-route');
+      }
+    } else if (path.startsWith('/route/')) {
+      // Backward compatibility: redirect old /route/{uid}-{pid} to new /{uid}-{pid}
+      const pair = path.slice('/route/'.length);
+      if (pair && pair.includes('-')) {
+        window.history.replaceState({}, '', `/${pair}`);
+        const [userIdStr, projectIdStr] = pair.split('-');
+        const pid = parseInt(projectIdStr, 10);
+        const uid = parseInt(userIdStr, 10);
+        if (!isNaN(pid)) {
+          setRouteProjectId(pid);
+          if (!isNaN(uid)) setRouteUserId(uid);
+          setCurrentStep('public-route');
+        }
       }
     } else if (path.startsWith('/data_analytics/project_')) {
       const num = path.replace('/data_analytics/project_', '');
