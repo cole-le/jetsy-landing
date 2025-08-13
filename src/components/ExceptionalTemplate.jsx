@@ -275,7 +275,11 @@ const ExceptionalTemplate = ({
     if (!rootEl) return;
     const scroller = scrollContainerRef.current || findScrollContainer(rootEl);
     if (!scroller) {
-      setOverlayRect({ top: 0, height: rootEl.clientHeight });
+      // Standalone page: align overlay to current viewport over the hero
+      const rootRect = rootEl.getBoundingClientRect();
+      const rootOffsetTop = rootRect.top + window.scrollY;
+      const visibleTopInRoot = Math.max(0, window.scrollY - rootOffsetTop);
+      setOverlayRect({ top: visibleTopInRoot, height: window.innerHeight });
       return;
     }
     scrollContainerRef.current = scroller;
@@ -295,9 +299,11 @@ const ExceptionalTemplate = ({
     const onScroll = () => updateOverlayPosition();
     const onResize = () => updateOverlayPosition();
     if (scroller) scroller.addEventListener('scroll', onScroll, { passive: true });
+    else window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onResize);
     return () => {
       if (scroller) scroller.removeEventListener('scroll', onScroll);
+      else window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onResize);
     };
   }, [isLeadModalOpen]);
