@@ -2,12 +2,19 @@ name = "jetsy-landing"
 main = "src/worker.js"
 compatibility_date = "2024-01-01"
 
+[observability.logs]
+enabled = true
+
 # Build configuration for React app
 [build]
 command = "npm run build"
 
 [env.production]
 name = "jetsy-landing-prod"
+
+[env.production.vars]
+# CF_ZONE_ID used by the Worker in production (optional if stored as secret)
+CF_ZONE_ID = "53957945e940cad5e6dd29dd7add1e0c"
 
 [[env.production.d1_databases]]
 binding = "DB"

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { getApiBaseUrl } from './config/environment'
 import Navbar from './components/Navbar'
 import HeroSection from './components/HeroSection'
 import FAQ from './components/FAQ'
@@ -46,8 +47,26 @@ function App() {
     console.log('URL pathname:', path);
     
     if (path === '/chat') {
-      console.log('Setting currentStep to chat');
-      setCurrentStep('chat');
+      // Gate /chat with admin auth
+      (async () => {
+        try {
+          const r = await fetch(`${getApiBaseUrl()}/api/admin-auth/check`, { credentials: 'include' });
+          const j = await r.json();
+          if (j?.authorized) {
+            setCurrentStep('chat');
+          } else {
+            const pw = prompt('Enter admin password to access /chat');
+            if (!pw) { setCurrentStep('hero'); return; }
+            const lr = await fetch(`${getApiBaseUrl()}/api/admin-auth/login`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ password: pw }),
+              credentials: 'include'
+            });
+            if (lr.ok) setCurrentStep('chat'); else setCurrentStep('hero');
+          }
+        } catch { setCurrentStep('hero'); }
+      })();
     } else if (/^\/[0-9]+-[0-9]+$/.test(path)) {
       const pair = path.slice(1);
       const [userIdStr, projectIdStr] = pair.split('-');
@@ -84,7 +103,26 @@ function App() {
     } else if (path === '/template') {
       setCurrentStep('template');
     } else if (path === '/') {
-      setCurrentStep('hero');
+      // Try resolving by host for custom domains; fallback to hero
+      // Expose API base for templates that might post with window-scoped config
+      try { window.JETSY_API_BASE = getApiBaseUrl(); } catch {}
+      (async () => {
+        try {
+          const res = await fetch(`${getApiBaseUrl()}/api/domain/resolve`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.project_id) {
+              setRouteProjectId(data.project_id);
+              setCurrentStep('public-route');
+              setIsInitialLoad(false);
+              return;
+            }
+          }
+        } catch {}
+        setCurrentStep('hero');
+        setIsInitialLoad(false);
+      })();
+      return; // avoid marking initial load twice below
     }
     
     // Mark initial load as complete

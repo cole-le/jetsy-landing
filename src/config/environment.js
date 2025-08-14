@@ -3,7 +3,7 @@
 
 export const ENV_CONFIG = {
   // Production URLs
-  PRODUCTION_URL: 'https://jetsy-landing.letrungkien208.workers.dev',
+  PRODUCTION_URL: 'https://jetsy-landing-prod.jetsydev.workers.dev',
   
   // Development configuration
   DEVELOPMENT: {
@@ -12,16 +12,16 @@ export const ENV_CONFIG = {
     // Wrangler worker API server
     WORKER_URL: 'http://localhost:8787',
     // Use production for image generation in development
-    IMAGE_GENERATION_URL: 'https://jetsy-landing.letrungkien208.workers.dev',
+    IMAGE_GENERATION_URL: 'https://jetsy-landing-prod.jetsydev.workers.dev',
     // Use local for everything else (Vite proxies to worker)
     API_BASE_URL: 'http://localhost:3000'
   },
   
   // Production configuration
   PRODUCTION: {
-    LOCAL_URL: 'https://jetsy-landing.letrungkien208.workers.dev',
-    IMAGE_GENERATION_URL: 'https://jetsy-landing.letrungkien208.workers.dev',
-    API_BASE_URL: 'https://jetsy-landing.letrungkien208.workers.dev'
+    LOCAL_URL: 'https://jetsy-landing-prod.jetsydev.workers.dev',
+    IMAGE_GENERATION_URL: 'https://jetsy-landing-prod.jetsydev.workers.dev',
+    API_BASE_URL: 'https://jetsy-landing-prod.jetsydev.workers.dev'
   }
 };
 

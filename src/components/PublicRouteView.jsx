@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import ExceptionalTemplate from './ExceptionalTemplate';
 import { DEFAULT_TEMPLATE_DATA } from './TemplateBasedChat';
+import { getApiBaseUrl } from '../config/environment';
 
 const PublicRouteView = ({ userId, projectId }) => {
   const [templateData, setTemplateData] = useState(null);
@@ -11,7 +12,7 @@ const PublicRouteView = ({ userId, projectId }) => {
     const loadProject = async () => {
       try {
         setIsLoading(true);
-        const res = await fetch(`/api/projects/${projectId}`);
+        const res = await fetch(`${getApiBaseUrl()}/api/projects/${projectId}`);
         if (!res.ok) {
           throw new Error('Project not found');
         }

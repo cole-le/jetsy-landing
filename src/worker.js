@@ -72,6 +72,31 @@ export default {
         });
       }
 
+      // --- Admin Auth for /chat gating ---
+      if (path === '/api/admin-auth/check' && request.method === 'GET') {
+        const authorized = isAdminAuthorized(request);
+        return new Response(JSON.stringify({ authorized }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+      }
+      if (path === '/api/admin-auth/login' && request.method === 'POST') {
+        const body = await request.json().catch(() => ({}));
+        const provided = String(body.password || '');
+        const expected = (env.ADMIN_CHAT_PASSWORD || '').trim();
+        if (!expected) {
+          return new Response(JSON.stringify({ error: 'not-configured' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+        }
+        if (provided && expected && provided === expected) {
+          const res = new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+          setAdminCookie(res);
+          return res;
+        }
+        return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+      }
+      if (path === '/api/admin-auth/logout' && request.method === 'POST') {
+        const res = new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+        clearAdminCookie(res);
+        return res;
+      }
+
       // --- Contact Submissions API ---
       if (path === '/api/contact' && request.method === 'POST') {
         return await handleContactSubmission(request, env, corsHeaders);
@@ -109,6 +134,169 @@ export default {
         }
         if (request.method === 'OPTIONS') {
           return new Response(null, { status: 200, headers: corsHeaders });
+        }
+      }
+
+      // --- Custom Domains API (Cloudflare Custom Hostnames integration) ---
+      if (path === '/api/domain/resolve' && request.method === 'GET') {
+        const hostHeader = request.headers.get('Host') || new URL(request.url).hostname;
+        try {
+          await ensureCustomDomainsTable(env);
+          const row = await env.DB.prepare('SELECT project_id, status FROM custom_domains WHERE domain = ?').bind(hostHeader).first();
+          const projectId = row && row.status === 'active' ? row.project_id : null;
+          return new Response(JSON.stringify({ project_id: projectId }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+        } catch (e) {
+          return new Response(JSON.stringify({ project_id: null }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+        }
+      }
+
+      // List by project_id: GET /api/custom-domains?project_id=123
+      if (path === '/api/custom-domains' && request.method === 'GET') {
+        try {
+          await ensureCustomDomainsTable(env);
+          const urlObj = new URL(request.url);
+          const projectIdParam = urlObj.searchParams.get('project_id');
+          if (!projectIdParam) {
+            return new Response(JSON.stringify({ domains: [] }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+          }
+          const pid = parseInt(projectIdParam, 10);
+          if (Number.isNaN(pid)) {
+            return new Response(JSON.stringify({ domains: [] }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+          }
+          const result = await env.DB.prepare('SELECT domain, project_id, user_id, status, created_at, verified_at FROM custom_domains WHERE project_id = ?')
+            .bind(pid)
+            .all();
+          const rows = result?.results || result?.rows || [];
+          return new Response(JSON.stringify({ domains: rows }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+        } catch (e) {
+          return new Response(JSON.stringify({ error: 'list-failed', message: e?.message || String(e) }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+        }
+      }
+
+      if (path === '/api/custom-domains' && request.method === 'POST') {
+        try {
+          await ensureCustomDomainsTable(env);
+          const body = await request.json();
+          const domain = String(body.domain || '').toLowerCase().trim();
+          const projectId = Number(body.project_id);
+          const userId = Number(body.user_id || 0);
+          if (!domain || !projectId) {
+            return new Response(JSON.stringify({ error: 'invalid-params' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+          }
+
+          if (!env.CF_ZONE_ID || !env.CF_API_TOKEN) {
+            console.error('Missing CF env: CF_ZONE_ID or CF_API_TOKEN not set');
+            return new Response(JSON.stringify({ error: 'missing-cloudflare-env', detail: 'CF_ZONE_ID or CF_API_TOKEN not configured' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+          }
+
+          // Upsert mapping row as pending
+          await env.DB.prepare(
+            'INSERT INTO custom_domains (domain, project_id, user_id, status) VALUES (?, ?, ?, COALESCE((SELECT status FROM custom_domains WHERE domain = ?), "pending")) ON CONFLICT(domain) DO UPDATE SET project_id=excluded.project_id, user_id=excluded.user_id'
+          ).bind(domain, projectId, userId, domain).run();
+
+          // Create custom hostname via CF API (DV CNAME)
+          const cfReqBody = {
+            hostname: domain,
+            ssl: { type: 'dv', method: 'http' },
+            custom_origin_server: 'sites.jetsy.dev',
+            custom_origin_sni: 'sites.jetsy.dev'
+          };
+          console.log('Creating CF custom hostname', { zone: env.CF_ZONE_ID, domain, body: cfReqBody });
+          const cfRes = await fetch(`https://api.cloudflare.com/client/v4/zones/${env.CF_ZONE_ID}/custom_hostnames`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${env.CF_API_TOKEN}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(cfReqBody),
+          });
+          const cfText = await cfRes.text();
+          let cfJson;
+          try { cfJson = JSON.parse(cfText); } catch { cfJson = { raw: cfText }; }
+          console.log('CF create response', { status: cfRes.status, ok: cfRes.ok, json: cfJson });
+
+          // Best-effort status sync
+          if (!cfRes.ok || cfJson?.success === false) {
+            await env.DB.prepare('UPDATE custom_domains SET status = ? WHERE domain = ?').bind('failed', domain).run();
+            return new Response(JSON.stringify({ ok: false, cf: cfJson }), { status: 502, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+          }
+
+          const status = (cfJson?.result?.status) || 'pending';
+          await env.DB.prepare('UPDATE custom_domains SET status = ? WHERE domain = ?').bind(status, domain).run();
+
+          return new Response(JSON.stringify({ ok: true, cf: cfJson }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+        } catch (e) {
+          console.error('Error creating custom hostname', e);
+          return new Response(JSON.stringify({ error: 'create-failed', message: e?.message || String(e) }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+        }
+      }
+
+      const matchDomainStatus = path.match(/^\/api\/custom-domains\/(.+)$/);
+      if (matchDomainStatus && request.method === 'GET') {
+        try {
+          await ensureCustomDomainsTable(env);
+          const domain = decodeURIComponent(matchDomainStatus[1]).toLowerCase();
+          const row = await env.DB.prepare('SELECT domain, project_id, user_id, status, created_at, verified_at FROM custom_domains WHERE domain = ?').bind(domain).first();
+          if (!row) {
+            return new Response(JSON.stringify({ error: 'not-found' }), { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+          }
+
+          // Refresh status from CF (optional)
+          const listRes = await fetch(`https://api.cloudflare.com/client/v4/zones/${env.CF_ZONE_ID}/custom_hostnames?hostname=${encodeURIComponent(domain)}`, {
+            headers: { 'Authorization': `Bearer ${env.CF_API_TOKEN}` },
+          });
+          const listText = await listRes.text();
+          let listJson; try { listJson = JSON.parse(listText); } catch { listJson = { raw: listText }; }
+          console.log('CF list response', { status: listRes.status, ok: listRes.ok, json: listJson });
+          const latest = listJson?.result?.[0];
+          // If pending with an id, nudge validation with PATCH per docs when HTTP method is used
+          if (latest?.id) {
+            try {
+              const patchBody = {
+                ssl: { type: 'dv', method: 'http' },
+                custom_origin_server: 'sites.jetsy.dev',
+                custom_origin_sni: 'sites.jetsy.dev'
+              };
+              const patchRes = await fetch(`https://api.cloudflare.com/client/v4/zones/${env.CF_ZONE_ID}/custom_hostnames/${latest.id}`, {
+                method: 'PATCH',
+                headers: { 'Authorization': `Bearer ${env.CF_API_TOKEN}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(patchBody),
+              });
+              const patchText = await patchRes.text();
+              let patchJson; try { patchJson = JSON.parse(patchText); } catch { patchJson = { raw: patchText }; }
+              console.log('CF patch response', { status: patchRes.status, ok: patchRes.ok, json: patchJson });
+            } catch (e) {
+              console.log('CF patch error', e?.message || String(e));
+            }
+          }
+          // If CF has no record for this domain and our local status is not active, clean up local row and return 404
+          if ((!latest || !Array.isArray(listJson?.result) || listJson.result.length === 0) && row.status !== 'active') {
+            await env.DB.prepare('DELETE FROM custom_domains WHERE domain = ?').bind(domain).run();
+            return new Response(JSON.stringify({ error: 'not-found' }), { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+          }
+          if (latest?.status && latest.status !== row.status) {
+            const now = new Date().toISOString();
+            await env.DB.prepare('UPDATE custom_domains SET status = ?, verified_at = CASE WHEN ? = "active" THEN ? ELSE verified_at END WHERE domain = ?')
+              .bind(latest.status, latest.status, now, domain).run();
+            row.status = latest.status;
+            if (latest.status === 'active') row.verified_at = now;
+          }
+
+          return new Response(JSON.stringify({ mapping: row, cf: listJson }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+        } catch (e) {
+          return new Response(JSON.stringify({ error: 'status-failed', message: e?.message || String(e) }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+        }
+      }
+
+      // Allow manual deletion
+      if (matchDomainStatus && request.method === 'DELETE') {
+        try {
+          await ensureCustomDomainsTable(env);
+          const domain = decodeURIComponent(matchDomainStatus[1]).toLowerCase();
+          await env.DB.prepare('DELETE FROM custom_domains WHERE domain = ?').bind(domain).run();
+          return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+        } catch (e) {
+          return new Response(JSON.stringify({ error: 'delete-failed', message: e?.message || String(e) }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
         }
       }
       // --- Chat Messages API ---
@@ -247,6 +435,44 @@ export default {
   },
 };
 
+// Ensure mapping table exists
+async function ensureCustomDomainsTable(env) {
+  if (!env?.DB) return;
+  // Prefer simple, portable statements; avoid exec multi-stmt quirks
+  try {
+    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS custom_domains (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      domain TEXT NOT NULL UNIQUE,
+      project_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      verified_at TEXT
+    )`).run();
+  } catch (e) {
+    // ignore if exists
+  }
+  try {
+    await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_custom_domains_project ON custom_domains(project_id)`).run();
+  } catch (e) {
+    // ignore if exists
+  }
+}
+
+// --- Admin auth helpers ---
+function isAdminAuthorized(request) {
+  const cookie = request.headers.get('Cookie') || '';
+  return /admin_chat=1/.test(cookie);
+}
+function setAdminCookie(response) {
+  const existing = response.headers.get('Set-Cookie');
+  const cookie = 'admin_chat=1; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000';
+  response.headers.set('Set-Cookie', existing ? existing + ', ' + cookie : cookie);
+}
+function clearAdminCookie(response) {
+  const cookie = 'admin_chat=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0';
+  response.headers.set('Set-Cookie', cookie);
+}
 // Store contact form submissions
 async function handleContactSubmission(request, env, corsHeaders) {
   try {
