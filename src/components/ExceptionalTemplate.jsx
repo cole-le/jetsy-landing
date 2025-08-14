@@ -81,8 +81,10 @@ const calculateOptimalTextColor = (imageUrl) => {
 
 const ExceptionalTemplate = ({ 
   businessName = 'Your Amazing Startup',
+  seoTitle = null,
   businessLogoUrl = null,
   tagline = 'Transform your idea into reality with our innovative solution',
+  isLiveWebsite = false,
   heroDescription = 'Join thousands of satisfied customers who have already made the leap.',
   ctaButtonText = 'Start Building Free',
   sectionType = 'features',
@@ -364,6 +366,37 @@ const ExceptionalTemplate = ({
       window.removeEventListener('resize', handleResize);
     };
   }, [isMobileMenuOpen]);
+
+  // Set document title and favicon dynamically - only for live websites
+  useEffect(() => {
+    // Only apply custom branding for live websites, keep Jetsy branding in editor
+    if (!isLiveWebsite) return;
+    
+    // Set document title for SEO and browser tab - always format as "Business Name - Headline"
+    let headline = seoTitle;
+    if (!headline) {
+      // Fallback to tagline if no SEO title, or default message
+      headline = tagline || 'Transform your idea into reality';
+    }
+    
+    // Ensure we always have the format: "Business Name - Headline"
+    const title = `${businessName} - ${headline}`;
+    document.title = title;
+    
+    // Set favicon using business logo if available
+    if (businessLogoUrl) {
+      // Remove existing favicon links
+      const existingFavicons = document.querySelectorAll('link[rel*="icon"]');
+      existingFavicons.forEach(link => link.remove());
+      
+      // Add new favicon link
+      const faviconLink = document.createElement('link');
+      faviconLink.rel = 'icon';
+      faviconLink.type = 'image/png';
+      faviconLink.href = businessLogoUrl;
+      document.head.appendChild(faviconLink);
+    }
+  }, [isLiveWebsite, seoTitle, businessName, tagline, businessLogoUrl]);
 
   // Analyze background images and update text colors
   useEffect(() => {

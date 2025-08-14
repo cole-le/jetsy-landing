@@ -5887,43 +5887,44 @@ User Message: ${userMessage}
 
 Generate content for the following sections:
 1. businessName - Generate ONE distinctive, brandable business name if not clearly provided. Rules: 1-2 words, easy to pronounce and remember, avoid hyphens or numbers, avoid generic terms and trademarks, evoke the idea's core feeling/benefit. Return just the name string.
-2. tagline - A powerful tagline that captures the value proposition
-3. heroDescription - A brief description for the hero section
-4. ctaButtonText - Generate an appropriate call-to-action button text based on the business:
+2. seoTitle - Generate just the headline part of the SEO title (30-40 characters). The business name will be automatically added to create the full title. This should be a compelling value proposition or description that appears after "Business Name - " in browser tabs and search results. Examples: "Premium Coffee & Pastries", "AI-Powered Design Platform", "Luxury Real Estate Solutions"
+3. tagline - A powerful tagline that captures the value proposition
+4. heroDescription - A brief description for the hero section
+5. ctaButtonText - Generate an appropriate call-to-action button text based on the business:
    - For restaurants/bars: "Book Table Now", "Order Online", "Reserve Your Spot", "Visit Us Today"
    - For SaaS/tech: "Start Free Trial", "Get Started Free", "Try It Free", "Join Beta"
    - For e-commerce: "Shop Now", "Browse Collection", "Start Shopping", "Explore Products"
    - For services: "Get Started", "Book Consultation", "Contact Us", "Learn More"
    - For other businesses: "Get Started", "Learn More", "Contact Us", "Explore"
-5. sectionType - Determine the appropriate section type based on the business:
+6. sectionType - Determine the appropriate section type based on the business:
    - Use "services" for restaurants, bars, cafes, food businesses
    - Use "features" for SaaS, software, apps, tech companies
    - Use "highlights" for other businesses
-6. sectionTitle - Generate an appropriate title for the section type
-7. sectionSubtitle - Generate an appropriate subtitle for the section type
-8. features - Generate 6 items that are appropriate for the business:
+7. sectionTitle - Generate an appropriate title for the section type
+8. sectionSubtitle - Generate an appropriate subtitle for the section type
+9. features - Generate 6 items that are appropriate for the business:
    - For restaurants/bars: focus on menu items, services, atmosphere, dining experience
    - For SaaS/tech: focus on features, capabilities, benefits, technology
    - For other businesses: focus on highlights, services, unique offerings, value propositions
    Keep the same structure with icon, title, description
-9. aboutContent - About section content tailored to the business
-10. pricing - 3 pricing tiers appropriate for the business (adjust names and content accordingly)
-11. contactInfo - Contact information appropriate for the business
-12. trustIndicator1 - A trust indicator appropriate for the business
-13. trustIndicator2 - A rating or review indicator appropriate for the business
-14. heroBadge - Generate a badge text for the hero section (e.g., "Now Available - AI-Powered Landing Pages", "New Launch", "Limited Time Offer", "Grand Opening", etc.)
-15. aboutSectionTitle - Generate the "Built by creators, for creators" section title appropriate for the business (e.g., "Built by experts, for businesses", "Created by professionals, for customers", etc.)
-16. aboutSectionSubtitle - Generate the subtitle for the about section
-17. aboutBenefits - Generate 3 benefit points for the about section (replace the static ones like "No coding knowledge required", "AI-powered design optimization", "Built-in analytics and tracking")
-18. pricingSectionTitle - Generate the pricing section title (e.g., "Simple, transparent pricing", "Choose your plan", "Flexible pricing options")
-19. pricingSectionSubtitle - Generate the pricing section subtitle (e.g., "Choose the plan that's right for you. All plans include our core features and 24/7 support.")
-20. contactSectionTitle - Generate the contact section title (e.g., "Ready to get started?", "Get in touch", "Contact us today")
-21. contactSectionSubtitle - Generate the contact section subtitle (e.g., "Let's discuss how we can help you create the perfect landing page for your business. Our team is here to support you every step of the way.")
-22. contactFormPlaceholders - Generate appropriate placeholders for the contact form (name, email, company, message)
-23. footerDescription - Generate the footer description text (e.g., "Build beautiful, conversion-optimized landing pages with AI. Transform your ideas into reality in minutes.")
-24. footerProductLinks - Generate appropriate product link texts (e.g., ["Features", "Pricing", "Templates", "API"])
-25. footerCompanyLinks - Generate appropriate company link texts (e.g., ["About", "Blog", "Careers", "Contact"])
-26. landingPagesCreated - Generate a number and text for "Landing Pages Created" (e.g., "10,000+ Landing Pages Created", "5,000+ Projects Built", etc.)
+10. aboutContent - About section content tailored to the business
+11. pricing - 3 pricing tiers appropriate for the business (adjust names and content accordingly)
+12. contactInfo - Contact information appropriate for the business
+13. trustIndicator1 - A trust indicator appropriate for the business
+14. trustIndicator2 - A rating or review indicator appropriate for the business
+15. heroBadge - Generate a badge text for the hero section (e.g., "Now Available - AI-Powered Landing Pages", "New Launch", "Limited Time Offer", "Grand Opening", etc.)
+16. aboutSectionTitle - Generate the "Built by creators, for creators" section title appropriate for the business (e.g., "Built by experts, for businesses", "Created by professionals, for customers", etc.)
+17. aboutSectionSubtitle - Generate the subtitle for the about section
+18. aboutBenefits - Generate 3 benefit points for the about section (replace the static ones like "No coding knowledge required", "AI-powered design optimization", "Built-in analytics and tracking")
+19. pricingSectionTitle - Generate the pricing section title (e.g., "Simple, transparent pricing", "Choose your plan", "Flexible pricing options")
+20. pricingSectionSubtitle - Generate the pricing section subtitle (e.g., "Choose the plan that's right for you. All plans include our core features and 24/7 support.")
+21. contactSectionTitle - Generate the contact section title (e.g., "Ready to get started?", "Get in touch", "Contact us today")
+22. contactSectionSubtitle - Generate the contact section subtitle (e.g., "Let's discuss how we can help you create the perfect landing page for your business. Our team is here to support you every step of the way.")
+23. contactFormPlaceholders - Generate appropriate placeholders for the contact form (name, email, company, message)
+24. footerDescription - Generate the footer description text (e.g., "Build beautiful, conversion-optimized landing pages with AI. Transform your ideas into reality in minutes.")
+25. footerProductLinks - Generate appropriate product link texts (e.g., ["Features", "Pricing", "Templates", "API"])
+26. footerCompanyLinks - Generate appropriate company link texts (e.g., ["About", "Blog", "Careers", "Contact"])
+27. landingPagesCreated - Generate a number and text for "Landing Pages Created" (e.g., "10,000+ Landing Pages Created", "5,000+ Projects Built", etc.)
 
 RESPONSIVE DESIGN GUIDELINES:
 - Navigation: Use mobile-first responsive navigation with hamburger menu for mobile

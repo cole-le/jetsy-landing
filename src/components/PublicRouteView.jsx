@@ -62,8 +62,10 @@ const PublicRouteView = ({ userId, projectId }) => {
     <div className="min-h-screen bg-white">
       <ExceptionalTemplate
         businessName={templateData.businessName || ''}
+        seoTitle={templateData.seoTitle || null}
         businessLogoUrl={templateData.businessLogoUrl || null}
         tagline={templateData.tagline || ''}
+        isLiveWebsite={true}
         heroDescription={templateData.heroDescription || ''}
         ctaButtonText={templateData.ctaButtonText || ''}
         sectionType={templateData.sectionType || 'features'}

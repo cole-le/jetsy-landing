@@ -162,6 +162,7 @@ const getMobileViewportStyles = (previewMode) => {
 // Default template data for new projects
 export const DEFAULT_TEMPLATE_DATA = {
   businessName: 'Your Amazing Startup',
+  seoTitle: 'Transform your idea into reality',
   businessLogoUrl: null,
   tagline: 'Transform your idea into reality with our innovative solution',
   heroDescription: 'Join thousands of satisfied customers who have already made the leap.',
@@ -930,6 +931,62 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                   </p>
                 </div>
                 
+                {/* SEO Title & Website Headline */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                    Website Title & SEO
+                  </h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Website Title
+                      </label>
+                      <div className="space-y-2">
+                        <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded border">
+                          <span className="font-medium">Full SEO Title:</span> {templateData.businessName || 'Business Name'} - {templateData.seoTitle || 'Headline'}
+                        </div>
+                        <div className="space-y-2">
+                          <label className="block text-xs font-medium text-gray-600">Business Name</label>
+                          <input
+                            type="text"
+                            value={templateData.businessName || ''}
+                            onChange={(e) => setTemplateData(prev => ({ ...prev, businessName: e.target.value }))}
+                            placeholder="Your Business Name"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                            maxLength={30}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="block text-xs font-medium text-gray-600">(appears in browser tab & search results)</label>
+                          <input
+                            type="text"
+                            value={`${templateData.businessName || 'Business Name'} - ${templateData.seoTitle || 'Headline'}`}
+                            onChange={(e) => {
+                              // Extract the headline part from the full title input
+                              const fullTitle = e.target.value;
+                              const businessName = templateData.businessName || 'Business Name';
+                              if (fullTitle.startsWith(businessName + ' - ')) {
+                                const headline = fullTitle.substring((businessName + ' - ').length);
+                                setTemplateData(prev => ({ ...prev, seoTitle: headline }));
+                              } else {
+                                // If format doesn't match, just update the headline
+                                setTemplateData(prev => ({ ...prev, seoTitle: fullTitle }));
+                              }
+                            }}
+                            placeholder="Business Name - Compelling Description"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                            maxLength={60}
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Recommended: 50-60 characters for the full title.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Business Logo (above Hero Section) */}
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                   <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center">
@@ -1833,8 +1890,10 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                 <div className="mobile-viewport-simulator">
                 <ExceptionalTemplate 
                   businessName={templateData.businessName || ''}
+                  seoTitle={templateData.seoTitle || null}
                   businessLogoUrl={templateData.businessLogoUrl || null}
                   tagline={templateData.tagline || ''}
+                  isLiveWebsite={false}
                   heroDescription={templateData.heroDescription || ''}
                   ctaButtonText={templateData.ctaButtonText || ''}
                   sectionType={templateData.sectionType || 'features'}
@@ -1890,8 +1949,10 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             <div className="max-w-full">
               <ExceptionalTemplate 
                 businessName={templateData.businessName || ''}
+                seoTitle={templateData.seoTitle || null}
                 businessLogoUrl={templateData.businessLogoUrl || null}
                 tagline={templateData.tagline || ''}
+                isLiveWebsite={false}
                 heroDescription={templateData.heroDescription || ''}
                 ctaButtonText={templateData.ctaButtonText || ''}
                 sectionType={templateData.sectionType || 'features'}
