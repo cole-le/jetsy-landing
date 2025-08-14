@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiBaseUrl } from '../config/environment';
 
 const GeneratedImage = ({ 
   imageId, 
@@ -20,7 +21,7 @@ const GeneratedImage = ({
         setError(null);
         
         // Fetch image metadata from our API
-        const response = await fetch(`/api/images/${imageId}`);
+        const response = await fetch(`${getApiBaseUrl()}/api/images/${imageId}`);
         
         if (!response.ok) {
           throw new Error('Failed to load image');

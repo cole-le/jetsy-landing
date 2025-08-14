@@ -1,3 +1,9 @@
+// Helper function to get the worker URL based on the current request
+function getWorkerUrl(request) {
+  const url = new URL(request.url);
+  return `${url.protocol}//${url.host}`;
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -6,8 +12,8 @@ export default {
     // CORS headers
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     };
 
     // Handle preflight requests
@@ -1414,13 +1420,18 @@ async function addChatMessage(request, env, corsHeaders) {
       return new Response(JSON.stringify({ error: 'project_id, role, and message are required' }), { status: 400, headers: corsHeaders });
     }
     const now = new Date().toISOString();
+    console.log('📝 Adding chat message:', { project_id, role, message: message.substring(0, 100) + '...', is_initial_message });
     const result = await db.prepare('INSERT INTO chat_messages (project_id, role, message, timestamp, clarification_state, is_initial_message) VALUES (?, ?, ?, ?, ?, ?)').bind(project_id, role, message, now, clarification_state || null, is_initial_message || false).run();
     if (!result.success) {
+      console.error('❌ Database insert failed:', result);
       throw new Error('Failed to add chat message');
     }
+    console.log('✅ Chat message added successfully:', result.meta.last_row_id);
     return new Response(JSON.stringify({ success: true, message_id: result.meta.last_row_id }), { status: 201, headers: corsHeaders });
   } catch (error) {
-    return new Response(JSON.stringify({ error: 'Failed to add chat message' }), { status: 500, headers: corsHeaders });
+    console.error('❌ addChatMessage error:', error);
+    console.error('Error stack:', error.stack);
+    return new Response(JSON.stringify({ error: 'Failed to add chat message', details: error.message }), { status: 500, headers: corsHeaders });
   }
 }
 
@@ -5736,9 +5747,9 @@ async function handleTemplateGeneration(request, env, corsHeaders) {
       const aboutBackgroundPrompt = backgroundPrompts.about_background_prompt;
       console.log('🎨 Hero background prompt:', heroBackgroundPrompt);
       
-      const heroBackgroundResponse = await fetch(`http://localhost:8787/api/generate-image`, {
+      // Create a mock request for the image generation function with proper URL
+      const heroImageRequest = new Request(`${getWorkerUrl(request)}/api/generate-image`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           project_id: project_id,
           prompt: heroBackgroundPrompt,
@@ -5746,6 +5757,7 @@ async function handleTemplateGeneration(request, env, corsHeaders) {
           number_of_images: 1
         })
       });
+      const heroBackgroundResponse = await handleImageGeneration(heroImageRequest, env, corsHeaders);
       
       console.log('🎨 Hero background response status:', heroBackgroundResponse.status);
       
@@ -5765,9 +5777,9 @@ async function handleTemplateGeneration(request, env, corsHeaders) {
       // Generate logo (square) - abstract, text-free, brandable mark
       const logoPrompt = `Abstract, text-free logo mark for ${businessNameForAssets}. Unique and memorable symbol only (no letters, no words, no typography, no text, no watermarks). Minimal modern vector emblem, clean geometric forms, balanced composition, flat scalable design, strong silhouette, 1:1 aspect ratio`;
       console.log('🎨 Logo prompt:', logoPrompt);
-      const logoResponse = await fetch(`http://localhost:8787/api/generate-image`, {
+      // Create a mock request for the logo generation with proper URL
+      const logoImageRequest = new Request(`${getWorkerUrl(request)}/api/generate-image`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           project_id: project_id,
           prompt: logoPrompt,
@@ -5775,6 +5787,7 @@ async function handleTemplateGeneration(request, env, corsHeaders) {
           number_of_images: 1
         })
       });
+      const logoResponse = await handleImageGeneration(logoImageRequest, env, corsHeaders);
       console.log('🎨 Logo response status:', logoResponse.status);
       if (logoResponse.ok) {
         const logoResult = await logoResponse.json();
@@ -5787,9 +5800,9 @@ async function handleTemplateGeneration(request, env, corsHeaders) {
       }
       console.log('🎨 About background prompt:', aboutBackgroundPrompt);
       
-      const aboutBackgroundResponse = await fetch(`http://localhost:8787/api/generate-image`, {
+      // Create a mock request for the about background generation with proper URL
+      const aboutImageRequest = new Request(`${getWorkerUrl(request)}/api/generate-image`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           project_id: project_id,
           prompt: aboutBackgroundPrompt,
@@ -5797,6 +5810,7 @@ async function handleTemplateGeneration(request, env, corsHeaders) {
           number_of_images: 1
         })
       });
+      const aboutBackgroundResponse = await handleImageGeneration(aboutImageRequest, env, corsHeaders);
       
       console.log('🎨 About background response status:', aboutBackgroundResponse.status);
       

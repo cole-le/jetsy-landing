@@ -19,7 +19,7 @@ export const ENV_CONFIG = {
   
   // Production configuration
   PRODUCTION: {
-    LOCAL_URL: 'https://jetsy-landing-prod.jetsydev.workers.dev',
+    LOCAL_URL: 'https://jetsy.dev',
     IMAGE_GENERATION_URL: 'https://jetsy-landing-prod.jetsydev.workers.dev',
     API_BASE_URL: 'https://jetsy-landing-prod.jetsydev.workers.dev'
   }

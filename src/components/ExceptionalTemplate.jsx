@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { getApiBaseUrl } from '../config/environment';
 
 // Utility function to calculate optimal overlay and text settings for readability
 const calculateOptimalTextColor = (imageUrl) => {
@@ -390,7 +391,7 @@ const ExceptionalTemplate = ({
     setIsSubmitting(true);
     
     try {
-      const res = await fetch('/api/contact', {
+      const res = await fetch(`${getApiBaseUrl()}/api/contact`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

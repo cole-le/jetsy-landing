@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { getApiBaseUrl } from '../config/environment';
 
 const ProjectDataAnalytics = ({ projectId, onBack }) => {
   const [leads, setLeads] = useState([]);
@@ -19,7 +20,7 @@ const ProjectDataAnalytics = ({ projectId, onBack }) => {
     const loadLeads = async () => {
       setLeadsLoading(true);
       try {
-        const res = await fetch(`/api/leads?project_id=${projectId}&limit=${pageSize}&offset=${leadsPage * pageSize}`);
+        const res = await fetch(`${getApiBaseUrl()}/api/leads?project_id=${projectId}&limit=${pageSize}&offset=${leadsPage * pageSize}`);
         const data = await res.json();
         if (res.ok) {
           setLeads(data.leads || []);
@@ -40,7 +41,7 @@ const ProjectDataAnalytics = ({ projectId, onBack }) => {
     const loadContacts = async () => {
       setContactsLoading(true);
       try {
-        const res = await fetch(`/api/contact?project_id=${projectId}&limit=${pageSize}&offset=${contactsPage * pageSize}`);
+        const res = await fetch(`${getApiBaseUrl()}/api/contact?project_id=${projectId}&limit=${pageSize}&offset=${contactsPage * pageSize}`);
         const data = await res.json();
         if (res.ok) {
           setContacts(data.submissions || []);

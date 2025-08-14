@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ProjectSelector from './ProjectSelector';
 import { DEFAULT_TEMPLATE_DATA } from './TemplateBasedChat';
+import { getApiBaseUrl } from '../config/environment';
 
 const ChatPage = ({ onBackToHome }) => {
   const [messages, setMessages] = useState([]);
@@ -35,7 +36,7 @@ const ChatPage = ({ onBackToHome }) => {
       
       if (storedProjectId) {
         // Try to load the stored project
-        const response = await fetch(`/api/projects/${storedProjectId}`);
+        const response = await fetch(`${getApiBaseUrl()}/api/projects/${storedProjectId}`);
         if (response.ok) {
           const result = await response.json();
           const project = result.project;
@@ -126,7 +127,7 @@ const ChatPage = ({ onBackToHome }) => {
 
   const loadChatMessages = async (projectId) => {
     try {
-      const response = await fetch(`/api/chat_messages?project_id=${projectId}`);
+      const response = await fetch(`${getApiBaseUrl()}/api/chat_messages?project_id=${projectId}`);
       if (response.ok) {
         const result = await response.json();
         setMessages(result.messages || []);
@@ -157,7 +158,7 @@ const ChatPage = ({ onBackToHome }) => {
       // Check if this is the first message for this project
       const isInitialMessage = messages.length === 0;
       
-      await fetch('/api/chat_messages', {
+      await fetch(`${getApiBaseUrl()}/api/chat_messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -173,7 +174,7 @@ const ChatPage = ({ onBackToHome }) => {
       if (isInitialMessage) {
         // For initial messages, use template-based orchestration to generate exceptional template
         console.log('🎨 Using template-based orchestration for initial message');
-        llmResponse = await fetch('/api/llm-orchestrate-template', {
+        llmResponse = await fetch(`${getApiBaseUrl()}/api/llm-orchestrate-template`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -186,7 +187,7 @@ const ChatPage = ({ onBackToHome }) => {
       } else {
         // For subsequent messages, use regular LLM orchestration
         console.log('🤖 Using regular LLM orchestration for follow-up message');
-        llmResponse = await fetch('/api/llm-orchestrate', {
+        llmResponse = await fetch(`${getApiBaseUrl()}/api/llm-orchestrate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -222,7 +223,7 @@ const ChatPage = ({ onBackToHome }) => {
             clarificationAnswers: result.clarification_answers || {}
           };
           
-          await fetch('/api/chat_messages', {
+          await fetch(`${getApiBaseUrl()}/api/chat_messages`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -240,7 +241,7 @@ const ChatPage = ({ onBackToHome }) => {
         
         // 3. Update project files if LLM made changes
         if (result.updated_files) {
-          await fetch(`/api/projects/${currentProject.id}`, {
+          await fetch(`${getApiBaseUrl()}/api/projects/${currentProject.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ files: result.updated_files })
@@ -259,7 +260,7 @@ const ChatPage = ({ onBackToHome }) => {
           backup_id: result.backup_id,
           can_restore: result.can_restore
         };
-        await fetch('/api/chat_messages', {
+        await fetch(`${getApiBaseUrl()}/api/chat_messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -311,7 +312,7 @@ const ChatPage = ({ onBackToHome }) => {
     }
 
     try {
-      const response = await fetch('/api/restore-web', {
+      const response = await fetch(`${getApiBaseUrl()}/api/restore-web`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

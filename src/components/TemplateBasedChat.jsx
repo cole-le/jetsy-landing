@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import ProjectSelector from './ProjectSelector';
 import ExceptionalTemplate from './ExceptionalTemplate';
+import { getApiBaseUrl } from '../config/environment';
 
 // Fixed trust/rating text to ensure consistent partial star rendering on the frontend
 const FIXED_RATING_TEXT = '4.8/5 customer satisfaction rating';
@@ -311,7 +312,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         project_id: currentProject.id,
         user_id: currentProject.user_id || 0
       };
-      const res = await fetch('/api/custom-domains', {
+      const res = await fetch(`${getApiBaseUrl()}/api/custom-domains`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -339,7 +340,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     const poll = async () => {
       if (!domainStatus?.domain || domainStatus.status !== 'pending') return;
       try {
-        const res = await fetch(`/api/custom-domains/${encodeURIComponent(domainStatus.domain)}`);
+        const res = await fetch(`${getApiBaseUrl()}/api/custom-domains/${encodeURIComponent(domainStatus.domain)}`);
         if (res.status === 404) {
           // No mapping exists anymore; clear local state
           setDomainStatus(null);
@@ -376,7 +377,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       if (!currentProject?.id) return;
       
       try {
-        const response = await fetch(`/api/projects/${currentProject.id}`, {
+        const response = await fetch(`${getApiBaseUrl()}/api/projects/${currentProject.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -408,7 +409,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     const fetchDomains = async () => {
       if (!currentProject?.id) return;
       try {
-        const res = await fetch(`/api/custom-domains?project_id=${encodeURIComponent(currentProject.id)}`);
+        const res = await fetch(`${getApiBaseUrl()}/api/custom-domains?project_id=${encodeURIComponent(currentProject.id)}`);
         if (res.ok) {
           const data = await res.json();
           const domains = data?.domains || [];
@@ -428,7 +429,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     if (currentProject?.id && isEditorMode) {
       const saveTemplateData = async () => {
         try {
-          const response = await fetch(`/api/projects/${currentProject.id}`, {
+          const response = await fetch(`${getApiBaseUrl()}/api/projects/${currentProject.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -465,7 +466,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       const storedProjectId = getStoredProjectId();
       
       if (storedProjectId) {
-        const response = await fetch(`/api/projects/${storedProjectId}`);
+        const response = await fetch(`${getApiBaseUrl()}/api/projects/${storedProjectId}`);
         if (response.ok) {
           const result = await response.json();
           const project = result.project;
@@ -591,7 +592,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
 
   const loadChatMessages = async (projectId) => {
     try {
-      const response = await fetch(`/api/chat_messages?project_id=${projectId}`);
+      const response = await fetch(`${getApiBaseUrl()}/api/chat_messages?project_id=${projectId}`);
       if (response.ok) {
         const result = await response.json();
         const messages = result.messages || [];
@@ -621,7 +622,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
 
     try {
       // Add user message to chat history
-      await fetch('/api/chat_messages', {
+      await fetch(`${getApiBaseUrl()}/api/chat_messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -633,7 +634,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       });
 
       // Call AI to generate template content
-      const aiResponse = await fetch('/api/template-generate', {
+      const aiResponse = await fetch(`${getApiBaseUrl()}/api/template-generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -652,7 +653,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
           
           // Save the AI-generated template data to database
           try {
-            const saveResponse = await fetch(`/api/projects/${currentProject.id}`, {
+            const saveResponse = await fetch(`${getApiBaseUrl()}/api/projects/${currentProject.id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({

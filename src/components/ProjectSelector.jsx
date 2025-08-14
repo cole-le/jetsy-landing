@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { DEFAULT_TEMPLATE_DATA } from './TemplateBasedChat';
+import { getApiBaseUrl } from '../config/environment';
 
 const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDeleted }) => {
   const [projects, setProjects] = useState([]);
@@ -20,7 +21,7 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
     try {
       setLoading(true);
       console.log('Loading projects...');
-      const response = await fetch('/api/projects?user_id=1');
+      const response = await fetch(`${getApiBaseUrl()}/api/projects?user_id=1`);
       console.log('Projects response:', response);
       if (response.ok) {
         const result = await response.json();
@@ -59,7 +60,7 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
         // Don't include template_data for new projects - let users chat first
       };
 
-      const response = await fetch('/api/projects', {
+      const response = await fetch(`${getApiBaseUrl()}/api/projects`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(projectData)
@@ -86,7 +87,7 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
     if (!editingProject || !newProjectName.trim()) return;
 
     try {
-      const response = await fetch(`/api/projects/${editingProject.id}`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/projects/${editingProject.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ project_name: newProjectName.trim() })
@@ -117,7 +118,7 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
     }
 
     try {
-      const response = await fetch(`/api/projects/${projectId}`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/projects/${projectId}`, {
         method: 'DELETE'
       });
 
