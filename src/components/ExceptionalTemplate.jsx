@@ -612,7 +612,7 @@ const ExceptionalTemplate = ({
           }`}>
             {showHeroBadge && (
               <div 
-                className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium mb-4 sm:mb-6"
+                className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium mb-8 sm:mb-10"
                 style={{
                   backgroundColor: heroBackgroundImage ? 'rgba(0, 0, 0, 0.8)' : 'rgb(219, 234, 254)',
                   color: heroBackgroundImage ? '#ffffff' : '#1e40af',
