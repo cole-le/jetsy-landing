@@ -627,8 +627,10 @@ async function handleLeadSubmission(request, env, corsHeaders) {
     });
 
   } catch (error) {
-    console.error('Lead submission error:', error);
-    return new Response(JSON.stringify({ error: 'Failed to store lead' }), {
+    console.error('❌ Lead submission error:', error);
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
+    return new Response(JSON.stringify({ error: 'Failed to store lead', details: error.message }), {
       status: 500,
       headers: {
         'Content-Type': 'application/json',
@@ -683,8 +685,8 @@ async function handleLeadSubmissionV2(request, env, corsHeaders) {
 
     // Store lead in D1 database
     const leadResult = await db.prepare(
-      "INSERT INTO leads (email, phone, user_id, project_id, submitted_at, created_at) VALUES (?, ?, ?, ?, ?, ?)"
-      ).bind(email, phone || '', uid, pid, submissionTime, submissionTime).run();
+      "INSERT INTO leads (email, phone, ts, user_id, project_id, submitted_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+      ).bind(email, phone || 'N/A', Date.now(), uid, pid, submissionTime, submissionTime).run();
 
     if (!leadResult.success) {
       throw new Error('Failed to store lead');
@@ -727,8 +729,10 @@ async function handleLeadSubmissionV2(request, env, corsHeaders) {
     });
 
   } catch (error) {
-    console.error('Lead submission error:', error);
-    return new Response(JSON.stringify({ error: 'Failed to store lead' }), {
+    console.error('❌ Lead submission error:', error);
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
+    return new Response(JSON.stringify({ error: 'Failed to store lead', details: error.message }), {
       status: 500,
       headers: {
         'Content-Type': 'application/json',

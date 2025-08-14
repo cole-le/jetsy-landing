@@ -1073,7 +1073,7 @@ const ExceptionalTemplate = ({
                 e.preventDefault();
                 setIsSubmitting(true);
                 try {
-                  const res = await fetch((window?.JETSY_API_BASE || '') + '/api/leads', {
+                  const res = await fetch(`${getApiBaseUrl()}/api/leads`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
