@@ -72,29 +72,18 @@ export default {
         });
       }
 
-      // --- Admin Auth for /chat gating ---
-      if (path === '/api/admin-auth/check' && request.method === 'GET') {
-        const authorized = isAdminAuthorized(request);
-        return new Response(JSON.stringify({ authorized }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
-      }
-      if (path === '/api/admin-auth/login' && request.method === 'POST') {
+      // --- Simple password verification endpoint for /chat gating ---
+      if (path === '/api/chat-password-verify' && request.method === 'POST') {
         const body = await request.json().catch(() => ({}));
         const provided = String(body.password || '');
         const expected = (env.ADMIN_CHAT_PASSWORD || '').trim();
         if (!expected) {
-          return new Response(JSON.stringify({ error: 'not-configured' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+          return new Response(JSON.stringify({ ok: false, error: 'not-configured' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
         }
-        if (provided && expected && provided === expected) {
-          const res = new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
-          setAdminCookie(res);
-          return res;
+        if (provided && provided === expected) {
+          return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
         }
-        return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
-      }
-      if (path === '/api/admin-auth/logout' && request.method === 'POST') {
-        const res = new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
-        clearAdminCookie(res);
-        return res;
+        return new Response(JSON.stringify({ ok: false }), { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
       }
 
       // --- Contact Submissions API ---

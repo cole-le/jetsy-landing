@@ -46,26 +46,28 @@ function App() {
     const path = window.location.pathname;
     console.log('URL pathname:', path);
     
+    const verifyChatPassword = async () => {
+      try {
+        const pw = prompt('Enter password to access /chat');
+        if (!pw) return false;
+        const resp = await fetch(`${getApiBaseUrl()}/api/chat-password-verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pw })
+        });
+        if (!resp.ok) return false;
+        const j = await resp.json().catch(() => ({}));
+        return !!j?.ok;
+      } catch {
+        return false;
+      }
+    };
+    
     if (path === '/chat') {
-      // Gate /chat with admin auth
+      // Simple password gate for both local and production
       (async () => {
-        try {
-          const r = await fetch(`${getApiBaseUrl()}/api/admin-auth/check`, { credentials: 'include' });
-          const j = await r.json();
-          if (j?.authorized) {
-            setCurrentStep('chat');
-          } else {
-            const pw = prompt('Enter admin password to access /chat');
-            if (!pw) { setCurrentStep('hero'); return; }
-            const lr = await fetch(`${getApiBaseUrl()}/api/admin-auth/login`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ password: pw }),
-              credentials: 'include'
-            });
-            if (lr.ok) setCurrentStep('chat'); else setCurrentStep('hero');
-          }
-        } catch { setCurrentStep('hero'); }
+        const allowed = await verifyChatPassword();
+        setCurrentStep(allowed ? 'chat' : 'hero');
       })();
     } else if (/^\/[0-9]+-[0-9]+$/.test(path)) {
       const pair = path.slice(1);
@@ -151,9 +153,28 @@ function App() {
     }
   }, [currentStep, isInitialLoad, analyticsProjectId]);
 
-  const handleChatClick = () => {
-    setCurrentStep('chat');
-    trackEvent('chat_page_click');
+  const handleChatClick = async () => {
+    const verify = async () => {
+      try {
+        const pw = prompt('Enter password to access /chat');
+        if (!pw) return false;
+        const resp = await fetch(`${getApiBaseUrl()}/api/chat-password-verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pw })
+        });
+        if (!resp.ok) return false;
+        const j = await resp.json().catch(() => ({}));
+        return !!j?.ok;
+      } catch {
+        return false;
+      }
+    };
+    const allowed = await verify();
+    if (allowed) {
+      setCurrentStep('chat');
+      trackEvent('chat_page_click');
+    }
   };
 
   const handleIdeaSubmit = (idea, visibility) => {
@@ -583,9 +604,25 @@ function App() {
       {currentStep === 'data-analytics' && analyticsProjectId && (
         <ProjectDataAnalytics 
           projectId={analyticsProjectId}
-          onBack={() => {
+      onBack={async () => {
             try { localStorage.setItem('jetsy_current_project_id', String(analyticsProjectId)); } catch {}
-            setCurrentStep('chat');
+            // Re-gate on returning to chat
+            try {
+              const pw = prompt('Enter password to access /chat');
+              if (!pw) { setCurrentStep('hero'); return; }
+              const resp = await fetch(`${getApiBaseUrl()}/api/chat-password-verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: pw })
+              });
+              if (resp.ok) {
+                const j = await resp.json().catch(() => ({}));
+                if (j && j.ok) { setCurrentStep('chat'); return; }
+              }
+              setCurrentStep('hero');
+            } catch {
+              setCurrentStep('hero');
+            }
           }}
         />
       )}
