@@ -2958,12 +2958,16 @@ function createCompleteStaticSite(templateData, projectId) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeHtml(tagline || 'Professional landing page powered by Jetsy')}">
-    <link rel="icon" type="image/png" href="https://jetsy.dev/jetsy_favicon.png">
+    ${templateData.businessLogoUrl ? `<link rel="icon" type="image/png" href="${templateData.businessLogoUrl}">` : '<link rel="icon" type="image/png" href="https://jetsy.dev/jetsy_favicon.png">'}
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* Purple theme gradients and styling */
         .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .purple-gradient { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
         .hover-lift { transition: transform 0.3s ease; }
         .hover-lift:hover { transform: translateY(-5px); }
+        
+        /* Background images */
         .hero-bg {
             background-image: url('${heroBackgroundImage}');
             background-size: cover;
@@ -2975,6 +2979,36 @@ function createCompleteStaticSite(templateData, projectId) {
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
+        }
+        
+        /* Purple theme buttons and accents */
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        /* Animations */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        /* Enhanced hover effects */
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        .pricing-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 25px 50px rgba(102, 126, 234, 0.2);
         }
     </style>
 </head>
@@ -2992,7 +3026,7 @@ function createCompleteStaticSite(templateData, projectId) {
                     ${templateData.showAboutSection ? `<a href="#about" class="text-gray-600 hover:text-blue-600 transition-colors">About</a>` : ''}
                     ${templateData.showPricingSection ? `<a href="#pricing" class="text-gray-600 hover:text-blue-600 transition-colors">Pricing</a>` : ''}
                     ${templateData.showContactSection ? `<a href="#contact" class="text-gray-600 hover:text-blue-600 transition-colors">Contact</a>` : ''}
-                    <button onclick="openLeadModal()" class="bg-blue-600 text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-blue-700 transition-colors">${escapeHtml(ctaButtonText)}</button>
+                    <button onclick="openLeadModal()" class="btn-primary text-white px-6 py-2 rounded-full text-sm font-medium">${escapeHtml(ctaButtonText)}</button>
                 </div>
             </div>
         </div>
@@ -3002,18 +3036,31 @@ function createCompleteStaticSite(templateData, projectId) {
     ${templateData.showHeroSection ? `<section class="relative min-h-screen flex items-center justify-center hero-bg">
         <div class="absolute inset-0 bg-black/50"></div>
         <div class="relative z-10 max-w-6xl mx-auto px-4 text-center text-white">
-            ${templateData.showHeroBadge && templateData.heroBadge ? `<div class="inline-block bg-blue-600/20 backdrop-blur-sm border border-blue-400/30 rounded-full px-4 py-2 mb-6">
+            ${templateData.showHeroBadge && templateData.heroBadge ? `<div class="inline-flex items-center bg-blue-600/20 backdrop-blur-sm border border-blue-400/30 rounded-full px-4 py-2 mb-6">
+                <span class="w-2 h-2 bg-blue-400 rounded-full mr-2 animate-pulse"></span>
                 <span class="text-blue-100 text-sm font-medium">${escapeHtml(templateData.heroBadge)}</span>
             </div>` : ''}
             <h1 class="text-5xl md:text-7xl font-bold mb-6" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.8)">${escapeHtml(businessName)}</h1>
             ${tagline ? `<p class="text-xl md:text-2xl mb-8 text-blue-100" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.8)">${escapeHtml(tagline)}</p>` : ''}
             ${heroDescription ? `<p class="text-lg md:text-xl mb-8 text-gray-200 max-w-4xl mx-auto" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.8)">${escapeHtml(heroDescription)}</p>` : ''}
-            ${templateData.showHeroCTA ? `<button onclick="openLeadModal()" class="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-lg rounded-lg transition-all duration-300 hover-lift">
+            ${templateData.showHeroCTA ? `<button onclick="openLeadModal()" class="px-8 py-4 btn-primary text-white font-semibold text-lg rounded-lg">
                 ${escapeHtml(ctaButtonText)}
             </button>` : ''}
-            ${templateData.showHeroSocialProof && (trustIndicator1 || trustIndicator2) ? `<div class="mt-12 flex items-center justify-center space-x-8 text-sm text-blue-100">
-                ${trustIndicator1 ? `<div class="flex items-center"><span class="text-yellow-400 mr-1">⭐</span>${escapeHtml(trustIndicator1)}</div>` : ''}
-                ${trustIndicator2 ? `<div class="flex items-center"><span class="text-yellow-400 mr-1">⭐</span>${escapeHtml(trustIndicator2)}</div>` : ''}
+            ${templateData.showHeroSocialProof && (trustIndicator1 || trustIndicator2) ? `<div class="mt-12 flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-8 text-sm text-blue-100">
+                <div class="flex items-center space-x-2">
+                    <div class="flex -space-x-2">
+                        <img src="https://randomuser.me/api/portraits/women/68.jpg" alt="Customer" class="w-8 h-8 rounded-full border-2 border-white">
+                        <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Customer" class="w-8 h-8 rounded-full border-2 border-white">
+                        <img src="https://randomuser.me/api/portraits/women/12.jpg" alt="Customer" class="w-8 h-8 rounded-full border-2 border-white">
+                        <img src="https://randomuser.me/api/portraits/men/77.jpg" alt="Customer" class="w-8 h-8 rounded-full border-2 border-white">
+                        <img src="https://randomuser.me/api/portraits/women/65.jpg" alt="Customer" class="w-8 h-8 rounded-full border-2 border-white">
+                    </div>
+                    ${trustIndicator1 ? `<span>${escapeHtml(trustIndicator1)}</span>` : ''}
+                </div>
+                ${trustIndicator2 ? `<div class="flex items-center space-x-1">
+                    <span class="text-yellow-400">⭐⭐⭐⭐⭐</span>
+                    <span>${escapeHtml(trustIndicator2)}</span>
+                </div>` : ''}
             </div>` : ''}
         </div>
     </section>` : ''}
@@ -3027,7 +3074,7 @@ function createCompleteStaticSite(templateData, projectId) {
             </div>` : ''}
             <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                 ${features.map(feature => `
-                <div class="p-6 bg-gray-50 rounded-lg hover-lift">
+                <div class="p-6 bg-gray-50 rounded-lg feature-card transition-all duration-300">
                     <div class="text-4xl mb-4">${feature.icon || '⭐'}</div>
                     <h3 class="text-xl font-semibold text-gray-900 mb-3">${escapeHtml(feature.title || '')}</h3>
                     <p class="text-gray-600">${escapeHtml(feature.description || '')}</p>
@@ -3078,7 +3125,7 @@ function createCompleteStaticSite(templateData, projectId) {
             </div>` : ''}
             <div class="grid md:grid-cols-${Math.min(pricing.length, 3)} gap-8">
                 ${pricing.map(plan => `
-                <div class="p-8 bg-white border-2 ${plan.popular ? 'border-blue-500 shadow-xl relative' : 'border-gray-200'} rounded-lg hover-lift">
+                <div class="p-8 bg-white border-2 ${plan.popular ? 'border-purple-500 shadow-xl relative' : 'border-gray-200'} rounded-lg pricing-card transition-all duration-300">
                     ${plan.popular ? '<div class="absolute -top-3 left-1/2 transform -translate-x-1/2"><span class="bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-medium">Most Popular</span></div>' : ''}
                     <h3 class="text-2xl font-bold text-gray-900 mb-4">${escapeHtml(plan.name || '')}</h3>
                     <div class="mb-6">
@@ -3094,7 +3141,7 @@ function createCompleteStaticSite(templateData, projectId) {
                         </li>
                         `).join('')}
                     </ul>` : ''}
-                    <button onclick="openLeadModal()" class="w-full py-3 ${plan.popular ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'} font-semibold rounded-lg transition-colors">
+                    <button onclick="openLeadModal()" class="w-full py-3 ${plan.popular ? 'btn-primary text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'} font-semibold rounded-lg transition-colors">
                         ${escapeHtml(plan.cta || 'Choose Plan')}
                     </button>
                 </div>
