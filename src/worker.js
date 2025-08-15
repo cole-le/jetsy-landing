@@ -335,6 +335,34 @@ export default {
           return new Response(JSON.stringify({ error: 'delete-failed', message: e?.message || String(e) }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
         }
       }
+      // --- Vercel Deployment API ---
+      if (path.startsWith('/api/vercel')) {
+        // Extract project id from path like /api/vercel/deploy/123
+        const deployMatch = path.match(/^\/api\/vercel\/deploy\/(\d+)$/);
+        const statusMatch = path.match(/^\/api\/vercel\/status\/(\d+)$/);
+        const domainMatch = path.match(/^\/api\/vercel\/domain\/(\d+)$/);
+        
+        if (request.method === 'POST' && deployMatch) {
+          // POST /api/vercel/deploy/:projectId - Deploy project to Vercel
+          return await deployProjectToVercel(deployMatch[1], request, env, corsHeaders);
+        }
+        if (request.method === 'GET' && statusMatch) {
+          // GET /api/vercel/status/:projectId - Get deployment status
+          return await getVercelDeploymentStatus(statusMatch[1], env, corsHeaders);
+        }
+        if (request.method === 'POST' && domainMatch) {
+          // POST /api/vercel/domain/:projectId - Add custom domain
+          return await addVercelCustomDomain(domainMatch[1], request, env, corsHeaders);
+        }
+        if (request.method === 'GET' && domainMatch) {
+          // GET /api/vercel/domain/:projectId - Get domain status
+          return await getVercelDomainStatus(domainMatch[1], env, corsHeaders);
+        }
+        if (request.method === 'OPTIONS') {
+          return new Response(null, { status: 200, headers: corsHeaders });
+        }
+      }
+
       // --- Chat Messages API ---
       if (path === '/api/chat_messages') {
         if (request.method === 'GET') {
@@ -1441,6 +1469,2171 @@ async function deleteProject(id, env, corsHeaders) {
     return new Response(JSON.stringify({ error: 'Failed to delete project' }), { status: 500, headers: corsHeaders });
   }
 }
+
+// --- Vercel Deployment Handlers ---
+async function deployProjectToVercel(projectId, request, env, corsHeaders) {
+  try {
+    console.log('🚀 Deploying project to Vercel:', projectId);
+    
+    // Check if Vercel token is available
+    const vercelToken = env.VERCEL_API_TOKEN;
+    if (!vercelToken) {
+      return new Response(JSON.stringify({ 
+        error: 'Vercel API token not configured',
+        success: false 
+      }), { 
+        status: 500, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      });
+    }
+
+    // Get project data from database
+    const db = env.DB;
+    const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+    
+    if (!project) {
+      return new Response(JSON.stringify({ 
+        error: 'Project not found',
+        success: false 
+      }), { 
+        status: 404, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      });
+    }
+
+    // Parse both files and template data
+    let projectFiles;
+    let templateData;
+    
+    try {
+      // Parse files column
+      projectFiles = typeof project.files === 'string' 
+        ? JSON.parse(project.files) 
+        : project.files;
+    } catch (e) {
+      console.warn('Failed to parse project files:', e);
+      projectFiles = null;
+    }
+    
+    try {
+      // Parse template data as fallback
+      templateData = typeof project.template_data === 'string' 
+        ? JSON.parse(project.template_data) 
+        : project.template_data;
+    } catch (e) {
+      console.warn('Failed to parse template data:', e);
+      templateData = null;
+    }
+
+    // We need either files or template data to deploy
+    if (!projectFiles && !templateData) {
+      return new Response(JSON.stringify({ 
+        error: 'No project files or template data available for deployment',
+        success: false 
+      }), { 
+        status: 400, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      });
+    }
+
+    // Generate Vercel project name
+    const businessName = (templateData && templateData.businessName) || 'Jetsy-Site';
+    const vercelProjectName = generateVercelProjectName(projectId, businessName);
+
+    // Deploy to Vercel using files-first approach
+    const deploymentResult = await deployToVercel(projectFiles, templateData, projectId, vercelToken, {
+      projectName: vercelProjectName,
+      target: 'production'
+    });
+
+    if (!deploymentResult.success) {
+      console.error('Vercel deployment failed:', deploymentResult.error);
+      return new Response(JSON.stringify({ 
+        error: deploymentResult.error,
+        success: false 
+      }), { 
+        status: 500, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      });
+    }
+
+    // Store deployment info in database
+    await ensureVercelTables(env);
+    
+    const deploymentInsert = await db.prepare(`
+      INSERT INTO vercel_deployments (
+        project_id, deployment_id, deployment_url, status, 
+        vercel_project_name, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?)
+    `).bind(
+      projectId,
+      deploymentResult.deploymentId,
+      deploymentResult.deploymentUrl,
+      deploymentResult.status,
+      deploymentResult.vercelProjectName,
+      new Date().toISOString()
+    ).run();
+
+    // Update project with Vercel info
+    await db.prepare(`
+      UPDATE projects 
+      SET vercel_enabled = ?, 
+          vercel_project_name = ?, 
+          current_deployment_id = ?, 
+          current_deployment_url = ?
+      WHERE id = ?
+    `).bind(
+      true,
+      deploymentResult.vercelProjectName,
+      deploymentResult.deploymentId,
+      deploymentResult.deploymentUrl,
+      projectId
+    ).run();
+
+    console.log('✅ Vercel deployment completed:', {
+      projectId,
+      deploymentId: deploymentResult.deploymentId,
+      deploymentUrl: deploymentResult.deploymentUrl
+    });
+
+    return new Response(JSON.stringify({
+      success: true,
+      deployment: {
+        id: deploymentResult.deploymentId,
+        url: deploymentResult.deploymentUrl,
+        status: deploymentResult.status,
+        vercelProjectName: deploymentResult.vercelProjectName,
+        inspectorUrl: deploymentResult.inspectorUrl
+      }
+    }), { 
+      status: 200, 
+      headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+    });
+
+  } catch (error) {
+    console.error('❌ Error deploying to Vercel:', error);
+    return new Response(JSON.stringify({ 
+      error: error.message || 'Failed to deploy to Vercel',
+      success: false 
+    }), { 
+      status: 500, 
+      headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+    });
+  }
+}
+
+async function getVercelDeploymentStatus(projectId, env, corsHeaders) {
+  try {
+    const db = env.DB;
+    
+    // Get latest deployment for project
+    const deployment = await db.prepare(`
+      SELECT * FROM vercel_deployments 
+      WHERE project_id = ? 
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `).bind(projectId).first();
+
+    if (!deployment) {
+      return new Response(JSON.stringify({ 
+        error: 'No deployment found for this project',
+        success: false 
+      }), { 
+        status: 404, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      });
+    }
+
+    // Check current status from Vercel if we have a token
+    const vercelToken = env.VERCEL_API_TOKEN;
+    let currentStatus = deployment;
+
+    if (vercelToken && deployment.deployment_id) {
+      try {
+        const statusResult = await checkDeploymentStatus(deployment.deployment_id, vercelToken);
+        if (statusResult.success) {
+          // Update database with latest status
+          if (statusResult.status !== deployment.status) {
+            await db.prepare(`
+              UPDATE vercel_deployments 
+              SET status = ?, updated_at = ? 
+              WHERE deployment_id = ?
+            `).bind(
+              statusResult.status,
+              new Date().toISOString(),
+              deployment.deployment_id
+            ).run();
+          }
+          
+          currentStatus = {
+            ...deployment,
+            status: statusResult.status,
+            error_message: statusResult.error || deployment.error_message
+          };
+        }
+      } catch (e) {
+        console.error('Failed to check Vercel status:', e);
+        // Fall back to database status
+      }
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      deployment: {
+        id: currentStatus.deployment_id,
+        url: currentStatus.deployment_url,
+        status: currentStatus.status,
+        vercelProjectName: currentStatus.vercel_project_name,
+        createdAt: currentStatus.created_at,
+        updatedAt: currentStatus.updated_at,
+        errorMessage: currentStatus.error_message
+      }
+    }), { 
+      status: 200, 
+      headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+    });
+
+  } catch (error) {
+    console.error('Error getting deployment status:', error);
+    return new Response(JSON.stringify({ 
+      error: error.message || 'Failed to get deployment status',
+      success: false 
+    }), { 
+      status: 500, 
+      headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+    });
+  }
+}
+
+async function addVercelCustomDomain(projectId, request, env, corsHeaders) {
+  try {
+    const body = await request.json();
+    const { domain } = body;
+
+    if (!domain) {
+      return new Response(JSON.stringify({ 
+        error: 'Domain is required',
+        success: false 
+      }), { 
+        status: 400, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      });
+    }
+
+    const vercelToken = env.VERCEL_API_TOKEN;
+    if (!vercelToken) {
+      return new Response(JSON.stringify({ 
+        error: 'Vercel API token not configured',
+        success: false 
+      }), { 
+        status: 500, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      });
+    }
+
+    const db = env.DB;
+    
+    // Get project's Vercel project name
+    const project = await db.prepare(`
+      SELECT vercel_project_name, current_deployment_id 
+      FROM projects 
+      WHERE id = ? AND vercel_enabled = ?
+    `).bind(projectId, true).first();
+
+    if (!project || !project.vercel_project_name) {
+      return new Response(JSON.stringify({ 
+        error: 'Project not deployed to Vercel or missing Vercel project name',
+        success: false 
+      }), { 
+        status: 400, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      });
+    }
+
+    // Add domain to Vercel project
+    const domainResult = await addCustomDomain(domain, project.vercel_project_name, vercelToken);
+
+    if (!domainResult.success) {
+      return new Response(JSON.stringify({ 
+        error: domainResult.error,
+        success: false 
+      }), { 
+        status: 500, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      });
+    }
+
+    // Store domain info in database
+    await ensureVercelTables(env);
+    
+    const domainInsert = await db.prepare(`
+      INSERT INTO vercel_custom_domains (
+        project_id, deployment_id, domain_name, verification_status,
+        dns_records, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?)
+    `).bind(
+      projectId,
+      project.current_deployment_id,
+      domain,
+      'pending',
+      JSON.stringify(domainResult.nameservers || {}),
+      new Date().toISOString()
+    ).run();
+
+    // Update project with custom domain
+    await db.prepare(`
+      UPDATE projects 
+      SET custom_domain = ? 
+      WHERE id = ?
+    `).bind(domain, projectId).run();
+
+    return new Response(JSON.stringify({
+      success: true,
+      domain: {
+        name: domain,
+        verificationStatus: 'pending',
+        nameservers: domainResult.nameservers,
+        intendedNameservers: domainResult.intendedNameservers,
+        dnsInstructions: getDNSInstructions(domain, project.vercel_project_name)
+      }
+    }), { 
+      status: 200, 
+      headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+    });
+
+  } catch (error) {
+    console.error('Error adding custom domain:', error);
+    return new Response(JSON.stringify({ 
+      error: error.message || 'Failed to add custom domain',
+      success: false 
+    }), { 
+      status: 500, 
+      headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+    });
+  }
+}
+
+async function getVercelDomainStatus(projectId, env, corsHeaders) {
+  try {
+    const db = env.DB;
+    
+    // Get domain info from database
+    const domain = await db.prepare(`
+      SELECT * FROM vercel_custom_domains 
+      WHERE project_id = ? 
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `).bind(projectId).first();
+
+    if (!domain) {
+      return new Response(JSON.stringify({ 
+        error: 'No custom domain found for this project',
+        success: false 
+      }), { 
+        status: 404, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      });
+    }
+
+    // Check current status from Vercel if we have a token
+    const vercelToken = env.VERCEL_API_TOKEN;
+    let currentStatus = domain;
+
+    if (vercelToken) {
+      try {
+        // Get Vercel project name
+        const project = await db.prepare(`
+          SELECT vercel_project_name 
+          FROM projects 
+          WHERE id = ?
+        `).bind(projectId).first();
+
+        if (project && project.vercel_project_name) {
+          const statusResult = await checkDomainStatus(
+            domain.domain_name, 
+            project.vercel_project_name, 
+            vercelToken
+          );
+          
+          if (statusResult.success) {
+            // Update database with latest status
+            const newStatus = statusResult.verified ? 'verified' : 'pending';
+            if (newStatus !== domain.verification_status) {
+              await db.prepare(`
+                UPDATE vercel_custom_domains 
+                SET verification_status = ?, 
+                    dns_configured = ?, 
+                    updated_at = ? 
+                WHERE id = ?
+              `).bind(
+                newStatus,
+                statusResult.verified,
+                new Date().toISOString(),
+                domain.id
+              ).run();
+            }
+            
+            currentStatus = {
+              ...domain,
+              verification_status: newStatus,
+              dns_configured: statusResult.verified
+            };
+          }
+        }
+      } catch (e) {
+        console.error('Failed to check domain status:', e);
+        // Fall back to database status
+      }
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      domain: {
+        name: currentStatus.domain_name,
+        verificationStatus: currentStatus.verification_status,
+        dnsConfigured: currentStatus.dns_configured,
+        createdAt: currentStatus.created_at,
+        updatedAt: currentStatus.updated_at
+      }
+    }), { 
+      status: 200, 
+      headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+    });
+
+  } catch (error) {
+    console.error('Error getting domain status:', error);
+    return new Response(JSON.stringify({ 
+      error: error.message || 'Failed to get domain status',
+      success: false 
+    }), { 
+      status: 500, 
+      headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+    });
+  }
+}
+
+// Helper function to ensure Vercel tables exist
+async function ensureVercelTables(env) {
+  const db = env.DB;
+  
+  // Create vercel_deployments table
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS vercel_deployments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL,
+      deployment_id TEXT UNIQUE NOT NULL,
+      deployment_url TEXT NOT NULL,
+      status TEXT DEFAULT 'building',
+      vercel_project_name TEXT,
+      build_time_ms INTEGER,
+      error_message TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (project_id) REFERENCES projects(id)
+    )
+  `).run();
+
+  // Create vercel_custom_domains table
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS vercel_custom_domains (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL,
+      deployment_id TEXT NOT NULL,
+      domain_name TEXT UNIQUE NOT NULL,
+      verification_status TEXT DEFAULT 'pending',
+      dns_configured BOOLEAN DEFAULT FALSE,
+      ssl_status TEXT DEFAULT 'pending',
+      vercel_domain_id TEXT,
+      dns_records TEXT,
+      verification_errors TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (project_id) REFERENCES projects(id),
+      FOREIGN KEY (deployment_id) REFERENCES vercel_deployments(deployment_id)
+    )
+  `).run();
+
+  // Add Vercel columns to projects table if they don't exist
+  try {
+    await db.prepare(`ALTER TABLE projects ADD COLUMN vercel_enabled BOOLEAN DEFAULT FALSE`).run();
+  } catch (e) {
+    // Column probably already exists
+  }
+  
+  try {
+    await db.prepare(`ALTER TABLE projects ADD COLUMN vercel_project_name TEXT`).run();
+  } catch (e) {
+    // Column probably already exists
+  }
+  
+  try {
+    await db.prepare(`ALTER TABLE projects ADD COLUMN current_deployment_id TEXT`).run();
+  } catch (e) {
+    // Column probably already exists
+  }
+  
+  try {
+    await db.prepare(`ALTER TABLE projects ADD COLUMN current_deployment_url TEXT`).run();
+  } catch (e) {
+    // Column probably already exists
+  }
+  
+  try {
+    await db.prepare(`ALTER TABLE projects ADD COLUMN custom_domain TEXT`).run();
+  } catch (e) {
+    // Column probably already exists
+  }
+}
+
+// Utility functions for Vercel deployment (embedded versions of the functions from vercelDeployment.js)
+function generateVercelProjectName(projectId, businessName = '') {
+  const cleanBusinessName = businessName
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 20);
+  
+  const projectSuffix = projectId.toString().substring(-6);
+  
+  if (cleanBusinessName) {
+    return `jetsy-${cleanBusinessName}-${projectSuffix}`;
+  } else {
+    return `jetsy-project-${projectSuffix}`;
+  }
+}
+
+// Note: The actual Vercel API functions (deployToVercel, checkDeploymentStatus, etc.) 
+// would need to be imported or re-implemented here for use in the Worker environment.
+// For now, we'll add simplified versions:
+
+async function deployToVercel(projectFiles, templateData, projectId, vercelToken, options = {}) {
+  const { projectName = `jetsy-${projectId}`, target = 'production' } = options;
+  
+  let staticHTML;
+  
+  // Always use template data approach (same as public route /{user-id}-{project-id})
+  if (templateData) {
+    console.log('🚀 Using template-data-based deployment (same as public route)');
+    staticHTML = createExceptionalTemplateStaticSite(templateData, projectId);
+  } else {
+    throw new Error('No template data available for deployment');
+  }
+  
+  const files = [
+    {
+      file: 'index.html',
+      data: staticHTML
+    },
+    {
+      file: 'vercel.json',
+      data: JSON.stringify({
+        "version": 2,
+        "public": true,
+        "headers": [
+          {
+            "source": "/(.*)",
+            "headers": [
+              { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+              { "key": "X-Content-Type-Options", "value": "nosniff" }
+            ]
+          }
+        ]
+      }, null, 2)
+    }
+  ];
+
+  const response = await fetch('https://api.vercel.com/v13/deployments', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${vercelToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      name: projectName,
+      files: files,
+      target: target,
+      projectSettings: {
+        framework: null,
+        buildCommand: null,
+        outputDirectory: null,
+        installCommand: null
+      }
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(`Vercel deployment failed: ${response.status} ${errorData.error?.message || ''}`);
+  }
+
+  const result = await response.json();
+  
+  return {
+    success: true,
+    deploymentId: result.id,
+    deploymentUrl: `https://${result.url}`,
+    status: result.readyState,
+    vercelProjectName: projectName,
+    inspectorUrl: result.inspectorUrl
+  };
+}
+
+async function checkDeploymentStatus(deploymentId, vercelToken) {
+  const response = await fetch(`https://api.vercel.com/v13/deployments/${deploymentId}`, {
+    headers: { 'Authorization': `Bearer ${vercelToken}` }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to check deployment status: ${response.status}`);
+  }
+
+  const deployment = await response.json();
+  
+  return {
+    success: true,
+    deploymentId: deployment.id,
+    status: deployment.readyState,
+    url: deployment.url ? `https://${deployment.url}` : null,
+    error: deployment.error
+  };
+}
+
+async function addCustomDomain(domain, projectId, vercelToken) {
+  const response = await fetch(`https://api.vercel.com/v9/projects/${projectId}/domains`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${vercelToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ name: domain })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(`Failed to add custom domain: ${response.status} ${errorData.error?.message || ''}`);
+  }
+
+  const result = await response.json();
+  
+  return {
+    success: true,
+    domain: result.name,
+    nameservers: result.nameservers,
+    intendedNameservers: result.intendedNameservers
+  };
+}
+
+async function checkDomainStatus(domain, projectId, vercelToken) {
+  const response = await fetch(`https://api.vercel.com/v9/projects/${projectId}/domains/${domain}`, {
+    headers: { 'Authorization': `Bearer ${vercelToken}` }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to check domain status: ${response.status}`);
+  }
+
+  const domainStatus = await response.json();
+  
+  return {
+    success: true,
+    domain: domainStatus.name,
+    verified: domainStatus.verified
+  };
+}
+
+// Get the ExceptionalTemplate component code as a string for embedding in static HTML
+function getExceptionalTemplateComponentCode() {
+  return `
+    // Utility function to calculate optimal overlay and text settings for readability
+    const calculateOptimalTextColor = (imageUrl) => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+          
+          try {
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            let totalLuminance = 0;
+            let sampleCount = 0;
+            
+            // Sample pixels to calculate average luminance
+            for (let i = 0; i < data.length; i += 16) { // Sample every 4th pixel
+              const r = data[i];
+              const g = data[i + 1];
+              const b = data[i + 2];
+              
+              // Calculate luminance using standard formula
+              const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+              totalLuminance += luminance;
+              sampleCount++;
+            }
+            
+            const averageLuminance = totalLuminance / sampleCount;
+            
+            // Always use white text with strong black overlay for maximum readability
+            const textColor = '#ffffff'; // Always white text
+            const shadowColor = 'rgba(0, 0, 0, 0.9)'; // Strong black shadow
+            
+            // Calculate overlay opacity based on image complexity
+            // Higher opacity for lighter/more complex backgrounds
+            let overlayOpacity = 0.6; // Default strong overlay
+            if (averageLuminance > 0.6) {
+              overlayOpacity = 0.7; // Stronger overlay for very light backgrounds
+            } else if (averageLuminance < 0.3) {
+              overlayOpacity = 0.5; // Slightly lighter overlay for already dark backgrounds
+            }
+            
+            resolve({
+              textColor,
+              shadowColor,
+              luminance: averageLuminance,
+              overlayOpacity
+            });
+          } catch (error) {
+            console.warn('Could not analyze image for color optimization:', error);
+            // Fallback to strong overlay for maximum readability
+            resolve({
+              textColor: '#ffffff',
+              shadowColor: 'rgba(0, 0, 0, 0.9)',
+              luminance: 0.3,
+              overlayOpacity: 0.6
+            });
+          }
+        };
+        
+        img.onerror = () => {
+          // Fallback if image fails to load - use strong overlay
+          resolve({
+            textColor: '#ffffff',
+            shadowColor: 'rgba(0, 0, 0, 0.9)',
+            luminance: 0.3,
+            overlayOpacity: 0.6
+          });
+        };
+        
+        img.src = imageUrl;
+      });
+    };
+
+    // ExceptionalTemplate component (same as in ExceptionalTemplate.jsx)
+    const ExceptionalTemplate = ({ 
+      businessName = 'Your Amazing Startup',
+      seoTitle = null,
+      businessLogoUrl = null,
+      tagline = 'Transform your idea into reality with our innovative solution',
+      isLiveWebsite = false,
+      heroDescription = 'Join thousands of satisfied customers who have already made the leap.',
+      ctaButtonText = 'Start Building Free',
+      sectionType = 'features',
+      sectionTitle = 'Everything you need to succeed',
+      sectionSubtitle = 'Our platform combines cutting-edge AI with proven design principles to create landing pages that convert.',
+      features = [],
+      aboutContent = "We understand the challenges of bringing ideas to life. That's why we've built a platform that makes it effortless to create professional landing pages that actually convert visitors into customers.",
+      pricing = [],
+      contactInfo = {
+        email: "hello@jetsy.com",
+        phone: "+1 (555) 123-4567",
+        office: "San Francisco, CA"
+      },
+      trustIndicator1 = "Join 10,000+ creators",
+      trustIndicator2 = "4.8/5 customer satisfaction rating",
+      heroBadge = "Now Available - AI-Powered Landing Pages",
+      aboutSectionTitle = "Built by creators, for creators",
+      aboutSectionSubtitle = "Our platform combines cutting-edge AI with proven design principles to create landing pages that convert.",
+      aboutBenefits = [
+        "No coding knowledge required",
+        "AI-powered design optimization",
+        "Built-in analytics and tracking"
+      ],
+      pricingSectionTitle = "Simple, transparent pricing",
+      pricingSectionSubtitle = "Choose the plan that's right for you. All plans include our core features and 24/7 support.",
+      contactSectionTitle = "Ready to get started?",
+      contactSectionSubtitle = "Let's discuss how we can help you create the perfect landing page for your business. Our team is here to support you every step of the way.",
+      contactFormPlaceholders = {
+        name: "Your name",
+        email: "your@email.com",
+        company: "Your company",
+        message: "Tell us about your project..."
+      },
+      footerDescription = "Build beautiful, conversion-optimized landing pages with AI. Transform your ideas into reality in minutes.",
+      footerProductLinks = ["Features", "Pricing", "Templates", "API"],
+      footerCompanyLinks = ["About", "Blog", "Careers", "Contact"],
+      landingPagesCreated = "10,000+ Landing Pages Created",
+      heroBackgroundImage = null,
+      aboutBackgroundImage = null,
+      showLeadPhoneField = true,
+      projectId = null,
+      showHeroSection = true,
+      showHeroBadge = true,
+      showHeroCTA = true,
+      showHeroSocialProof = true,
+      showDynamicSection = true,
+      showSectionTitle = true,
+      showSectionSubtitle = true,
+      showAboutSection = true,
+      showAboutTitle = true,
+      showAboutSubtitle = true,
+      showAboutBenefits = true,
+      showPricingSection = true,
+      showPricingTitle = true,
+      showPricingSubtitle = true,
+      showContactSection = true,
+      showContactTitle = true,
+      showContactSubtitle = true,
+      showContactInfoList = true,
+      showContactForm = true,
+      showFooter = true
+    }) => {
+      // Debug background images
+      console.log('🎨 ExceptionalTemplate received heroBackgroundImage:', heroBackgroundImage);
+      console.log('🎨 ExceptionalTemplate received aboutBackgroundImage:', aboutBackgroundImage);
+      
+      const [isVisible, setIsVisible] = useState(false);
+      const [activeSection, setActiveSection] = useState('home');
+      const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+      const [formData, setFormData] = useState({
+        name: '',
+        email: '',
+        company: '',
+        message: ''
+      });
+      const [isSubmitting, setIsSubmitting] = useState(false);
+      const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
+      const rootRef = useRef(null);
+      const [overlayRect, setOverlayRect] = useState({ top: 0, height: 0 });
+      const scrollContainerRef = useRef(null);
+      const [leadEmail, setLeadEmail] = useState('');
+      const [leadPhone, setLeadPhone] = useState('');
+      
+      // Pool of avatar images to randomly display for social proof
+      const avatarImagePool = [
+        'https://randomuser.me/api/portraits/women/68.jpg',
+        'https://randomuser.me/api/portraits/men/32.jpg',
+        'https://randomuser.me/api/portraits/women/12.jpg',
+        'https://randomuser.me/api/portraits/men/77.jpg',
+        'https://randomuser.me/api/portraits/women/65.jpg',
+        'https://randomuser.me/api/portraits/men/41.jpg',
+        'https://randomuser.me/api/portraits/women/29.jpg',
+        'https://randomuser.me/api/portraits/men/81.jpg',
+        'https://randomuser.me/api/portraits/women/44.jpg',
+        'https://randomuser.me/api/portraits/men/67.jpg'
+      ];
+
+      const [selectedAvatars, setSelectedAvatars] = useState([]);
+
+      // Utility to select n unique random items from an array
+      const selectRandomUnique = (items, count) => {
+        const pool = [...items];
+        for (let i = pool.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+        return pool.slice(0, count);
+      };
+
+      useEffect(() => {
+        setSelectedAvatars(selectRandomUnique(avatarImagePool, 4));
+      }, []);
+
+      // Find nearest scrollable ancestor for positioning modal within the visible Live Preview area
+      const findScrollContainer = (node) => {
+        let current = node?.parentElement || null;
+        while (current) {
+          const style = window.getComputedStyle(current);
+          const overflowY = style.overflowY;
+          const isScrollable = (overflowY === 'auto' || overflowY === 'scroll') && current.scrollHeight > current.clientHeight;
+          if (isScrollable) return current;
+          current = current.parentElement;
+        }
+        return null;
+      };
+
+      const updateOverlayPosition = () => {
+        const rootEl = rootRef.current;
+        if (!rootEl) return;
+        const scroller = scrollContainerRef.current || findScrollContainer(rootEl);
+        if (!scroller) {
+          // Standalone page: align overlay to current viewport over the hero
+          const rootRect = rootEl.getBoundingClientRect();
+          const rootOffsetTop = rootRect.top + window.scrollY;
+          const visibleTopInRoot = Math.max(0, window.scrollY - rootOffsetTop);
+          setOverlayRect({ top: visibleTopInRoot, height: window.innerHeight });
+          return;
+        }
+        scrollContainerRef.current = scroller;
+        const scrollerRect = scroller.getBoundingClientRect();
+        const rootRect = rootEl.getBoundingClientRect();
+        // Compute the visible top in root coordinates
+        const rootOffsetWithinScroller = rootRect.top - scrollerRect.top + scroller.scrollTop;
+        const visibleTopInRoot = scroller.scrollTop - rootOffsetWithinScroller;
+        const clampedTop = Math.max(0, Math.min(visibleTopInRoot, Math.max(rootEl.scrollHeight - scroller.clientHeight, 0)));
+        setOverlayRect({ top: clampedTop, height: scroller.clientHeight });
+      };
+
+      useEffect(() => {
+        if (!isLeadModalOpen) return;
+        updateOverlayPosition();
+        const scroller = scrollContainerRef.current || findScrollContainer(rootRef.current);
+        const onScroll = () => updateOverlayPosition();
+        const onResize = () => updateOverlayPosition();
+        if (scroller) scroller.addEventListener('scroll', onScroll, { passive: true });
+        else window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', onResize);
+        return () => {
+          if (scroller) scroller.removeEventListener('scroll', onScroll);
+          else window.removeEventListener('scroll', onScroll);
+          window.removeEventListener('resize', onResize);
+        };
+      }, [isLeadModalOpen]);
+      
+      // State for dynamic text colors
+      const [heroTextColors, setHeroTextColors] = useState({
+        textColor: '#ffffff',
+        shadowColor: 'rgba(0, 0, 0, 0.9)',
+        overlayOpacity: 0.6
+      });
+      const [aboutTextColors, setAboutTextColors] = useState({
+        textColor: '#ffffff',
+        shadowColor: 'rgba(0, 0, 0, 0.9)',
+        overlayOpacity: 0.6
+      });
+
+      useEffect(() => {
+        setIsVisible(true);
+        
+        // Smooth scroll for navigation
+        const handleSmoothScroll = (e) => {
+          if (e.target.hash) {
+            e.preventDefault();
+            const target = document.querySelector(e.target.hash);
+            if (target) {
+              target.scrollIntoView({ behavior: 'smooth' });
+            }
+          }
+        };
+
+        // Close mobile menu when clicking outside
+        const handleClickOutside = (e) => {
+          if (isMobileMenuOpen && !e.target.closest('nav')) {
+            setIsMobileMenuOpen(false);
+          }
+        };
+
+        // Close mobile menu on window resize
+        const handleResize = () => {
+          if (window.innerWidth >= 768) {
+            setIsMobileMenuOpen(false);
+          }
+        };
+
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+          anchor.addEventListener('click', handleSmoothScroll);
+        });
+
+        document.addEventListener('click', handleClickOutside);
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+          document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.removeEventListener('click', handleSmoothScroll);
+          });
+          document.removeEventListener('click', handleClickOutside);
+          window.removeEventListener('resize', handleResize);
+        };
+      }, [isMobileMenuOpen]);
+
+      // Set document title and favicon dynamically - only for live websites
+      useEffect(() => {
+        // Only apply custom branding for live websites, keep Jetsy branding in editor
+        if (!isLiveWebsite) return;
+        
+        // Set document title for SEO and browser tab - always format as "Business Name - Headline"
+        let headline = seoTitle;
+        if (!headline) {
+          // Fallback to tagline if no SEO title, or default message
+          headline = tagline || 'Transform your idea into reality';
+        }
+        
+        // Ensure we always have the format: "Business Name - Headline"
+        const title = \`\${businessName} - \${headline}\`;
+        document.title = title;
+        
+        // Set favicon using business logo if available
+        if (businessLogoUrl) {
+          // Remove existing favicon links
+          const existingFavicons = document.querySelectorAll('link[rel*="icon"]');
+          existingFavicons.forEach(link => link.remove());
+          
+          // Add new favicon link
+          const faviconLink = document.createElement('link');
+          faviconLink.rel = 'icon';
+          faviconLink.type = 'image/png';
+          faviconLink.href = businessLogoUrl;
+          document.head.appendChild(faviconLink);
+        }
+      }, [isLiveWebsite, seoTitle, businessName, tagline, businessLogoUrl]);
+
+      // Analyze background images and update text colors
+      useEffect(() => {
+        const analyzeBackgroundImages = async () => {
+          if (heroBackgroundImage) {
+            console.log('🎨 Analyzing hero background image for color optimization...');
+            const colors = await calculateOptimalTextColor(heroBackgroundImage);
+            setHeroTextColors(colors);
+            console.log('🎨 Hero text colors optimized:', colors);
+          }
+          
+          if (aboutBackgroundImage) {
+            console.log('🎨 Analyzing about background image for color optimization...');
+            const colors = await calculateOptimalTextColor(aboutBackgroundImage);
+            setAboutTextColors(colors);
+            console.log('🎨 About text colors optimized:', colors);
+          }
+        };
+
+        analyzeBackgroundImages();
+      }, [heroBackgroundImage, aboutBackgroundImage]);
+
+      const handleFormSubmit = async (e) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        
+        try {
+          const res = await fetch('https://jetsy.dev/api/contact', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: formData.name,
+              email: formData.email,
+              company: formData.company,
+              message: formData.message,
+              project_id: projectId || 1,
+              submitted_at: new Date().toISOString(),
+            })
+          });
+          if (res.ok) {
+            alert('Thank you! We\\'ll be in touch soon.');
+            setFormData({ name: '', email: '', company: '', message: '' });
+          } else {
+            const data = await res.json().catch(() => ({}));
+            alert(data?.error || 'Failed to submit. Please try again.');
+          }
+        } catch (err) {
+          console.error(err);
+          alert('Network error. Please try again.');
+        } finally {
+          setIsSubmitting(false);
+        }
+      };
+
+      const handleInputChange = (e) => {
+        setFormData({
+          ...formData,
+          [e.target.name]: e.target.value
+        });
+      };
+
+      // Return the full ExceptionalTemplate JSX (converted to React.createElement calls)
+      // This is the exact same structure as ExceptionalTemplate.jsx
+      return React.createElement('div', { 
+        ref: rootRef, 
+        className: 'relative min-h-screen bg-white' 
+      },
+        // Navigation
+        React.createElement('nav', { className: 'relative bg-white/90 backdrop-blur-md border-b border-gray-100' },
+          React.createElement('div', { className: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8' },
+            React.createElement('div', { className: 'flex justify-between items-center h-16' },
+              React.createElement('div', { className: 'flex items-center' },
+                React.createElement('div', { className: 'flex-shrink-0' },
+                  businessLogoUrl ? 
+                    React.createElement('img', { src: businessLogoUrl, alt: businessName, className: 'h-8 w-auto' }) :
+                    React.createElement('div', { className: 'w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center' },
+                      React.createElement('span', { className: 'text-white font-bold text-sm' }, 'J')
+                    )
+                ),
+                React.createElement('div', { className: 'ml-3' },
+                  React.createElement('span', { className: 'text-xl font-bold text-gray-900' }, businessName)
+                )
+              ),
+              // Desktop Navigation
+              React.createElement('div', { className: 'hidden md:block' },
+                React.createElement('div', { className: 'ml-10 flex items-baseline space-x-8' },
+                  React.createElement('a', { href: '#home', className: 'text-gray-900 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors' }, 'Home'),
+                  showDynamicSection && React.createElement('a', { 
+                    href: \`#\${sectionType}\`, 
+                    className: 'text-gray-500 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors' 
+                  }, sectionType === 'features' ? 'Features' : sectionType === 'services' ? 'Services' : 'Highlights'),
+                  showAboutSection && React.createElement('a', { href: '#about', className: 'text-gray-500 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors' }, 'About'),
+                  showPricingSection && React.createElement('a', { href: '#pricing', className: 'text-gray-500 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors' }, 'Pricing'),
+                  showContactSection && React.createElement('a', { href: '#contact', className: 'text-gray-500 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors' }, 'Contact')
+                )
+              ),
+              React.createElement('div', { className: 'flex items-center space-x-4' },
+                React.createElement('button', {
+                  onClick: () => setIsLeadModalOpen(true),
+                  className: 'hidden md:block bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-full text-sm font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-300 transform hover:scale-105'
+                }, 'Get Started')
+              )
+            )
+          )
+        ),
+        
+        // Hero Section
+        showHeroSection && React.createElement('section', { 
+          id: 'home', 
+          className: 'relative min-h-screen flex items-start justify-center overflow-hidden pt-8 sm:pt-12 md:pt-16',
+          style: heroBackgroundImage ? {
+            backgroundImage: \`url(\${heroBackgroundImage})\`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat'
+          } : {}
+        },
+          // Background overlay for hero with background image
+          heroBackgroundImage && React.createElement('div', { 
+            className: 'absolute inset-0',
+            style: { 
+              backgroundColor: \`rgba(0, 0, 0, \${heroTextColors.overlayOpacity})\`,
+              backdropFilter: 'blur(2px)'
+            }
+          }),
+          !heroBackgroundImage && React.createElement('div', { className: 'absolute inset-0 bg-gradient-to-br from-gray-50 to-blue-50' }),
+          React.createElement('div', { className: 'absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10' }),
+          
+          React.createElement('div', { className: 'relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center' },
+            React.createElement('div', { 
+              className: \`transform transition-all duration-1000 \${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}\`
+            },
+              showHeroBadge && React.createElement('div', { 
+                className: 'inline-flex items-center px-4 py-2 rounded-full text-sm font-medium mb-8 sm:mb-10',
+                style: {
+                  backgroundColor: heroBackgroundImage ? 'rgba(0, 0, 0, 0.8)' : 'rgb(219, 234, 254)',
+                  color: heroBackgroundImage ? '#ffffff' : '#1e40af',
+                  textShadow: heroBackgroundImage ? \`0 1px 2px \${heroTextColors.shadowColor}\` : 'none',
+                  border: heroBackgroundImage ? '1px solid rgba(255, 255, 255, 0.2)' : 'none'
+                }
+              },
+                React.createElement('span', { className: 'w-2 h-2 bg-blue-400 rounded-full mr-2 animate-pulse' }),
+                heroBadge
+              ),
+              
+              React.createElement('h1', { 
+                className: 'text-4xl sm:text-5xl md:text-7xl font-bold mb-6 leading-tight px-4',
+                style: {
+                  color: heroBackgroundImage ? '#ffffff' : '#1f2937',
+                  textShadow: heroBackgroundImage ? \`0 3px 6px \${heroTextColors.shadowColor}\` : 'none'
+                }
+              }, businessName),
+              
+              React.createElement('p', { 
+                className: 'text-lg sm:text-xl md:text-2xl mb-8 max-w-3xl mx-auto leading-relaxed px-4',
+                style: {
+                  color: heroBackgroundImage ? '#ffffff' : '#4b5563',
+                  textShadow: heroBackgroundImage ? \`0 2px 4px \${heroTextColors.shadowColor}\` : 'none'
+                }
+              }, tagline),
+              
+              React.createElement('p', { 
+                className: 'text-base sm:text-lg mb-8 max-w-2xl mx-auto leading-relaxed px-4',
+                style: {
+                  color: heroBackgroundImage ? '#ffffff' : '#4b5563',
+                  textShadow: heroBackgroundImage ? \`0 2px 4px \${heroTextColors.shadowColor}\` : 'none'
+                }
+              }, heroDescription),
+              
+              showHeroCTA && React.createElement('div', { className: 'flex justify-center items-center mb-12' },
+                React.createElement('button', {
+                  onClick: () => setIsLeadModalOpen(true),
+                  className: 'bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:from-blue-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-300 shadow-2xl'
+                }, ctaButtonText)
+              )
+            )
+          )
+        ),
+        
+        // Features/Services/Highlights Section 
+        showDynamicSection && React.createElement('section', { 
+          id: sectionType, 
+          className: 'py-20 bg-white' 
+        },
+          React.createElement('div', { className: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8' },
+            React.createElement('div', { className: 'text-center mb-16' },
+              showSectionTitle && React.createElement('h2', { className: 'text-4xl md:text-5xl font-bold text-gray-900 mb-6' },
+                sectionTitle.split(' ').slice(0, -1).join(' '),
+                React.createElement('span', { className: 'bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent' }, 
+                  ' ' + sectionTitle.split(' ').slice(-1)[0]
+                )
+              ),
+              showSectionSubtitle && React.createElement('p', { className: 'text-xl text-gray-600 max-w-3xl mx-auto' }, sectionSubtitle)
+            ),
+            
+            React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8' },
+              features.map((feature, index) =>
+                React.createElement('div', { 
+                  key: index,
+                  className: 'group p-6 md:p-8 rounded-2xl bg-gray-50 hover:bg-white hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2'
+                },
+                  React.createElement('div', { className: 'text-3xl md:text-4xl mb-4' }, feature.icon),
+                  React.createElement('h3', { className: 'text-lg md:text-xl font-semibold text-gray-900 mb-3' }, feature.title),
+                  React.createElement('p', { className: 'text-gray-600 leading-relaxed text-sm md:text-base' }, feature.description)
+                )
+              )
+            )
+          )
+        ),
+        
+        // About Section
+        showAboutSection && React.createElement('section', { 
+          id: 'about', 
+          className: 'py-20 relative',
+          style: aboutBackgroundImage ? {
+            backgroundImage: \`url(\${aboutBackgroundImage})\`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat'
+          } : {}
+        },
+          aboutBackgroundImage && React.createElement('div', { 
+            className: 'absolute inset-0',
+            style: { 
+              backgroundColor: \`rgba(0, 0, 0, \${Math.min(aboutTextColors.overlayOpacity, 0.5)})\`,
+              backdropFilter: 'blur(2px)'
+            }
+          }),
+          aboutBackgroundImage && React.createElement('div', { className: 'absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10' }),
+          !aboutBackgroundImage && React.createElement('div', { className: 'absolute inset-0 bg-gradient-to-br from-gray-50 to-blue-50' }),
+          
+          React.createElement('div', { className: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10' },
+            React.createElement('div', { className: 'grid grid-cols-1 gap-8 lg:gap-12 items-center' },
+              React.createElement('div', {},
+                showAboutTitle && React.createElement('h2', { 
+                  className: 'text-4xl md:text-5xl font-bold mb-6',
+                  style: {
+                    color: aboutBackgroundImage ? '#ffffff' : '#1f2937',
+                    textShadow: aboutBackgroundImage ? \`0 3px 6px \${aboutTextColors.shadowColor}\` : 'none'
+                  }
+                },
+                  aboutSectionTitle.split(',')[0], ',',
+                  React.createElement('br'),
+                  aboutSectionTitle.split(',')[1]
+                ),
+                showAboutSubtitle && React.createElement('p', { 
+                  className: 'text-xl mb-8 leading-relaxed',
+                  style: {
+                    color: aboutBackgroundImage ? '#ffffff' : '#4b5563',
+                    textShadow: aboutBackgroundImage ? \`0 2px 4px \${aboutTextColors.shadowColor}\` : 'none'
+                  }
+                }, aboutSectionSubtitle),
+                
+                showAboutBenefits && React.createElement('div', { className: 'space-y-4' },
+                  aboutBenefits.map((benefit, index) =>
+                    React.createElement('div', { key: index, className: 'flex items-center' },
+                      React.createElement('div', { 
+                        className: 'w-8 h-8 rounded-full flex items-center justify-center mr-4',
+                        style: {
+                          backgroundColor: aboutBackgroundImage ? 'rgba(0, 0, 0, 0.8)' : 'rgb(219, 234, 254)',
+                          border: aboutBackgroundImage ? '1px solid rgba(255, 255, 255, 0.2)' : 'none'
+                        }
+                      },
+                        React.createElement('svg', { 
+                          className: 'w-4 h-4', 
+                          fill: 'currentColor', 
+                          viewBox: '0 0 20 20',
+                          style: {
+                            color: aboutBackgroundImage ? '#60a5fa' : '#2563eb'
+                          }
+                        },
+                          React.createElement('path', { 
+                            fillRule: 'evenodd', 
+                            d: 'M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z', 
+                            clipRule: 'evenodd' 
+                          })
+                        )
+                      ),
+                      React.createElement('span', { 
+                        style: {
+                          color: aboutBackgroundImage ? '#ffffff' : '#374151',
+                          textShadow: aboutBackgroundImage ? \`0 2px 4px \${aboutTextColors.shadowColor}\` : 'none'
+                        }
+                      }, benefit)
+                    )
+                  )
+                )
+              )
+            )
+          )
+        ),
+        
+        // Lead Capture Modal
+        isLeadModalOpen && React.createElement('div', { 
+          className: 'absolute z-50 w-full',
+          style: { left: 0, right: 0, top: overlayRect.top, height: overlayRect.height }
+        },
+          React.createElement('div', { 
+            className: 'absolute inset-0 bg-black/60',
+            onClick: () => setIsLeadModalOpen(false)
+          }),
+          React.createElement('div', { 
+            className: 'relative w-full h-full flex items-center justify-center p-4',
+            onClick: () => setIsLeadModalOpen(false)
+          },
+            React.createElement('div', { 
+              className: 'relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6',
+              onClick: (e) => e.stopPropagation()
+            },
+              React.createElement('button', {
+                type: 'button',
+                'aria-label': 'Close',
+                onClick: () => setIsLeadModalOpen(false),
+                className: 'absolute top-3 right-3 p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500'
+              },
+                React.createElement('svg', { 
+                  xmlns: 'http://www.w3.org/2000/svg', 
+                  className: 'h-5 w-5', 
+                  viewBox: '0 0 20 20', 
+                  fill: 'currentColor' 
+                },
+                  React.createElement('path', { 
+                    fillRule: 'evenodd', 
+                    d: 'M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z', 
+                    clipRule: 'evenodd' 
+                  })
+                )
+              ),
+              React.createElement('div', { className: 'mb-4' },
+                React.createElement('h3', { className: 'text-2xl font-semibold text-gray-900' }, 'Create Your Account'),
+                React.createElement('p', { className: 'text-gray-600 mt-1' },
+                  showLeadPhoneField ? 'Enter your email and phone number to get started' : 'Enter your email to get started'
+                )
+              ),
+              React.createElement('form', {
+                onSubmit: async (e) => {
+                  e.preventDefault();
+                  setIsSubmitting(true);
+                  try {
+                    const res = await fetch('https://jetsy.dev/api/leads', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        email: leadEmail,
+                        phone: showLeadPhoneField ? leadPhone : '',
+                        project_id: projectId || 1,
+                        submitted_at: new Date().toISOString(),
+                      })
+                    });
+                    if (res.ok) {
+                      setIsLeadModalOpen(false);
+                      setLeadEmail('');
+                      setLeadPhone('');
+                      alert('Thanks! Your account has been created.');
+                    } else {
+                      const data = await res.json().catch(() => ({}));
+                      alert(data?.error || 'Failed to submit. Please try again.');
+                    }
+                  } catch (err) {
+                    console.error(err);
+                    alert('Network error. Please try again.');
+                  } finally {
+                    setIsSubmitting(false);
+                  }
+                },
+                className: 'space-y-4'
+              },
+                React.createElement('div', {},
+                  React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Email Address *'),
+                  React.createElement('input', {
+                    type: 'email',
+                    required: true,
+                    value: leadEmail,
+                    onChange: (e) => setLeadEmail(e.target.value),
+                    placeholder: 'your@email.com',
+                    className: 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+                  })
+                ),
+                showLeadPhoneField && React.createElement('div', {},
+                  React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Phone Number *'),
+                  React.createElement('input', {
+                    type: 'tel',
+                    required: true,
+                    value: leadPhone,
+                    onChange: (e) => setLeadPhone(e.target.value),
+                    placeholder: '1 555 123 4567',
+                    className: 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+                  })
+                ),
+                React.createElement('button', {
+                  type: 'submit',
+                  disabled: isSubmitting,
+                  className: 'w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all disabled:opacity-50'
+                }, isSubmitting ? 'Submitting...' : 'Create your Account'),
+                React.createElement('div', { className: 'text-center text-sm text-gray-600' },
+                  'Already have an account? ',
+                  React.createElement('a', { href: '#', className: 'text-blue-600 hover:underline' }, 'Log in')
+                )
+              )
+            )
+          )
+        )
+      );
+    };
+  `;
+}
+
+// Full static site generator for the Worker environment - using the complete version
+// Create static site using ExceptionalTemplate (same as public route /{user-id}-{project-id})
+function createExceptionalTemplateStaticSite(templateData, projectId) {
+  const businessName = templateData.businessName || 'My Business';
+  const seoTitle = templateData.seoTitle || '';
+  const tagline = templateData.tagline || '';
+  const title = seoTitle || `${businessName} - ${tagline}` || 'Landing Page';
+  
+  // Generate the exact same HTML structure as the public route but optimized for static hosting
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escapeHtml(title)}</title>
+    <meta name="description" content="${escapeHtml(tagline || 'Professional landing page powered by Jetsy')}">
+    
+    <!-- Favicon and branding -->
+    <link rel="icon" type="image/png" href="https://jetsy.dev/jetsy_favicon.png">
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    
+    <!-- React UMD (production) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel Standalone for JSX processing -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // Configure Tailwind
+      tailwind.config = {
+        theme: {
+          extend: {}
+        }
+      }
+      
+      // Make React available globally
+      window.React = React;
+      window.ReactDOM = ReactDOM;
+      
+      // Make React hooks available globally
+      if (React.useState) {
+        window.useState = React.useState;
+        window.useEffect = React.useEffect;
+        window.useRef = React.useRef;
+        window.useCallback = React.useCallback;
+        window.useMemo = React.useMemo;
+        window.useContext = React.useContext;
+      }
+    </script>
+    
+    <!-- Base styling -->
+    <style>
+      body { 
+        margin: 0; 
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      }
+      
+      /* Ensure proper loading state */
+      #root {
+        min-height: 100vh;
+      }
+      
+      /* Loading spinner */
+      .loading-spinner {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+      
+      .spinner {
+        border: 4px solid #f3f4f6;
+        border-top: 4px solid #3b82f6;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
+</head>
+<body>
+    <div id="root">
+      <!-- Loading state -->
+      <div class="loading-spinner">
+        <div>
+          <div class="spinner"></div>
+          <p style="margin-top: 1rem; color: #6b7280;">Loading...</p>
+        </div>
+      </div>
+    </div>
+    
+    <script type="text/babel">
+      try {
+        // Make sure React hooks are available in Babel scope
+        const { useState, useEffect, useRef, useCallback, useMemo, useContext } = React;
+        
+        // Template data from server (same as public route)
+        const templateData = ${JSON.stringify(templateData)};
+        
+        // ExceptionalTemplate component (same as the one used in public route)
+        ${getExceptionalTemplateComponentCode()}
+        
+        // Render the ExceptionalTemplate with the same props as PublicRouteView
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement('div', { className: 'min-h-screen bg-white' },
+          React.createElement(ExceptionalTemplate, {
+            businessName: templateData.businessName || '',
+            seoTitle: templateData.seoTitle || null,
+            businessLogoUrl: templateData.businessLogoUrl || null,
+            tagline: templateData.tagline || '',
+            isLiveWebsite: true,
+            heroDescription: templateData.heroDescription || '',
+            ctaButtonText: templateData.ctaButtonText || '',
+            sectionType: templateData.sectionType || 'features',
+            sectionTitle: templateData.sectionTitle || '',
+            sectionSubtitle: templateData.sectionSubtitle || '',
+            features: templateData.features || [],
+            aboutContent: templateData.aboutContent || '',
+            pricing: templateData.pricing || [],
+            contactInfo: templateData.contactInfo || {},
+            trustIndicator1: templateData.trustIndicator1 || '',
+            trustIndicator2: '4.8/5 customer satisfaction rating',
+            heroBadge: templateData.heroBadge || '',
+            aboutSectionTitle: templateData.aboutSectionTitle || '',
+            aboutSectionSubtitle: templateData.aboutSectionSubtitle || '',
+            aboutBenefits: templateData.aboutBenefits || [],
+            pricingSectionTitle: templateData.pricingSectionTitle || '',
+            pricingSectionSubtitle: templateData.pricingSectionSubtitle || '',
+            contactSectionTitle: templateData.contactSectionTitle || '',
+            contactSectionSubtitle: templateData.contactSectionSubtitle || '',
+            contactFormPlaceholders: templateData.contactFormPlaceholders || {},
+            footerDescription: templateData.footerDescription || '',
+            footerProductLinks: templateData.footerProductLinks || [],
+            footerCompanyLinks: templateData.footerCompanyLinks || [],
+            landingPagesCreated: templateData.landingPagesCreated || '',
+            heroBackgroundImage: templateData.heroBackgroundImage || null,
+            aboutBackgroundImage: templateData.aboutBackgroundImage || null,
+            showLeadPhoneField: templateData.showLeadPhoneField,
+            projectId: '${projectId}',
+            showHeroSection: templateData.showHeroSection,
+            showHeroBadge: templateData.showHeroBadge,
+            showHeroCTA: templateData.showHeroCTA,
+            showHeroSocialProof: templateData.showHeroSocialProof,
+            showDynamicSection: templateData.showDynamicSection,
+            showSectionTitle: templateData.showSectionTitle,
+            showSectionSubtitle: templateData.showSectionSubtitle,
+            showAboutSection: templateData.showAboutSection,
+            showAboutTitle: templateData.showAboutTitle,
+            showAboutSubtitle: templateData.showAboutSubtitle,
+            showAboutBenefits: templateData.showAboutBenefits,
+            showPricingSection: templateData.showPricingSection,
+            showPricingTitle: templateData.showPricingTitle,
+            showPricingSubtitle: templateData.showPricingSubtitle,
+            showContactSection: templateData.showContactSection,
+            showContactTitle: templateData.showContactTitle,
+            showContactSubtitle: templateData.showContactSubtitle,
+            showContactInfoList: templateData.showContactInfoList,
+            showContactForm: templateData.showContactForm,
+            showFooter: templateData.showFooter
+          })
+        ));
+        
+        console.log('✅ Jetsy ExceptionalTemplate rendered successfully on Vercel');
+        
+        // Track page view
+        fetch('https://jetsy.dev/api/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event_name: 'page_view',
+            event_category: 'user_interaction',
+            event_data: JSON.stringify({ 
+              project_id: '${projectId}', 
+              source: 'vercel_deployment',
+              deployment_type: 'exceptional_template'
+            }),
+            timestamp: Date.now(),
+            url: window.location.href,
+            user_agent: navigator.userAgent,
+            jetsy_generated: true,
+            website_id: '${projectId}'
+          })
+        }).catch(() => {});
+        
+      } catch (err) {
+        console.error('❌ Error rendering Jetsy ExceptionalTemplate:', err);
+        
+        // Show error message
+        document.getElementById('root').innerHTML = \`
+          <div style="
+            min-height: 100vh; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 2rem;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          ">
+            <div style="
+              text-align: center; 
+              max-width: 500px;
+              background: white;
+              padding: 2rem;
+              border-radius: 8px;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            ">
+              <h1 style="color: #dc2626; margin-bottom: 1rem;">Site Loading Error</h1>
+              <p style="color: #6b7280; margin-bottom: 1rem;">
+                There was an error loading this website. Please try refreshing the page.
+              </p>
+              <details style="text-align: left; margin-top: 1rem;">
+                <summary style="cursor: pointer; color: #6b7280;">Technical Details</summary>
+                <pre style="
+                  background: #f9fafb; 
+                  padding: 1rem; 
+                  border-radius: 4px; 
+                  overflow: auto; 
+                  font-size: 0.875rem;
+                  color: #dc2626;
+                  margin-top: 0.5rem;
+                ">\${err.message}</pre>
+              </details>
+              <p style="color: #6b7280; font-size: 0.875rem; margin-top: 1rem;">
+                Powered by <a href="https://jetsy.dev" style="color: #3b82f6;">Jetsy</a>
+              </p>
+            </div>
+          </div>
+        \`;
+      }
+    </script>
+</body>
+</html>`;
+}
+
+// Create static site from files (same approach as Live Preview)
+function createStaticSiteFromFiles(projectFiles, projectId, templateData = null) {
+  // Get the main App component and CSS
+  let appCode = projectFiles['src/App.jsx'] || projectFiles['App.jsx'];
+  const cssCode = projectFiles['src/index.css'] || projectFiles['index.css'] || '';
+  
+  if (!appCode) {
+    throw new Error('No App component found in project files');
+  }
+  
+  console.log('📦 Processing App.jsx code for static deployment...');
+  
+  // Process the code to work without modules (same as generatePreviewHTML)
+  let processedCode = appCode
+    // Remove all import/export statements
+    .replace(/^import .*;?$/gm, '')
+    .replace(/^export .*;?$/gm, '')
+    .replace(/export (function|class) /g, '$1 ')
+    // Fix common JSX issues
+    .replace(/class=/g, 'className=')
+    .replace(/for=/g, 'htmlFor=');
+  
+  // Extract title from template data for SEO
+  const businessName = (templateData && templateData.businessName) || 'My Business';
+  const seoTitle = (templateData && templateData.seoTitle) || '';
+  const tagline = (templateData && templateData.tagline) || '';
+  const title = seoTitle || `${businessName} - ${tagline}` || 'Landing Page';
+  
+  // Generate the same HTML structure as Live Preview but optimized for production
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escapeHtml(title)}</title>
+    <meta name="description" content="${escapeHtml(tagline || 'Professional landing page powered by Jetsy')}">
+    
+    <!-- Favicon and branding -->
+    <link rel="icon" type="image/png" href="https://jetsy.dev/jetsy_favicon.png">
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    
+    <!-- React UMD (production) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel Standalone for JSX processing -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // Configure Tailwind
+      tailwind.config = {
+        theme: {
+          extend: {}
+        }
+      }
+      
+      // Make React available globally
+      window.React = React;
+      window.ReactDOM = ReactDOM;
+      
+      // Make React hooks available globally
+      if (React.useState) {
+        window.useState = React.useState;
+        window.useEffect = React.useEffect;
+        window.useRef = React.useRef;
+        window.useCallback = React.useCallback;
+        window.useMemo = React.useMemo;
+        window.useContext = React.useContext;
+      }
+    </script>
+    
+    <!-- Custom CSS from project files -->
+    <style>
+      ${cssCode}
+    </style>
+    
+    <!-- Base styling -->
+    <style>
+      body { 
+        margin: 0; 
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      }
+      
+      /* Ensure proper loading state */
+      #root {
+        min-height: 100vh;
+      }
+      
+      /* Loading spinner */
+      .loading-spinner {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+      
+      .spinner {
+        border: 4px solid #f3f4f6;
+        border-top: 4px solid #3b82f6;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
+</head>
+<body>
+    <div id="root">
+      <!-- Loading state -->
+      <div class="loading-spinner">
+        <div>
+          <div class="spinner"></div>
+          <p style="margin-top: 1rem; color: #6b7280;">Loading...</p>
+        </div>
+      </div>
+    </div>
+    
+    <script type="text/babel">
+      try {
+        // Make sure React hooks are available in Babel scope
+        const { useState, useEffect, useRef, useCallback, useMemo, useContext } = React;
+        
+        // Also make them available as global variables for compatibility
+        window.useState = useState;
+        window.useEffect = useEffect;
+        window.useRef = useRef;
+        window.useCallback = useCallback;
+        window.useMemo = useMemo;
+        window.useContext = useContext;
+        
+        // Process the app code (same as Live Preview)
+        ${processedCode}
+        
+        // Check if App component was created successfully
+        if (typeof App === 'undefined') {
+          throw new Error('App component was not defined after processing');
+        }
+        
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(App));
+        
+        console.log('✅ Jetsy site rendered successfully');
+        
+        // Track page view
+        fetch('https://jetsy.dev/api/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event_name: 'page_view',
+            event_category: 'user_interaction',
+            event_data: JSON.stringify({ 
+              project_id: '${projectId}', 
+              source: 'vercel_deployment',
+              deployment_type: 'files_based'
+            }),
+            timestamp: Date.now(),
+            url: window.location.href,
+            user_agent: navigator.userAgent,
+            jetsy_generated: true,
+            website_id: '${projectId}'
+          })
+        }).catch(() => {});
+        
+      } catch (err) {
+        console.error('❌ Error rendering Jetsy site:', err);
+        
+        // Show error message
+        document.getElementById('root').innerHTML = \`
+          <div style="
+            min-height: 100vh; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 2rem;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          ">
+            <div style="
+              text-align: center; 
+              max-width: 500px;
+              background: white;
+              padding: 2rem;
+              border-radius: 8px;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            ">
+              <h1 style="color: #dc2626; margin-bottom: 1rem;">Site Loading Error</h1>
+              <p style="color: #6b7280; margin-bottom: 1rem;">
+                There was an error loading this website. Please try refreshing the page.
+              </p>
+              <details style="text-align: left; margin-top: 1rem;">
+                <summary style="cursor: pointer; color: #6b7280;">Technical Details</summary>
+                <pre style="
+                  background: #f9fafb; 
+                  padding: 1rem; 
+                  border-radius: 4px; 
+                  overflow: auto; 
+                  font-size: 0.875rem;
+                  color: #dc2626;
+                  margin-top: 0.5rem;
+                ">\${err.message}</pre>
+              </details>
+              <p style="color: #6b7280; font-size: 0.875rem; margin-top: 1rem;">
+                Powered by <a href="https://jetsy.dev" style="color: #3b82f6;">Jetsy</a>
+              </p>
+            </div>
+          </div>
+        \`;
+      }
+    </script>
+</body>
+</html>`;
+}
+
+function createCompleteStaticSite(templateData, projectId) {
+  // Import the actual generator from our utility file
+  // For now, we'll use a more complete version
+  const {
+    businessName = 'My Business',
+    businessLogoUrl,
+    tagline = '',
+    heroDescription = '',
+    ctaButtonText = 'Get Started',
+    features = [],
+    pricing = [],
+    contactInfo = {},
+    aboutContent = '',
+    aboutBenefits = [],
+    showHeroSection = true,
+    showDynamicSection = true,
+    showAboutSection = true,
+    showPricingSection = true,
+    showContactSection = true,
+    showContactForm = true,
+    showFooter = true
+  } = templateData;
+
+  const title = templateData.seoTitle || `${businessName} - ${tagline}`;
+  
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escapeHtml(title)}</title>
+    <meta name="description" content="${escapeHtml(heroDescription || tagline)}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .hover-lift { transition: transform 0.3s ease; }
+        .hover-lift:hover { transform: translateY(-5px); }
+        .hero-overlay { background: rgba(0, 0, 0, 0.6); }
+    </style>
+</head>
+<body class="bg-gray-50">
+    ${showHeroSection ? `
+    <section class="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-purple-900 text-white">
+        <div class="relative z-10 max-w-6xl mx-auto px-4 text-center">
+            ${businessLogoUrl ? `<img src="${businessLogoUrl}" alt="${businessName} Logo" class="h-16 w-auto mx-auto mb-6">` : ''}
+            <h1 class="text-5xl md:text-7xl font-bold mb-6">${escapeHtml(businessName)}</h1>
+            ${tagline ? `<p class="text-xl md:text-2xl mb-8 text-blue-100">${escapeHtml(tagline)}</p>` : ''}
+            ${heroDescription ? `<p class="text-lg md:text-xl mb-8 text-gray-200 max-w-4xl mx-auto">${escapeHtml(heroDescription)}</p>` : ''}
+            <button class="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-lg rounded-lg transition-all duration-300 hover-lift">
+                ${escapeHtml(ctaButtonText)}
+            </button>
+        </div>
+    </section>
+    ` : ''}
+    
+    ${showDynamicSection && features.length > 0 ? `
+    <section class="py-20 bg-white">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                ${features.map(feature => `
+                <div class="text-center p-6 rounded-lg hover-lift">
+                    ${feature.icon ? `<div class="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center text-2xl">${feature.icon}</div>` : ''}
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">${escapeHtml(feature.title || '')}</h3>
+                    <p class="text-gray-600">${escapeHtml(feature.description || '')}</p>
+                </div>
+                `).join('')}
+            </div>
+        </div>
+    </section>
+    ` : ''}
+    
+    ${showAboutSection && aboutContent ? `
+    <section class="py-20 bg-gray-50">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="prose prose-lg mx-auto text-center">
+                <p class="text-gray-700">${escapeHtml(aboutContent)}</p>
+            </div>
+            ${aboutBenefits.length > 0 ? `
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
+                ${aboutBenefits.map(benefit => `
+                <div class="flex items-start space-x-3 p-4 bg-white rounded-lg">
+                    <div class="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                        <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                    <span class="text-gray-700 font-medium">${escapeHtml(benefit)}</span>
+                </div>
+                `).join('')}
+            </div>
+            ` : ''}
+        </div>
+    </section>
+    ` : ''}
+    
+    ${showPricingSection && pricing.length > 0 ? `
+    <section class="py-20 bg-white">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="grid md:grid-cols-${Math.min(pricing.length, 3)} gap-8">
+                ${pricing.map(plan => `
+                <div class="p-8 bg-white border-2 ${plan.featured ? 'border-blue-500 shadow-xl' : 'border-gray-200'} rounded-lg hover-lift">
+                    <h3 class="text-2xl font-bold text-gray-900 mb-4">${escapeHtml(plan.name || '')}</h3>
+                    <div class="mb-6">
+                        <span class="text-4xl font-bold text-gray-900">${escapeHtml(plan.price || '')}</span>
+                        ${plan.period ? `<span class="text-gray-600">/${escapeHtml(plan.period)}</span>` : ''}
+                    </div>
+                    ${plan.features ? `
+                    <ul class="space-y-3 mb-8">
+                        ${plan.features.map(feature => `
+                        <li class="flex items-center">
+                            <svg class="w-5 h-5 text-green-500 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                            </svg>
+                            ${escapeHtml(feature)}
+                        </li>
+                        `).join('')}
+                    </ul>
+                    ` : ''}
+                    <button class="w-full py-3 px-6 ${plan.featured ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'} font-semibold rounded-lg transition-all duration-300">
+                        ${escapeHtml(plan.ctaText || ctaButtonText)}
+                    </button>
+                </div>
+                `).join('')}
+            </div>
+        </div>
+    </section>
+    ` : ''}
+    
+    ${showContactSection ? `
+    <section class="py-20 bg-gray-50">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="grid lg:grid-cols-2 gap-12">
+                <div class="space-y-6">
+                    <h3 class="text-2xl font-semibold text-gray-900 mb-6">Get in Touch</h3>
+                    ${contactInfo.email ? `
+                    <div class="flex items-center space-x-3">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                        </svg>
+                        <span class="text-gray-700">${escapeHtml(contactInfo.email)}</span>
+                    </div>
+                    ` : ''}
+                    ${contactInfo.phone ? `
+                    <div class="flex items-center space-x-3">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
+                        </svg>
+                        <span class="text-gray-700">${escapeHtml(contactInfo.phone)}</span>
+                    </div>
+                    ` : ''}
+                </div>
+                
+                ${showContactForm ? `
+                <div class="bg-white p-8 rounded-lg shadow-lg">
+                    <form id="contact-form" class="space-y-6">
+                        <div>
+                            <input type="text" name="name" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Your name">
+                        </div>
+                        <div>
+                            <input type="email" name="email" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="your@email.com">
+                        </div>
+                        <div>
+                            <textarea name="message" rows="4" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Tell us about your project..."></textarea>
+                        </div>
+                        <button type="submit" class="w-full py-3 px-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all duration-300 hover-lift">
+                            Send Message
+                        </button>
+                    </form>
+                </div>
+                ` : ''}
+            </div>
+        </div>
+    </section>
+    ` : ''}
+    
+    ${showFooter ? `
+    <footer class="bg-gray-900 text-white py-12">
+        <div class="max-w-6xl mx-auto px-4 text-center">
+            <h3 class="text-2xl font-bold mb-4">${escapeHtml(businessName)}</h3>
+            ${contactInfo.email || contactInfo.phone ? `
+            <div class="space-y-2 mb-6">
+                ${contactInfo.email ? `<p class="text-gray-400">Email: ${escapeHtml(contactInfo.email)}</p>` : ''}
+                ${contactInfo.phone ? `<p class="text-gray-400">Phone: ${escapeHtml(contactInfo.phone)}</p>` : ''}
+            </div>
+            ` : ''}
+            <p class="text-gray-400">© ${new Date().getFullYear()} ${escapeHtml(businessName)}. All rights reserved. Powered by <a href="https://jetsy.dev" class="text-blue-400">Jetsy</a></p>
+        </div>
+    </footer>
+    ` : ''}
+
+    <script>
+        // Contact form handling
+        document.addEventListener('DOMContentLoaded', () => {
+            const contactForm = document.getElementById('contact-form');
+            if (contactForm) {
+                contactForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.target);
+                    const data = Object.fromEntries(formData.entries());
+                    
+                    try {
+                        const response = await fetch('https://jetsy.dev/api/contact', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ ...data, project_id: '${projectId}', source: 'vercel_deployment' })
+                        });
+                        
+                        if (response.ok) {
+                            alert('Thank you! Your message has been sent successfully.');
+                            e.target.reset();
+                        } else {
+                            alert('Sorry, there was an error sending your message. Please try again.');
+                        }
+                    } catch (error) {
+                        alert('Sorry, there was an error sending your message. Please try again.');
+                    }
+                });
+            }
+            
+            // Analytics tracking
+            fetch('https://jetsy.dev/api/track', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    event_name: 'page_view',
+                    event_category: 'user_interaction',
+                    event_data: JSON.stringify({ project_id: '${projectId}', source: 'vercel_deployment' }),
+                    timestamp: Date.now(),
+                    url: window.location.href,
+                    user_agent: navigator.userAgent,
+                    jetsy_generated: true,
+                    website_id: '${projectId}'
+                })
+            }).catch(() => {});
+        });
+    </script>
+</body>
+</html>`;
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// Helper function to determine correct DNS instructions based on domain type
+function getDNSInstructions(domain, vercelProjectName) {
+  // Check if it's an apex domain (no subdomain)
+  const isApexDomain = domain.split('.').length === 2 && !domain.startsWith('www.');
+  
+  if (isApexDomain) {
+    // For apex domains, use A record pointing to Vercel's IP
+    return {
+      type: 'A',
+      name: '@', // @ represents the apex domain
+      value: '76.76.19.142', // Vercel's A record IP
+      note: 'Use A record for apex domains (root domains like example.com)',
+      alternative: {
+        type: 'ALIAS',
+        name: '@',
+        value: `${vercelProjectName}.vercel.app`,
+        note: 'If your DNS provider supports ALIAS records, you can use this instead'
+      }
+    };
+  } else {
+    // For subdomains (www.example.com), use CNAME
+    return {
+      type: 'CNAME',
+      name: domain.startsWith('www.') ? 'www' : domain.split('.')[0],
+      value: `${vercelProjectName}.vercel.app`,
+      note: 'Use CNAME record for subdomains'
+    };
+  }
+}
+
 // --- Chat Messages Handlers ---
 async function getChatMessages(request, env, corsHeaders) {
   const db = env.DB;

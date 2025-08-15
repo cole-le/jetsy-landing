@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import ProjectSelector from './ProjectSelector';
 import ExceptionalTemplate from './ExceptionalTemplate';
+import VercelDeploymentManager from './VercelDeploymentManager';
 import { getApiBaseUrl } from '../config/environment';
 
 // Fixed trust/rating text to ensure consistent partial star rendering on the frontend
@@ -1839,6 +1840,11 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                   </div>
                 </div>
 
+                {/* Vercel Deployment Section */}
+                <VercelDeploymentManager 
+                  projectId={currentProject?.id}
+                  templateData={templateData}
+                />
 
               </div>
             </div>
