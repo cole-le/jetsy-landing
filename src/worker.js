@@ -3240,28 +3240,34 @@ function createCompleteStaticSite(templateData, projectId) {
             <div class="absolute inset-0 bg-gradient-to-br from-gray-50 to-blue-50"></div>
         `}
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            ${templateData.showAboutTitle && templateData.aboutSectionTitle ? `<div class="text-center mb-16">
-                <h2 class="text-4xl font-bold text-white mb-4" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.8)">${escapeHtml(templateData.aboutSectionTitle)}</h2>
-                ${templateData.showAboutSubtitle && templateData.aboutSectionSubtitle ? `<p class="text-xl text-gray-200 max-w-3xl mx-auto" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.8)">${escapeHtml(templateData.aboutSectionSubtitle)}</p>` : ''}
-            </div>` : ''}
-            <div class="grid md:grid-cols-2 gap-12 items-center">
-                <div class="text-white">
-                    <p class="text-lg leading-relaxed mb-8" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.8)">${escapeHtml(aboutContent)}</p>
-                    ${templateData.showAboutBenefits && templateData.aboutBenefits?.length > 0 ? `<ul class="space-y-3">
-                        ${templateData.aboutBenefits.map(benefit => `
-                        <li class="flex items-center text-gray-200">
-                            <span class="text-green-400 mr-3">✓</span>
-                            <span style="text-shadow: 1px 1px 2px rgba(0,0,0,0.8)">${escapeHtml(benefit)}</span>
-                        </li>
+            <div class="grid grid-cols-1 gap-8 lg:gap-12 items-center">
+                <div>
+                    ${templateData.showAboutTitle && templateData.aboutSectionTitle ? `
+                        <h2 class="text-4xl md:text-5xl font-bold mb-6" style="color: ${aboutBackgroundImage ? '#ffffff' : '#1f2937'}; ${aboutBackgroundImage ? 'text-shadow: 0 3px 6px rgba(0, 0, 0, 0.9);' : ''}">
+                            ${escapeHtml(templateData.aboutSectionTitle.split(',')[0])},
+                            <br />
+                            ${escapeHtml(templateData.aboutSectionTitle.split(',')[1] || '')}
+                        </h2>
+                    ` : ''}
+                    ${templateData.showAboutSubtitle && templateData.aboutSectionSubtitle ? `
+                        <p class="text-xl mb-8 leading-relaxed" style="color: ${aboutBackgroundImage ? '#ffffff' : '#4b5563'}; ${aboutBackgroundImage ? 'text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);' : ''}">
+                            ${escapeHtml(templateData.aboutSectionSubtitle)}
+                        </p>
+                    ` : ''}
+                    
+                    <div class="space-y-4">
+                        ${templateData.aboutBenefits?.map(benefit => `
+                            <div class="flex items-center">
+                                <div class="w-8 h-8 rounded-full flex items-center justify-center mr-4" style="background-color: ${aboutBackgroundImage ? 'rgba(0, 0, 0, 0.8)' : 'rgb(219, 234, 254)'}; ${aboutBackgroundImage ? 'border: 1px solid rgba(255, 255, 255, 0.2);' : ''}">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" style="color: ${aboutBackgroundImage ? '#60a5fa' : '#2563eb'};">
+                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                </div>
+                                <span style="color: ${aboutBackgroundImage ? '#ffffff' : '#374151'}; ${aboutBackgroundImage ? 'text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);' : ''}">
+                                    ${escapeHtml(benefit)}
+                                </span>
+                            </div>
                         `).join('')}
-                    </ul>` : ''}
-                </div>
-                <div class="text-center">
-                    <div class="bg-white/10 backdrop-blur-sm rounded-lg p-8 border border-white/20">
-                        <h3 class="text-2xl font-bold text-white mb-4" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.8)">Ready to Get Started?</h3>
-                        <button onclick="openLeadModal()" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors">
-                            ${escapeHtml(ctaButtonText)}
-                        </button>
                     </div>
                 </div>
             </div>
@@ -3334,89 +3340,122 @@ function createCompleteStaticSite(templateData, projectId) {
                     <p class="text-xl text-gray-600 mb-8 leading-relaxed">
                         ${escapeHtml(templateData.contactSectionSubtitle || '')}
                     </p>
-            <div class="grid md:grid-cols-2 gap-12">
-                ${templateData.showContactInfoList ? `<div>
-                    <h3 class="text-2xl font-bold text-gray-900 mb-6">Get in Touch</h3>
-                    <div class="space-y-4">
-                        ${contactInfo.email ? `<div class="flex items-center">
-                            <span class="text-blue-600 mr-3">📧</span>
-                            <span class="text-gray-700">${escapeHtml(contactInfo.email)}</span>
-                        </div>` : ''}
-                        ${contactInfo.phone ? `<div class="flex items-center">
-                            <span class="text-blue-600 mr-3">📞</span>
-                            <span class="text-gray-700">${escapeHtml(contactInfo.phone)}</span>
-                        </div>` : ''}
-                        ${contactInfo.office ? `<div class="flex items-center">
-                            <span class="text-blue-600 mr-3">📍</span>
-                            <span class="text-gray-700">${escapeHtml(contactInfo.office)}</span>
-                        </div>` : ''}
+                    
+                    <div class="space-y-6">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
+                                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="font-semibold text-gray-900">Email</div>
+                                <div class="text-gray-600">${escapeHtml(contactInfo.email || '')}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
+                                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="font-semibold text-gray-900">Phone</div>
+                                <div class="text-gray-600">${escapeHtml(contactInfo.phone || '')}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
+                                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="font-semibold text-gray-900">Office</div>
+                                <div class="text-gray-600">${escapeHtml(contactInfo.office || '')}</div>
+                            </div>
+                        </div>
                     </div>
-                </div>` : ''}
-                ${templateData.showContactForm ? `<div>
+                </div>
+                
+                <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8">
                     <form id="contactForm" class="space-y-6">
-                        <div>
-                            <input type="text" name="name" placeholder="${escapeHtml(templateData.contactFormPlaceholders?.name || 'Your name')}" required
-                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                                <input
+                                    type="text"
+                                    name="name"
+                                    required
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                    placeholder="${escapeHtml(templateData.contactFormPlaceholders?.name || 'Your name')}"
+                                />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                                <input
+                                    type="email"
+                                    name="email"
+                                    required
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                    placeholder="${escapeHtml(templateData.contactFormPlaceholders?.email || 'your@email.com')}"
+                                />
+                            </div>
                         </div>
+                        
                         <div>
-                            <input type="email" name="email" placeholder="${escapeHtml(templateData.contactFormPlaceholders?.email || 'your@email.com')}" required
-                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Company</label>
+                            <input
+                                type="text"
+                                name="company"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                placeholder="${escapeHtml(templateData.contactFormPlaceholders?.company || 'Your company')}"
+                            />
                         </div>
+                        
                         <div>
-                            <input type="text" name="company" placeholder="${escapeHtml(templateData.contactFormPlaceholders?.company || 'Your company')}"
-                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Message</label>
+                            <textarea
+                                name="message"
+                                rows="4"
+                                required
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                placeholder="${escapeHtml(templateData.contactFormPlaceholders?.message || 'Tell us about your project...')}"
+                            ></textarea>
                         </div>
-                        <div>
-                            <textarea name="message" rows="4" placeholder="${escapeHtml(templateData.contactFormPlaceholders?.message || 'Tell us about your project...')}" required
-                                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
-                        </div>
-                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors">
+                        
+                        <button
+                            type="submit"
+                            class="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
                             Send Message
                         </button>
                     </form>
-                </div>` : ''}
+                </div>
             </div>
         </div>
     </section>` : ''}
 
     <!-- Footer -->
     ${templateData.showFooter ? `<footer class="bg-gray-900 text-white py-12">
-        <div class="max-w-6xl mx-auto px-4">
-            <div class="grid md:grid-cols-4 gap-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 gap-8">
                 <div>
                     <div class="flex items-center mb-4">
-                        ${templateData.businessLogoUrl ? `<img src="${templateData.businessLogoUrl}" alt="${escapeHtml(businessName)}" class="h-8 w-auto mr-3">` : ''}
+                        <div class="flex-shrink-0 mr-3">
+                            ${templateData.businessLogoUrl ? `<img src="${templateData.businessLogoUrl}" alt="${escapeHtml(businessName)}" class="h-8 w-auto" />` : `<div class="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center"><span class="text-white font-bold text-sm">J</span></div>`}
+                        </div>
                         <span class="text-xl font-bold">${escapeHtml(businessName)}</span>
                     </div>
-                    <p class="text-gray-400">${escapeHtml(templateData.footerDescription || tagline)}</p>
-                </div>
-                ${templateData.footerProductLinks?.length > 0 ? `<div>
-                    <h4 class="font-semibold mb-4">Product</h4>
-                    <ul class="space-y-2">
-                        ${templateData.footerProductLinks.map(link => `
-                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors">${escapeHtml(link)}</a></li>
-                        `).join('')}
-                    </ul>
-                </div>` : ''}
-                ${templateData.footerCompanyLinks?.length > 0 ? `<div>
-                    <h4 class="font-semibold mb-4">Company</h4>
-                    <ul class="space-y-2">
-                        ${templateData.footerCompanyLinks.map(link => `
-                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors">${escapeHtml(link)}</a></li>
-                        `).join('')}
-                    </ul>
-                </div>` : ''}
-                <div>
-                    <h4 class="font-semibold mb-4">Contact</h4>
-                    <div class="space-y-2 text-gray-400">
-                        ${contactInfo.email ? `<div>${escapeHtml(contactInfo.email)}</div>` : ''}
-                        ${contactInfo.phone ? `<div>${escapeHtml(contactInfo.phone)}</div>` : ''}
-                    </div>
+                    <p class="text-gray-400 mb-6 max-w-md">${escapeHtml(templateData.footerDescription || '')}</p>
                 </div>
             </div>
+            
             <div class="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-                <p>&copy; ${new Date().getFullYear()} ${escapeHtml(businessName)}. Powered by <a href="https://jetsy.dev" class="text-blue-400 hover:text-blue-300">Jetsy</a></p>
-                ${templateData.landingPagesCreated ? `<p class="mt-2 text-sm">${escapeHtml(templateData.landingPagesCreated)}</p>` : ''}
+                <p>&copy; 2024 ${escapeHtml(businessName)}. All rights reserved.</p>
             </div>
         </div>
     </footer>` : ''}
