@@ -2934,7 +2934,7 @@ function getExceptionalTemplateComponentCode() {
   `;
 }
 
-// Create complete static site with all sections (enhanced version with all components)
+// Create complete static site using server-side rendering approach
 function createCompleteStaticSite(templateData, projectId) {
   const businessName = templateData.businessName || 'My Business';
   const seoTitle = templateData.seoTitle || '';
@@ -2951,6 +2951,7 @@ function createCompleteStaticSite(templateData, projectId) {
   const trustIndicator1 = templateData.trustIndicator1 || '';
   const trustIndicator2 = templateData.trustIndicator2 || '';
 
+  // Generate the exact HTML structure that matches ExceptionalTemplate.jsx with proper overlays, spacing, and styling
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2960,39 +2961,19 @@ function createCompleteStaticSite(templateData, projectId) {
     <meta name="description" content="${escapeHtml(tagline || 'Professional landing page powered by Jetsy')}">
     ${templateData.businessLogoUrl ? `<link rel="icon" type="image/png" href="${templateData.businessLogoUrl}">` : '<link rel="icon" type="image/png" href="https://jetsy.dev/jetsy_favicon.png">'}
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
     <style>
-        /* Purple theme gradients and styling */
-        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .purple-gradient { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .hover-lift { transition: transform 0.3s ease; }
-        .hover-lift:hover { transform: translateY(-5px); }
-        
-        /* Background images */
-        .hero-bg {
-            background-image: url('${heroBackgroundImage}');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-        }
-        .about-bg {
-            background-image: url('${aboutBackgroundImage}');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
+        /* Base font family */
+        body {
+            font-family: 'Inter', sans-serif;
         }
         
-        /* Purple theme buttons and accents */
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            transition: all 0.3s ease;
-        }
-        .btn-primary:hover {
-            background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
-        }
-        
-        /* Animations */
+        /* Animations - exact matches from ExceptionalTemplate */
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
@@ -3001,93 +2982,264 @@ function createCompleteStaticSite(templateData, projectId) {
             animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
         
-        /* Enhanced hover effects */
+        /* Transform transitions */
+        .transition-all { transition: all 0.3s ease; }
+        .duration-300 { transition-duration: 300ms; }
+        .duration-1000 { transition-duration: 1000ms; }
+        
+        /* Transform effects */
+        .hover\\:scale-105:hover { transform: scale(1.05); }
+        .hover\\:-translate-y-2:hover { transform: translateY(-0.5rem); }
+        .hover\\:-translate-y-5:hover { transform: translateY(-1.25rem); }
+        .hover\\:-translate-y-10:hover { transform: translateY(-2.5rem); }
+        
+        /* Shadow effects */
+        .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+        .hover\\:shadow-xl:hover { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
+        
+        /* Text shadow utilities */
+        .text-shadow-sm { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9); }
+        .text-shadow-md { text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9); }
+        .text-shadow-lg { text-shadow: 0 3px 6px rgba(0, 0, 0, 0.9); }
+        
+        /* Background image overlays */
+        .hero-overlay {
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(2px);
+        }
+        .about-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(2px);
+        }
+        
+        /* Custom gradient overlays */
+        .gradient-overlay {
+            background: linear-gradient(to right, rgba(37, 99, 235, 0.1), rgba(147, 51, 234, 0.1));
+        }
+        
+        /* Feature hover effects */
+        .feature-card {
+            transition: all 0.3s ease;
+        }
         .feature-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            transform: translateY(-0.5rem);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        /* Pricing card hover effects */
+        .pricing-card {
+            transition: all 0.3s ease;
         }
         .pricing-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 25px 50px rgba(102, 126, 234, 0.2);
+            transform: translateY(-0.5rem);
+            box-shadow: 0 25px 50px -12px rgba(37, 99, 235, 0.2);
         }
+        
+        /* Background utilities */
+        .bg-cover { background-size: cover; }
+        .bg-center { background-position: center; }
+        .bg-no-repeat { background-repeat: no-repeat; }
+        
+        /* Mobile menu toggle */
+        .mobile-menu.hidden { display: none; }
+        .mobile-menu.block { display: block; }
     </style>
 </head>
-<body class="bg-gray-50">
+<body class="relative min-h-screen bg-white">
     <!-- Navigation -->
-    ${templateData.showHeroSection ? `<nav class="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200">
-        <div class="max-w-6xl mx-auto px-4">
+    ${templateData.showHeroSection ? `<nav class="relative bg-white/90 backdrop-blur-md border-b border-gray-100">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
                 <div class="flex items-center">
-                    ${templateData.businessLogoUrl ? `<img src="${templateData.businessLogoUrl}" alt="${escapeHtml(businessName)}" class="h-8 w-auto mr-3">` : ''}
-                    <span class="text-xl font-bold text-gray-900">${escapeHtml(businessName)}</span>
+                    <div class="flex-shrink-0">
+                        ${templateData.businessLogoUrl ? `<img src="${templateData.businessLogoUrl}" alt="${escapeHtml(businessName)}" class="h-8 w-auto" />` : `<div class="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center"><span class="text-white font-bold text-sm">J</span></div>`}
+                    </div>
+                    <div class="ml-3">
+                        <span class="text-xl font-bold text-gray-900">${escapeHtml(businessName)}</span>
+                    </div>
                 </div>
-                <div class="hidden md:flex items-center space-x-8">
-                    ${templateData.showDynamicSection ? `<a href="#features" class="text-gray-600 hover:text-blue-600 transition-colors">Features</a>` : ''}
-                    ${templateData.showAboutSection ? `<a href="#about" class="text-gray-600 hover:text-blue-600 transition-colors">About</a>` : ''}
-                    ${templateData.showPricingSection ? `<a href="#pricing" class="text-gray-600 hover:text-blue-600 transition-colors">Pricing</a>` : ''}
-                    ${templateData.showContactSection ? `<a href="#contact" class="text-gray-600 hover:text-blue-600 transition-colors">Contact</a>` : ''}
-                    <button onclick="openLeadModal()" class="btn-primary text-white px-6 py-2 rounded-full text-sm font-medium">${escapeHtml(ctaButtonText)}</button>
+                
+                <!-- Desktop Navigation -->
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-8">
+                        <a href="#home" class="text-gray-900 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">Home</a>
+                        ${templateData.showDynamicSection ? `<a href="#features" class="text-gray-500 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">Features</a>` : ''}
+                        ${templateData.showAboutSection ? `<a href="#about" class="text-gray-500 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">About</a>` : ''}
+                        ${templateData.showPricingSection ? `<a href="#pricing" class="text-gray-500 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">Pricing</a>` : ''}
+                        ${templateData.showContactSection ? `<a href="#contact" class="text-gray-500 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">Contact</a>` : ''}
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <!-- Desktop CTA Button -->
+                    <button onclick="openLeadModal()" class="hidden md:block bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-full text-sm font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-300 transform hover:scale-105">
+                        Get Started
+                    </button>
+                    
+                    <!-- Mobile menu button -->
+                    <button
+                        onclick="toggleMobileMenu()"
+                        class="md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+                    >
+                        <span class="sr-only">Open main menu</span>
+                        <svg class="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Mobile Navigation Menu -->
+            <div id="mobileMenu" class="md:hidden hidden">
+                <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-gray-100">
+                    <a href="#home" class="text-gray-900 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors">Home</a>
+                    ${templateData.showDynamicSection ? `<a href="#features" class="text-gray-500 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors">Features</a>` : ''}
+                    ${templateData.showAboutSection ? `<a href="#about" class="text-gray-500 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors">About</a>` : ''}
+                    ${templateData.showPricingSection ? `<a href="#pricing" class="text-gray-500 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors">Pricing</a>` : ''}
+                    ${templateData.showContactSection ? `<a href="#contact" class="text-gray-500 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors">Contact</a>` : ''}
+                    <div class="pt-4 pb-3 border-t border-gray-200">
+                        <button onclick="openLeadModal()" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-full text-base font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-300">
+                            Get Started
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     </nav>` : ''}
 
     <!-- Hero Section -->
-    ${templateData.showHeroSection ? `<section class="relative min-h-screen flex items-center justify-center hero-bg">
-        <div class="absolute inset-0 bg-black/50"></div>
-        <div class="relative z-10 max-w-6xl mx-auto px-4 text-center text-white">
-            ${templateData.showHeroBadge && templateData.heroBadge ? `<div class="inline-flex items-center bg-blue-600/20 backdrop-blur-sm border border-blue-400/30 rounded-full px-4 py-2 mb-6">
-                <span class="w-2 h-2 bg-blue-400 rounded-full mr-2 animate-pulse"></span>
-                <span class="text-blue-100 text-sm font-medium">${escapeHtml(templateData.heroBadge)}</span>
-            </div>` : ''}
-            <h1 class="text-5xl md:text-7xl font-bold mb-6" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.8)">${escapeHtml(businessName)}</h1>
-            ${tagline ? `<p class="text-xl md:text-2xl mb-8 text-blue-100" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.8)">${escapeHtml(tagline)}</p>` : ''}
-            ${heroDescription ? `<p class="text-lg md:text-xl mb-8 text-gray-200 max-w-4xl mx-auto" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.8)">${escapeHtml(heroDescription)}</p>` : ''}
-            ${templateData.showHeroCTA ? `<button onclick="openLeadModal()" class="px-8 py-4 btn-primary text-white font-semibold text-lg rounded-lg">
-                ${escapeHtml(ctaButtonText)}
-            </button>` : ''}
-            ${templateData.showHeroSocialProof && (trustIndicator1 || trustIndicator2) ? `<div class="mt-12 flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-8 text-sm text-blue-100">
-                <div class="flex items-center space-x-2">
-                    <div class="flex -space-x-2">
-                        <img src="https://randomuser.me/api/portraits/women/68.jpg" alt="Customer" class="w-8 h-8 rounded-full border-2 border-white">
-                        <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Customer" class="w-8 h-8 rounded-full border-2 border-white">
-                        <img src="https://randomuser.me/api/portraits/women/12.jpg" alt="Customer" class="w-8 h-8 rounded-full border-2 border-white">
-                        <img src="https://randomuser.me/api/portraits/men/77.jpg" alt="Customer" class="w-8 h-8 rounded-full border-2 border-white">
-                        <img src="https://randomuser.me/api/portraits/women/65.jpg" alt="Customer" class="w-8 h-8 rounded-full border-2 border-white">
+    ${templateData.showHeroSection ? `<section id="home" class="relative min-h-screen flex items-start justify-center overflow-hidden pt-8 sm:pt-12 md:pt-16">
+        <!-- Background Image -->
+        ${heroBackgroundImage ? `
+            <div class="absolute inset-0 bg-cover bg-center bg-no-repeat" style="background-image: url('${heroBackgroundImage}');"></div>
+            <div class="absolute inset-0 hero-overlay"></div>
+        ` : `
+            <div class="absolute inset-0 bg-gradient-to-br from-gray-50 to-blue-50"></div>
+        `}
+        <div class="absolute inset-0 gradient-overlay"></div>
+        
+        <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <div class="transform translate-y-0 opacity-100">
+                ${templateData.showHeroBadge && templateData.heroBadge ? `
+                    <div class="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium mb-8 sm:mb-10" style="${heroBackgroundImage ? 'background-color: rgba(0, 0, 0, 0.8); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.2);' : 'background-color: rgb(219, 234, 254); color: #1e40af;'}">
+                        <span class="w-2 h-2 bg-blue-400 rounded-full mr-2 animate-pulse"></span>
+                        ${escapeHtml(templateData.heroBadge)}
                     </div>
-                    ${trustIndicator1 ? `<span>${escapeHtml(trustIndicator1)}</span>` : ''}
-                </div>
-                ${trustIndicator2 ? `<div class="flex items-center space-x-1">
-                    <span class="text-yellow-400">⭐⭐⭐⭐⭐</span>
-                    <span>${escapeHtml(trustIndicator2)}</span>
-                </div>` : ''}
-            </div>` : ''}
+                ` : ''}
+                
+                <h1 class="text-4xl sm:text-5xl md:text-7xl font-bold mb-6 leading-tight px-4${heroBackgroundImage ? ' text-shadow-lg' : ''}" style="color: ${heroBackgroundImage ? '#ffffff' : '#1f2937'};">
+                    ${escapeHtml(businessName)}
+                </h1>
+                
+                <p class="text-lg sm:text-xl md:text-2xl mb-8 max-w-3xl mx-auto leading-relaxed px-4${heroBackgroundImage ? ' text-shadow-md' : ''}" style="color: ${heroBackgroundImage ? '#ffffff' : '#4b5563'};">
+                    ${escapeHtml(tagline)}
+                </p>
+                
+                <p class="text-base sm:text-lg mb-8 max-w-2xl mx-auto leading-relaxed px-4${heroBackgroundImage ? ' text-shadow-md' : ''}" style="color: ${heroBackgroundImage ? '#ffffff' : '#4b5563'};">
+                    ${escapeHtml(heroDescription)}
+                </p>
+                
+                ${templateData.showHeroCTA ? `
+                    <div class="flex justify-center items-center mb-12">
+                        <button onclick="openLeadModal()" class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:from-blue-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-300 shadow-2xl">
+                            ${escapeHtml(ctaButtonText)}
+                        </button>
+                    </div>
+                ` : ''}
+                
+                ${templateData.showHeroSocialProof && (trustIndicator1 || trustIndicator2) ? `
+                    <div class="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-8 text-sm px-4${heroBackgroundImage ? ' text-shadow-md' : ''}" style="color: ${heroBackgroundImage ? '#ffffff' : '#6b7280'};">
+                        <div class="flex items-center">
+                            <div class="flex -space-x-2 mr-3">
+                                <div class="w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-gradient-to-r from-blue-400 to-purple-400" title="Happy customer">
+                                    <img src="https://randomuser.me/api/portraits/women/68.jpg" alt="Customer avatar" class="w-full h-full object-cover" loading="lazy">
+                                </div>
+                                <div class="w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-gradient-to-r from-blue-400 to-purple-400" title="Happy customer">
+                                    <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Customer avatar" class="w-full h-full object-cover" loading="lazy">
+                                </div>
+                                <div class="w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-gradient-to-r from-blue-400 to-purple-400" title="Happy customer">
+                                    <img src="https://randomuser.me/api/portraits/women/12.jpg" alt="Customer avatar" class="w-full h-full object-cover" loading="lazy">
+                                </div>
+                                <div class="w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-gradient-to-r from-blue-400 to-purple-400" title="Happy customer">
+                                    <img src="https://randomuser.me/api/portraits/men/77.jpg" alt="Customer avatar" class="w-full h-full object-cover" loading="lazy">
+                                </div>
+                            </div>
+                            ${trustIndicator1 ? `<span>${escapeHtml(trustIndicator1)}</span>` : ''}
+                        </div>
+                        ${trustIndicator2 ? `
+                            <div class="flex items-center">
+                                <div class="flex mr-2">
+                                    <div class="relative w-4 h-4 mr-0.5">
+                                        <svg class="w-4 h-4" viewBox="0 0 20 20">
+                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" fill="#F59E0B" />
+                                        </svg>
+                                    </div>
+                                    <div class="relative w-4 h-4 mr-0.5">
+                                        <svg class="w-4 h-4" viewBox="0 0 20 20">
+                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" fill="#F59E0B" />
+                                        </svg>
+                                    </div>
+                                    <div class="relative w-4 h-4 mr-0.5">
+                                        <svg class="w-4 h-4" viewBox="0 0 20 20">
+                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" fill="#F59E0B" />
+                                        </svg>
+                                    </div>
+                                    <div class="relative w-4 h-4 mr-0.5">
+                                        <svg class="w-4 h-4" viewBox="0 0 20 20">
+                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" fill="#F59E0B" />
+                                        </svg>
+                                    </div>
+                                    <div class="relative w-4 h-4 mr-0.5">
+                                        <svg class="w-4 h-4" viewBox="0 0 20 20">
+                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" fill="#D1D5DB" />
+                                        </svg>
+                                    </div>
+                                </div>
+                                <span>${escapeHtml(trustIndicator2)}</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                ` : ''}
+            </div>
         </div>
     </section>` : ''}
 
-    <!-- Features Section -->
-    ${templateData.showDynamicSection && features.length > 0 ? `<section id="features" class="py-20 bg-white">
-        <div class="max-w-6xl mx-auto px-4">
-            ${templateData.showSectionTitle && templateData.sectionTitle ? `<div class="text-center mb-16">
-                <h2 class="text-4xl font-bold text-gray-900 mb-4">${escapeHtml(templateData.sectionTitle)}</h2>
-                ${templateData.showSectionSubtitle && templateData.sectionSubtitle ? `<p class="text-xl text-gray-600 max-w-3xl mx-auto">${escapeHtml(templateData.sectionSubtitle)}</p>` : ''}
-            </div>` : ''}
-            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+    <!-- Dynamic Section (Features/Services/Highlights) -->
+    ${templateData.showDynamicSection && features.length > 0 ? `<section id="${templateData.sectionType || 'features'}" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+                    ${escapeHtml((templateData.sectionTitle || '').split(' ').slice(0, -1).join(' '))}
+                    <span class="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> ${escapeHtml((templateData.sectionTitle || '').split(' ').slice(-1)[0] || '')}</span>
+                </h2>
+                <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                    ${escapeHtml(templateData.sectionSubtitle || '')}
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
                 ${features.map(feature => `
-                <div class="p-6 bg-gray-50 rounded-lg feature-card transition-all duration-300">
-                    <div class="text-4xl mb-4">${feature.icon || '⭐'}</div>
-                    <h3 class="text-xl font-semibold text-gray-900 mb-3">${escapeHtml(feature.title || '')}</h3>
-                    <p class="text-gray-600">${escapeHtml(feature.description || '')}</p>
-                </div>
+                    <div class="group p-6 md:p-8 rounded-2xl bg-gray-50 hover:bg-white hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 feature-card">
+                        <div class="text-3xl md:text-4xl mb-4">${escapeHtml(feature.icon || '')}</div>
+                        <h3 class="text-lg md:text-xl font-semibold text-gray-900 mb-3">${escapeHtml(feature.title || '')}</h3>
+                        <p class="text-gray-600 leading-relaxed text-sm md:text-base">${escapeHtml(feature.description || '')}</p>
+                    </div>
                 `).join('')}
             </div>
         </div>
     </section>` : ''}
 
     <!-- About Section -->
-    ${templateData.showAboutSection ? `<section id="about" class="relative py-20 about-bg">
-        <div class="absolute inset-0 bg-black/60"></div>
-        <div class="relative z-10 max-w-6xl mx-auto px-4">
+    ${templateData.showAboutSection ? `<section id="about" class="py-20 relative">
+        <!-- Background Image -->
+        ${aboutBackgroundImage ? `
+            <div class="absolute inset-0 bg-cover bg-center bg-no-repeat" style="background-image: url('${aboutBackgroundImage}');"></div>
+            <div class="absolute inset-0 about-overlay"></div>
+            <div class="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10"></div>
+        ` : `
+            <div class="absolute inset-0 bg-gradient-to-br from-gray-50 to-blue-50"></div>
+        `}
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             ${templateData.showAboutTitle && templateData.aboutSectionTitle ? `<div class="text-center mb-16">
                 <h2 class="text-4xl font-bold text-white mb-4" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.8)">${escapeHtml(templateData.aboutSectionTitle)}</h2>
                 ${templateData.showAboutSubtitle && templateData.aboutSectionSubtitle ? `<p class="text-xl text-gray-200 max-w-3xl mx-auto" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.8)">${escapeHtml(templateData.aboutSectionSubtitle)}</p>` : ''}
@@ -3117,46 +3269,71 @@ function createCompleteStaticSite(templateData, projectId) {
     </section>` : ''}
 
     <!-- Pricing Section -->
-    ${templateData.showPricingSection && pricing.length > 0 ? `<section id="pricing" class="py-20 bg-gray-50">
-        <div class="max-w-6xl mx-auto px-4">
-            ${templateData.showPricingTitle && templateData.pricingSectionTitle ? `<div class="text-center mb-16">
-                <h2 class="text-4xl font-bold text-gray-900 mb-4">${escapeHtml(templateData.pricingSectionTitle)}</h2>
-                ${templateData.showPricingSubtitle && templateData.pricingSectionSubtitle ? `<p class="text-xl text-gray-600 max-w-3xl mx-auto">${escapeHtml(templateData.pricingSectionSubtitle)}</p>` : ''}
-            </div>` : ''}
-            <div class="grid md:grid-cols-${Math.min(pricing.length, 3)} gap-8">
+    ${templateData.showPricingSection && pricing.length > 0 ? `<section id="pricing" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+                    ${escapeHtml((templateData.pricingSectionTitle || '').split(' ').slice(0, -1).join(' '))}
+                    <span class="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> ${escapeHtml((templateData.pricingSectionTitle || '').split(' ').slice(-1)[0] || '')}</span>
+                </h2>
+                <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                    ${escapeHtml(templateData.pricingSectionSubtitle || '')}
+                </p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 max-w-5xl mx-auto">
                 ${pricing.map(plan => `
-                <div class="p-8 bg-white border-2 ${plan.popular ? 'border-purple-500 shadow-xl relative' : 'border-gray-200'} rounded-lg pricing-card transition-all duration-300">
-                    ${plan.popular ? '<div class="absolute -top-3 left-1/2 transform -translate-x-1/2"><span class="bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-medium">Most Popular</span></div>' : ''}
-                    <h3 class="text-2xl font-bold text-gray-900 mb-4">${escapeHtml(plan.name || '')}</h3>
-                    <div class="mb-6">
-                        <span class="text-4xl font-bold text-gray-900">${escapeHtml(plan.price || '')}</span>
-                        ${plan.period ? `<span class="text-gray-600">${escapeHtml(plan.period)}</span>` : ''}
+                    <div class="relative p-6 md:p-8 rounded-2xl border-2 transition-all duration-300 transform hover:-translate-y-2 pricing-card ${plan.popular ? 'border-blue-600 bg-gradient-to-br from-blue-50 to-purple-50 shadow-2xl' : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-xl'}">
+                        ${plan.popular ? `
+                            <div class="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                                <span class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-full text-sm font-medium">
+                                    Most Popular
+                                </span>
+                            </div>
+                        ` : ''}
+                        
+                        <div class="text-center mb-8">
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">${escapeHtml(plan.name || '')}</h3>
+                            <div class="mb-4">
+                                <span class="text-4xl font-bold text-gray-900">${escapeHtml(plan.price || '')}</span>
+                                ${plan.period ? `<span class="text-gray-600">${escapeHtml(plan.period)}</span>` : ''}
+                            </div>
+                            <p class="text-gray-600">${escapeHtml(plan.description || '')}</p>
+                        </div>
+                        
+                        ${plan.features ? `
+                            <ul class="space-y-4 mb-8">
+                                ${plan.features.map(feature => `
+                                    <li class="flex items-center">
+                                        <svg class="w-5 h-5 text-green-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                        </svg>
+                                        <span class="text-gray-700">${escapeHtml(feature)}</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        ` : ''}
+                        
+                        <button onclick="openLeadModal()" class="w-full py-3 px-6 rounded-full font-semibold transition-all duration-300 transform hover:scale-105 ${plan.popular ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'}">
+                            ${escapeHtml(plan.cta || 'Choose Plan')}
+                        </button>
                     </div>
-                    <p class="text-gray-600 mb-6">${escapeHtml(plan.description || '')}</p>
-                    ${plan.features ? `<ul class="space-y-3 mb-8">
-                        ${plan.features.map(feature => `
-                        <li class="flex items-center text-gray-700">
-                            <span class="text-green-500 mr-3">✓</span>
-                            <span>${escapeHtml(feature)}</span>
-                        </li>
-                        `).join('')}
-                    </ul>` : ''}
-                    <button onclick="openLeadModal()" class="w-full py-3 ${plan.popular ? 'btn-primary text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'} font-semibold rounded-lg transition-colors">
-                        ${escapeHtml(plan.cta || 'Choose Plan')}
-                    </button>
-                </div>
                 `).join('')}
             </div>
         </div>
     </section>` : ''}
 
     <!-- Contact Section -->
-    ${templateData.showContactSection ? `<section id="contact" class="py-20 bg-white">
-        <div class="max-w-6xl mx-auto px-4">
-            ${templateData.showContactTitle && templateData.contactSectionTitle ? `<div class="text-center mb-16">
-                <h2 class="text-4xl font-bold text-gray-900 mb-4">${escapeHtml(templateData.contactSectionTitle)}</h2>
-                ${templateData.showContactSubtitle && templateData.contactSectionSubtitle ? `<p class="text-xl text-gray-600 max-w-3xl mx-auto">${escapeHtml(templateData.contactSectionSubtitle)}</p>` : ''}
-            </div>` : ''}
+    ${templateData.showContactSection ? `<section id="contact" class="py-20 bg-gradient-to-br from-gray-50 to-blue-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+                <div>
+                    <h2 class="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+                        ${escapeHtml((templateData.contactSectionTitle || '').split(' ').slice(0, -1).join(' '))}
+                        <span class="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> ${escapeHtml((templateData.contactSectionTitle || '').split(' ').slice(-1)[0] || '')}</span>
+                    </h2>
+                    <p class="text-xl text-gray-600 mb-8 leading-relaxed">
+                        ${escapeHtml(templateData.contactSectionSubtitle || '')}
+                    </p>
             <div class="grid md:grid-cols-2 gap-12">
                 ${templateData.showContactInfoList ? `<div>
                     <h3 class="text-2xl font-bold text-gray-900 mb-6">Get in Touch</h3>
@@ -3245,22 +3422,55 @@ function createCompleteStaticSite(templateData, projectId) {
     </footer>` : ''}
 
     <!-- Lead Modal -->
-    <div id="leadModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden">
+    <div id="leadModal" class="fixed inset-0 bg-black/60 z-50 hidden">
         <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-lg p-8 max-w-md w-full">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-2xl font-bold text-gray-900">Get Started Today</h3>
-                    <button onclick="closeLeadModal()" class="text-gray-400 hover:text-gray-600">&times;</button>
+            <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+                <!-- Close button -->
+                <button
+                    type="button"
+                    aria-label="Close"
+                    onclick="closeLeadModal()"
+                    class="absolute top-3 right-3 p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                </button>
+                
+                <div class="mb-4">
+                    <h3 class="text-2xl font-semibold text-gray-900">Create Your Account</h3>
+                    <p class="text-gray-600 mt-1">Enter your email and phone number to get started</p>
                 </div>
-                <form id="leadForm">
-                    <div class="space-y-4">
-                        <input type="email" name="email" placeholder="Enter your email" required
-                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        ${templateData.showLeadPhoneField ? `<input type="tel" name="phone" placeholder="Phone number (optional)"
-                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">` : ''}
-                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors">
-                            ${escapeHtml(ctaButtonText)}
-                        </button>
+                
+                <form id="leadForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Email Address *</label>
+                        <input
+                            type="email"
+                            name="email"
+                            required
+                            placeholder="your@email.com"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+                        <input
+                            type="tel"
+                            name="phone"
+                            required
+                            placeholder="1 555 123 4567"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                    </div>
+                    <button
+                        type="submit"
+                        class="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all"
+                    >
+                        Create your Account
+                    </button>
+                    <div class="text-center text-sm text-gray-600">
+                        Already have an account? <a href="#" class="text-blue-600 hover:underline">Log in</a>
                     </div>
                 </form>
             </div>
@@ -3275,6 +3485,12 @@ function createCompleteStaticSite(templateData, projectId) {
         
         function closeLeadModal() {
             document.getElementById('leadModal').classList.add('hidden');
+        }
+        
+        // Mobile menu functionality
+        function toggleMobileMenu() {
+            const mobileMenu = document.getElementById('mobileMenu');
+            mobileMenu.classList.toggle('hidden');
         }
         
         // Close modal on background click
