@@ -1,0 +1,52 @@
+--- a/src/worker.js
++++ b/src/worker.js
+@@ -2819,8 +2819,32 @@ async function serveStaticFiles(request, env) {
+     return new Response('Not Found', { status: 404 });
+   }
+ 
++  // Check if this is a custom domain request
++  const hostname = new URL(request.url).hostname;
++  let customDomainProjectId = null;
++  
++  // Only check for custom domain if not on jetsy.dev or api.jetsy.dev
++  if (!hostname.includes('jetsy.dev') && !hostname.includes('localhost')) {
++    try {
++      await ensureCustomDomainsTable(env);
++      const row = await env.DB.prepare('SELECT project_id, status FROM custom_domains WHERE domain = ?').bind(hostname).first();
++      if (row && row.status === 'active') {
++        customDomainProjectId = row.project_id;
++      }
++    } catch (e) {
++      console.error('Error checking custom domain:', e);
++    }
++  }
++
+   // Handle React Router - serve index.html for all routes that don't have file extensions
+   if (!path.includes('.') || path.endsWith('/')) {
+-    return new Response(await getIndexHTML(), {
++    return new Response(await getIndexHTML(customDomainProjectId), {
+       headers: {
+         'Content-Type': 'text/html',
+         'Cache-Control': 'public, max-age=3600',
+@@ -2873,7 +2897,7 @@ async function serveStaticFiles(request, env) {
+ }
+ 
+ // Get the main HTML content for the React app
+-async function getIndexHTML() {
++async function getIndexHTML(customDomainProjectId = null) {
+   return `<!DOCTYPE html>
+ <html lang="en">
+ <head>
+@@ -2925,6 +2949,12 @@ async function getIndexHTML() {
+     <div id="root"></div>
+     
+     <script type="module">
++      // Inject custom domain project ID if available
++      ${customDomainProjectId ? `
++        window.JETSY_CUSTOM_DOMAIN_PROJECT_ID = ${customDomainProjectId};
++        console.log('Custom domain detected, project ID:', ${customDomainProjectId});
++      ` : ''}
++      
+       import { createRoot } from '/assets/react.js';
+       import App from '/assets/App.js';
+       

@@ -104,27 +104,75 @@ function App() {
       setCurrentStep('faq');
     } else if (path === '/template') {
       setCurrentStep('template');
-    } else if (path === '/') {
-      // Try resolving by host for custom domains; fallback to hero
+      // Check if this is a custom domain (not jetsy.dev or localhost)
       // Expose API base for templates that might post with window-scoped config
       try { window.JETSY_API_BASE = getApiBaseUrl(); } catch {}
-      (async () => {
-        try {
-          const res = await fetch(`${getApiBaseUrl()}/api/domain/resolve`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data && data.project_id) {
-              setRouteProjectId(data.project_id);
-              setCurrentStep('public-route');
-              setIsInitialLoad(false);
-              return;
+      
+      const hostname = window.location.hostname;
+      if (!hostname.includes("jetsy.dev") && !hostname.includes("localhost")) {
+        // This is a custom domain, fetch project info
+        (async () => {
+          try {
+            // Pass the original hostname as a query parameter to ensure proper resolution
+            const res = await fetch(`${getApiBaseUrl()}/api/domain/resolve?domain=${encodeURIComponent(hostname)}`);
+            if (res.ok) {
+              const data = await res.json();
+              console.log('Domain resolve response:', data); // Debug logging
+              if (data && data.project_id) {
+                setRouteProjectId(data.project_id);
+                setCurrentStep("public-route");
+                setIsInitialLoad(false);
+                return;
+              }
             }
+          } catch (error) {
+            console.error('Domain resolve error:', error); // Debug logging
           }
-        } catch {}
+          setCurrentStep("hero");
+          setIsInitialLoad(false);
+        })();
+      } else {
+        // This is jetsy.dev or localhost, show hero
+        setCurrentStep("hero");
+        setIsInitialLoad(false);
+      }
+    } else if (path === '/') {
+      // Root path - check if this is a custom domain
+      const hostname = window.location.hostname;
+      
+      // Expose API base for templates that might post with window-scoped config
+      try { window.JETSY_API_BASE = getApiBaseUrl(); } catch {}
+      
+      if (!hostname.includes('jetsy.dev') && !hostname.includes('localhost')) {
+        // This IS a custom domain - call API to get project info
+        (async () => {
+          try {
+            // Pass the original hostname as a query parameter to ensure proper resolution
+            console.log('Custom domain detected:', hostname);
+            const res = await fetch(`${getApiBaseUrl()}/api/domain/resolve?domain=${encodeURIComponent(hostname)}`);
+            if (res.ok) {
+              const data = await res.json();
+              console.log('Domain resolve response:', data); // Debug logging
+              if (data && data.project_id) {
+                setRouteProjectId(data.project_id);
+                setCurrentStep('public-route'); // Show the custom website
+                setIsInitialLoad(false);
+                return;
+              }
+            }
+          } catch (error) {
+            console.error('Domain resolve error:', error); // Debug logging
+          }
+          // If domain resolution fails, show the default hero page
+          setCurrentStep('hero');
+          setIsInitialLoad(false);
+        })();
+        return; // avoid marking initial load twice below
+      } else {
+        // This is jetsy.dev or localhost - show the normal Jetsy interface
         setCurrentStep('hero');
         setIsInitialLoad(false);
-      })();
-      return; // avoid marking initial load twice below
+      }
     }
     
     // Mark initial load as complete

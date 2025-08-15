@@ -1,0 +1,50 @@
+--- a/src/App.jsx
++++ b/src/App.jsx
+@@ -105,19 +105,22 @@ function App() {
+     } else if (path === '/template') {
+       setCurrentStep('template');
+     } else if (path === '/') {
+-      // Try resolving by host for custom domains; fallback to hero
++      // Check if this is a custom domain (not jetsy.dev or localhost)
+       // Expose API base for templates that might post with window-scoped config
+       try { window.JETSY_API_BASE = getApiBaseUrl(); } catch {}
+-      (async () => {
+-        try {
+-          const res = await fetch(`${getApiBaseUrl()}/api/domain/resolve`);
+-          if (res.ok) {
+-            const data = await res.json();
+-            if (data && data.project_id) {
+-              setRouteProjectId(data.project_id);
+-              setCurrentStep('public-route');
+-              setIsInitialLoad(false);
+-              return;
++      
++      const hostname = window.location.hostname;
++      if (!hostname.includes('jetsy.dev') && !hostname.includes('localhost')) {
++        // This is a custom domain, fetch project info
++        (async () => {
++          try {
++            const res = await fetch(`${getApiBaseUrl()}/api/domain/resolve`);
++            if (res.ok) {
++              const data = await res.json();
++              if (data && data.project_id) {
++                setRouteProjectId(data.project_id);
++                setCurrentStep('public-route');
++                setIsInitialLoad(false);
++                return;
++              }
+             }
+-          }
+-        } catch {}
++          } catch {}
++          setCurrentStep('hero');
++          setIsInitialLoad(false);
++        })();
++      } else {
++        // This is jetsy.dev or localhost, show hero
+         setCurrentStep('hero');
+         setIsInitialLoad(false);
+-      })();
++      }
+       return; // avoid marking initial load twice below
+     }

@@ -2025,7 +2025,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
               <div className="mt-2 p-3 bg-gray-50 rounded border">
                 <div><strong>Type:</strong> CNAME</div>
                 <div><strong>Name/Host:</strong> www</div>
-                <div><strong>Target/Value:</strong> sites.jetsy.dev</div>
+                <div><strong>Target/Value:</strong> api.jetsy.dev</div>
                 <div><strong>TTL:</strong> Auto</div>
                 <div className="mt-2">Remove any A/AAAA/MX/TXT records that exist for the same label (www).</div>
               </div>

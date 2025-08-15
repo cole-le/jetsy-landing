@@ -134,58 +134,14 @@ export default {
 
       // --- Custom Domains API (Cloudflare Custom Hostnames integration) ---
       if (path === '/api/domain/resolve' && request.method === 'GET') {
-        const url = new URL(request.url);
-        
-        // Method 1: Check if domain is passed as query parameter (most reliable)
-        const domainParam = url.searchParams.get('domain');
-        
-        // Method 2: Get the original hostname from various headers
-        const originalHost = 
-          request.headers.get('CF-Connecting-Host') ||
-          request.headers.get('X-Forwarded-Host') ||
-          request.headers.get('CF-Original-Host') ||
-          request.headers.get('X-Original-Host') ||
-          request.cf?.originalHost ||
-          url.hostname;
-          
-        // Use domain parameter if provided, otherwise use header-based detection
-        const targetDomain = domainParam || originalHost;
-          
-        console.log('Domain resolve debug:', {
-          targetDomain,
-          domainParam,
-          originalHost,
-          urlHostname: url.hostname,
-          cfConnectingHost: request.headers.get('CF-Connecting-Host'),
-          xForwardedHost: request.headers.get('X-Forwarded-Host'),
-          cfOriginalHost: request.headers.get('CF-Original-Host'),
-          xOriginalHost: request.headers.get('X-Original-Host'),
-          allHeaders: Object.fromEntries(request.headers.entries())
-        });
-        
+        const hostHeader = new URL(request.url).hostname;
         try {
           await ensureCustomDomainsTable(env);
-          const row = await env.DB.prepare('SELECT project_id, status FROM custom_domains WHERE domain = ?').bind(targetDomain).first();
+          const row = await env.DB.prepare('SELECT project_id, status FROM custom_domains WHERE domain = ?').bind(hostHeader).first();
           const projectId = row && row.status === 'active' ? row.project_id : null;
-          
-          console.log('Database lookup result:', { domain: targetDomain, projectId, rowFound: !!row });
-          
-          return new Response(JSON.stringify({ 
-            project_id: projectId,
-            resolved_domain: targetDomain,
-            debug: {
-              url_hostname: url.hostname,
-              resolved_hostname: targetDomain,
-              method: domainParam ? 'query_parameter' : 'header_detection'
-            }
-          }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+          return new Response(JSON.stringify({ project_id: projectId }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
         } catch (e) {
-          console.error('Domain resolve error:', e);
-          return new Response(JSON.stringify({ 
-            project_id: null, 
-            error: e.message,
-            resolved_domain: targetDomain 
-          }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+          return new Response(JSON.stringify({ project_id: null }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
         }
       }
 

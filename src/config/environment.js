@@ -5,6 +5,9 @@ export const ENV_CONFIG = {
   // Production URLs
   PRODUCTION_URL: 'https://jetsy-landing-prod.jetsydev.workers.dev',
   
+  // Separate API Server URL (to avoid infinite loops with custom domains)
+  API_SERVER_URL: 'https://jetsy-server-prod.jetsydev.workers.dev',
+  
   // Development configuration
   DEVELOPMENT: {
     // Local development server (React/Vite)
@@ -22,6 +25,12 @@ export const ENV_CONFIG = {
     LOCAL_URL: 'https://jetsy.dev',
     IMAGE_GENERATION_URL: 'https://jetsy-landing-prod.jetsydev.workers.dev',
     API_BASE_URL: 'https://jetsy-landing-prod.jetsydev.workers.dev'
+  },
+  
+  // Custom Domain configuration (to avoid infinite loops)
+  CUSTOM_DOMAIN: {
+    IMAGE_GENERATION_URL: 'https://jetsy-landing-prod.jetsydev.workers.dev',
+    API_BASE_URL: 'https://jetsy-server-prod.jetsydev.workers.dev'
   }
 };
 
@@ -30,7 +39,16 @@ export const getCurrentEnvironment = () => {
   // Check if we're running in development mode
   if (typeof window !== 'undefined') {
     // Browser environment
-    return window.location.hostname === 'localhost' ? 'development' : 'production';
+    const hostname = window.location.hostname;
+    
+    if (hostname === 'localhost') {
+      return 'development';
+    } else if (hostname.includes('jetsy.dev')) {
+      return 'production';
+    } else {
+      // This is a custom domain - use special config to avoid infinite loops
+      return 'custom_domain';
+    }
   } else {
     // Node.js environment - check for development indicators
     if (process.env.NODE_ENV === 'development') {
@@ -58,6 +76,17 @@ export const getImageGenerationUrl = () => {
 
 // Get API base URL
 export const getApiBaseUrl = () => {
+  // ALWAYS check at runtime, not build time
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    
+    // If this is a custom domain (not jetsy.dev or localhost), use separate API server
+    if (!hostname.includes('jetsy.dev') && !hostname.includes('localhost')) {
+      console.log('🔧 Custom domain detected at runtime - using separate API server to avoid infinite loops');
+      return 'https://jetsy-server-prod.jetsydev.workers.dev';
+    }
+  }
+  
   const env = getCurrentEnvironment();
   return ENV_CONFIG[env.toUpperCase()].API_BASE_URL;
 };
