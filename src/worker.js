@@ -2015,7 +2015,11 @@ async function deployToVercel(projectFiles, templateData, projectId, vercelToken
   // Always use template data approach (same as public route /{user-id}-{project-id})
   if (templateData) {
     console.log('🚀 Using template-data-based deployment (same as public route)');
-    staticHTML = createExceptionalTemplateStaticSite(templateData, projectId);
+    
+    // Fix localhost image URLs for production deployment
+    const fixedTemplateData = fixImageUrlsForProduction(templateData);
+    
+    staticHTML = createCompleteStaticSite(fixedTemplateData, projectId);
   } else {
     throw new Error('No template data available for deployment');
   }
@@ -2507,7 +2511,7 @@ function getExceptionalTemplateComponentCode() {
         setIsSubmitting(true);
         
         try {
-          const res = await fetch('https://jetsy.dev/api/contact', {
+          const res = await fetch('https://jetsy-landing.jetsydev.workers.dev/api/contact', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -2819,7 +2823,7 @@ function getExceptionalTemplateComponentCode() {
                   e.preventDefault();
                   setIsSubmitting(true);
                   try {
-                    const res = await fetch('https://jetsy.dev/api/leads', {
+                    const res = await fetch('https://jetsy-landing.jetsydev.workers.dev/api/leads', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
@@ -2885,6 +2889,430 @@ function getExceptionalTemplateComponentCode() {
       );
     };
   `;
+}
+
+// Create complete static site with all sections (enhanced version with all components)
+function createCompleteStaticSite(templateData, projectId) {
+  const businessName = templateData.businessName || 'My Business';
+  const seoTitle = templateData.seoTitle || '';
+  const tagline = templateData.tagline || '';
+  const title = seoTitle || `${businessName} - ${tagline}` || 'Landing Page';
+  const heroDescription = templateData.heroDescription || '';
+  const ctaButtonText = templateData.ctaButtonText || 'Get Started';
+  const features = templateData.features || [];
+  const pricing = templateData.pricing || [];
+  const aboutContent = templateData.aboutContent || '';
+  const contactInfo = templateData.contactInfo || {};
+  const heroBackgroundImage = templateData.heroBackgroundImage || '';
+  const aboutBackgroundImage = templateData.aboutBackgroundImage || '';
+  const trustIndicator1 = templateData.trustIndicator1 || '';
+  const trustIndicator2 = templateData.trustIndicator2 || '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escapeHtml(title)}</title>
+    <meta name="description" content="${escapeHtml(tagline || 'Professional landing page powered by Jetsy')}">
+    <link rel="icon" type="image/png" href="https://jetsy.dev/jetsy_favicon.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .hover-lift { transition: transform 0.3s ease; }
+        .hover-lift:hover { transform: translateY(-5px); }
+        .hero-bg {
+            background-image: url('${heroBackgroundImage}');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        .about-bg {
+            background-image: url('${aboutBackgroundImage}');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    ${templateData.showHeroSection ? `<nav class="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    ${templateData.businessLogoUrl ? `<img src="${templateData.businessLogoUrl}" alt="${escapeHtml(businessName)}" class="h-8 w-auto mr-3">` : ''}
+                    <span class="text-xl font-bold text-gray-900">${escapeHtml(businessName)}</span>
+                </div>
+                <div class="hidden md:flex items-center space-x-8">
+                    ${templateData.showDynamicSection ? `<a href="#features" class="text-gray-600 hover:text-blue-600 transition-colors">Features</a>` : ''}
+                    ${templateData.showAboutSection ? `<a href="#about" class="text-gray-600 hover:text-blue-600 transition-colors">About</a>` : ''}
+                    ${templateData.showPricingSection ? `<a href="#pricing" class="text-gray-600 hover:text-blue-600 transition-colors">Pricing</a>` : ''}
+                    ${templateData.showContactSection ? `<a href="#contact" class="text-gray-600 hover:text-blue-600 transition-colors">Contact</a>` : ''}
+                    <button onclick="openLeadModal()" class="bg-blue-600 text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-blue-700 transition-colors">${escapeHtml(ctaButtonText)}</button>
+                </div>
+            </div>
+        </div>
+    </nav>` : ''}
+
+    <!-- Hero Section -->
+    ${templateData.showHeroSection ? `<section class="relative min-h-screen flex items-center justify-center hero-bg">
+        <div class="absolute inset-0 bg-black/50"></div>
+        <div class="relative z-10 max-w-6xl mx-auto px-4 text-center text-white">
+            ${templateData.showHeroBadge && templateData.heroBadge ? `<div class="inline-block bg-blue-600/20 backdrop-blur-sm border border-blue-400/30 rounded-full px-4 py-2 mb-6">
+                <span class="text-blue-100 text-sm font-medium">${escapeHtml(templateData.heroBadge)}</span>
+            </div>` : ''}
+            <h1 class="text-5xl md:text-7xl font-bold mb-6" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.8)">${escapeHtml(businessName)}</h1>
+            ${tagline ? `<p class="text-xl md:text-2xl mb-8 text-blue-100" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.8)">${escapeHtml(tagline)}</p>` : ''}
+            ${heroDescription ? `<p class="text-lg md:text-xl mb-8 text-gray-200 max-w-4xl mx-auto" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.8)">${escapeHtml(heroDescription)}</p>` : ''}
+            ${templateData.showHeroCTA ? `<button onclick="openLeadModal()" class="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-lg rounded-lg transition-all duration-300 hover-lift">
+                ${escapeHtml(ctaButtonText)}
+            </button>` : ''}
+            ${templateData.showHeroSocialProof && (trustIndicator1 || trustIndicator2) ? `<div class="mt-12 flex items-center justify-center space-x-8 text-sm text-blue-100">
+                ${trustIndicator1 ? `<div class="flex items-center"><span class="text-yellow-400 mr-1">⭐</span>${escapeHtml(trustIndicator1)}</div>` : ''}
+                ${trustIndicator2 ? `<div class="flex items-center"><span class="text-yellow-400 mr-1">⭐</span>${escapeHtml(trustIndicator2)}</div>` : ''}
+            </div>` : ''}
+        </div>
+    </section>` : ''}
+
+    <!-- Features Section -->
+    ${templateData.showDynamicSection && features.length > 0 ? `<section id="features" class="py-20 bg-white">
+        <div class="max-w-6xl mx-auto px-4">
+            ${templateData.showSectionTitle && templateData.sectionTitle ? `<div class="text-center mb-16">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">${escapeHtml(templateData.sectionTitle)}</h2>
+                ${templateData.showSectionSubtitle && templateData.sectionSubtitle ? `<p class="text-xl text-gray-600 max-w-3xl mx-auto">${escapeHtml(templateData.sectionSubtitle)}</p>` : ''}
+            </div>` : ''}
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                ${features.map(feature => `
+                <div class="p-6 bg-gray-50 rounded-lg hover-lift">
+                    <div class="text-4xl mb-4">${feature.icon || '⭐'}</div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">${escapeHtml(feature.title || '')}</h3>
+                    <p class="text-gray-600">${escapeHtml(feature.description || '')}</p>
+                </div>
+                `).join('')}
+            </div>
+        </div>
+    </section>` : ''}
+
+    <!-- About Section -->
+    ${templateData.showAboutSection ? `<section id="about" class="relative py-20 about-bg">
+        <div class="absolute inset-0 bg-black/60"></div>
+        <div class="relative z-10 max-w-6xl mx-auto px-4">
+            ${templateData.showAboutTitle && templateData.aboutSectionTitle ? `<div class="text-center mb-16">
+                <h2 class="text-4xl font-bold text-white mb-4" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.8)">${escapeHtml(templateData.aboutSectionTitle)}</h2>
+                ${templateData.showAboutSubtitle && templateData.aboutSectionSubtitle ? `<p class="text-xl text-gray-200 max-w-3xl mx-auto" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.8)">${escapeHtml(templateData.aboutSectionSubtitle)}</p>` : ''}
+            </div>` : ''}
+            <div class="grid md:grid-cols-2 gap-12 items-center">
+                <div class="text-white">
+                    <p class="text-lg leading-relaxed mb-8" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.8)">${escapeHtml(aboutContent)}</p>
+                    ${templateData.showAboutBenefits && templateData.aboutBenefits?.length > 0 ? `<ul class="space-y-3">
+                        ${templateData.aboutBenefits.map(benefit => `
+                        <li class="flex items-center text-gray-200">
+                            <span class="text-green-400 mr-3">✓</span>
+                            <span style="text-shadow: 1px 1px 2px rgba(0,0,0,0.8)">${escapeHtml(benefit)}</span>
+                        </li>
+                        `).join('')}
+                    </ul>` : ''}
+                </div>
+                <div class="text-center">
+                    <div class="bg-white/10 backdrop-blur-sm rounded-lg p-8 border border-white/20">
+                        <h3 class="text-2xl font-bold text-white mb-4" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.8)">Ready to Get Started?</h3>
+                        <button onclick="openLeadModal()" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors">
+                            ${escapeHtml(ctaButtonText)}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>` : ''}
+
+    <!-- Pricing Section -->
+    ${templateData.showPricingSection && pricing.length > 0 ? `<section id="pricing" class="py-20 bg-gray-50">
+        <div class="max-w-6xl mx-auto px-4">
+            ${templateData.showPricingTitle && templateData.pricingSectionTitle ? `<div class="text-center mb-16">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">${escapeHtml(templateData.pricingSectionTitle)}</h2>
+                ${templateData.showPricingSubtitle && templateData.pricingSectionSubtitle ? `<p class="text-xl text-gray-600 max-w-3xl mx-auto">${escapeHtml(templateData.pricingSectionSubtitle)}</p>` : ''}
+            </div>` : ''}
+            <div class="grid md:grid-cols-${Math.min(pricing.length, 3)} gap-8">
+                ${pricing.map(plan => `
+                <div class="p-8 bg-white border-2 ${plan.popular ? 'border-blue-500 shadow-xl relative' : 'border-gray-200'} rounded-lg hover-lift">
+                    ${plan.popular ? '<div class="absolute -top-3 left-1/2 transform -translate-x-1/2"><span class="bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-medium">Most Popular</span></div>' : ''}
+                    <h3 class="text-2xl font-bold text-gray-900 mb-4">${escapeHtml(plan.name || '')}</h3>
+                    <div class="mb-6">
+                        <span class="text-4xl font-bold text-gray-900">${escapeHtml(plan.price || '')}</span>
+                        ${plan.period ? `<span class="text-gray-600">${escapeHtml(plan.period)}</span>` : ''}
+                    </div>
+                    <p class="text-gray-600 mb-6">${escapeHtml(plan.description || '')}</p>
+                    ${plan.features ? `<ul class="space-y-3 mb-8">
+                        ${plan.features.map(feature => `
+                        <li class="flex items-center text-gray-700">
+                            <span class="text-green-500 mr-3">✓</span>
+                            <span>${escapeHtml(feature)}</span>
+                        </li>
+                        `).join('')}
+                    </ul>` : ''}
+                    <button onclick="openLeadModal()" class="w-full py-3 ${plan.popular ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'} font-semibold rounded-lg transition-colors">
+                        ${escapeHtml(plan.cta || 'Choose Plan')}
+                    </button>
+                </div>
+                `).join('')}
+            </div>
+        </div>
+    </section>` : ''}
+
+    <!-- Contact Section -->
+    ${templateData.showContactSection ? `<section id="contact" class="py-20 bg-white">
+        <div class="max-w-6xl mx-auto px-4">
+            ${templateData.showContactTitle && templateData.contactSectionTitle ? `<div class="text-center mb-16">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">${escapeHtml(templateData.contactSectionTitle)}</h2>
+                ${templateData.showContactSubtitle && templateData.contactSectionSubtitle ? `<p class="text-xl text-gray-600 max-w-3xl mx-auto">${escapeHtml(templateData.contactSectionSubtitle)}</p>` : ''}
+            </div>` : ''}
+            <div class="grid md:grid-cols-2 gap-12">
+                ${templateData.showContactInfoList ? `<div>
+                    <h3 class="text-2xl font-bold text-gray-900 mb-6">Get in Touch</h3>
+                    <div class="space-y-4">
+                        ${contactInfo.email ? `<div class="flex items-center">
+                            <span class="text-blue-600 mr-3">📧</span>
+                            <span class="text-gray-700">${escapeHtml(contactInfo.email)}</span>
+                        </div>` : ''}
+                        ${contactInfo.phone ? `<div class="flex items-center">
+                            <span class="text-blue-600 mr-3">📞</span>
+                            <span class="text-gray-700">${escapeHtml(contactInfo.phone)}</span>
+                        </div>` : ''}
+                        ${contactInfo.office ? `<div class="flex items-center">
+                            <span class="text-blue-600 mr-3">📍</span>
+                            <span class="text-gray-700">${escapeHtml(contactInfo.office)}</span>
+                        </div>` : ''}
+                    </div>
+                </div>` : ''}
+                ${templateData.showContactForm ? `<div>
+                    <form id="contactForm" class="space-y-6">
+                        <div>
+                            <input type="text" name="name" placeholder="${escapeHtml(templateData.contactFormPlaceholders?.name || 'Your name')}" required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <input type="email" name="email" placeholder="${escapeHtml(templateData.contactFormPlaceholders?.email || 'your@email.com')}" required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <input type="text" name="company" placeholder="${escapeHtml(templateData.contactFormPlaceholders?.company || 'Your company')}"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <textarea name="message" rows="4" placeholder="${escapeHtml(templateData.contactFormPlaceholders?.message || 'Tell us about your project...')}" required
+                                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors">
+                            Send Message
+                        </button>
+                    </form>
+                </div>` : ''}
+            </div>
+        </div>
+    </section>` : ''}
+
+    <!-- Footer -->
+    ${templateData.showFooter ? `<footer class="bg-gray-900 text-white py-12">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="grid md:grid-cols-4 gap-8">
+                <div>
+                    <div class="flex items-center mb-4">
+                        ${templateData.businessLogoUrl ? `<img src="${templateData.businessLogoUrl}" alt="${escapeHtml(businessName)}" class="h-8 w-auto mr-3">` : ''}
+                        <span class="text-xl font-bold">${escapeHtml(businessName)}</span>
+                    </div>
+                    <p class="text-gray-400">${escapeHtml(templateData.footerDescription || tagline)}</p>
+                </div>
+                ${templateData.footerProductLinks?.length > 0 ? `<div>
+                    <h4 class="font-semibold mb-4">Product</h4>
+                    <ul class="space-y-2">
+                        ${templateData.footerProductLinks.map(link => `
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors">${escapeHtml(link)}</a></li>
+                        `).join('')}
+                    </ul>
+                </div>` : ''}
+                ${templateData.footerCompanyLinks?.length > 0 ? `<div>
+                    <h4 class="font-semibold mb-4">Company</h4>
+                    <ul class="space-y-2">
+                        ${templateData.footerCompanyLinks.map(link => `
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors">${escapeHtml(link)}</a></li>
+                        `).join('')}
+                    </ul>
+                </div>` : ''}
+                <div>
+                    <h4 class="font-semibold mb-4">Contact</h4>
+                    <div class="space-y-2 text-gray-400">
+                        ${contactInfo.email ? `<div>${escapeHtml(contactInfo.email)}</div>` : ''}
+                        ${contactInfo.phone ? `<div>${escapeHtml(contactInfo.phone)}</div>` : ''}
+                    </div>
+                </div>
+            </div>
+            <div class="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
+                <p>&copy; ${new Date().getFullYear()} ${escapeHtml(businessName)}. Powered by <a href="https://jetsy.dev" class="text-blue-400 hover:text-blue-300">Jetsy</a></p>
+                ${templateData.landingPagesCreated ? `<p class="mt-2 text-sm">${escapeHtml(templateData.landingPagesCreated)}</p>` : ''}
+            </div>
+        </div>
+    </footer>` : ''}
+
+    <!-- Lead Modal -->
+    <div id="leadModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg p-8 max-w-md w-full">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-2xl font-bold text-gray-900">Get Started Today</h3>
+                    <button onclick="closeLeadModal()" class="text-gray-400 hover:text-gray-600">&times;</button>
+                </div>
+                <form id="leadForm">
+                    <div class="space-y-4">
+                        <input type="email" name="email" placeholder="Enter your email" required
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        ${templateData.showLeadPhoneField ? `<input type="tel" name="phone" placeholder="Phone number (optional)"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">` : ''}
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors">
+                            ${escapeHtml(ctaButtonText)}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Lead modal functionality
+        function openLeadModal() {
+            document.getElementById('leadModal').classList.remove('hidden');
+        }
+        
+        function closeLeadModal() {
+            document.getElementById('leadModal').classList.add('hidden');
+        }
+        
+        // Close modal on background click
+        document.getElementById('leadModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeLeadModal();
+            }
+        });
+
+        // Lead form submission
+        document.getElementById('leadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            
+            try {
+                const response = await fetch('https://jetsy-landing.jetsydev.workers.dev/api/leads', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        ...data, 
+                        project_id: '${projectId}', 
+                        source: 'vercel_deployment' 
+                    })
+                });
+                
+                if (response.ok) {
+                    alert('Thank you! We\\'ll be in touch soon.');
+                    closeLeadModal();
+                    e.target.reset();
+                } else {
+                    alert('There was an error. Please try again.');
+                }
+            } catch (error) {
+                console.error('Lead submission error:', error);
+                alert('There was an error. Please try again.');
+            }
+        });
+
+        // Contact form submission
+        const contactForm = document.getElementById('contactForm');
+        if (contactForm) {
+            contactForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const data = Object.fromEntries(formData.entries());
+                
+                try {
+                    const response = await fetch('https://jetsy-landing.jetsydev.workers.dev/api/contact', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            ...data, 
+                            project_id: '${projectId}', 
+                            source: 'vercel_deployment' 
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        alert('Thank you for your message! We\\'ll get back to you soon.');
+                        e.target.reset();
+                    } else {
+                        alert('There was an error sending your message. Please try again.');
+                    }
+                } catch (error) {
+                    console.error('Contact form error:', error);
+                    alert('There was an error sending your message. Please try again.');
+                }
+            });
+        }
+
+        // Analytics tracking
+        fetch('https://jetsy-landing.jetsydev.workers.dev/api/track', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                event_name: 'page_view',
+                event_category: 'user_interaction',
+                event_data: JSON.stringify({ 
+                    project_id: '${projectId}', 
+                    source: 'vercel_deployment_complete',
+                    deployment_type: 'static_html_complete'
+                }),
+                timestamp: Date.now(),
+                url: window.location.href,
+                user_agent: navigator.userAgent,
+                jetsy_generated: true,
+                website_id: '${projectId}'
+            })
+        }).catch(() => {});
+    </script>
+</body>
+</html>`;
+}
+
+// Fix localhost image URLs for production deployment
+function fixImageUrlsForProduction(templateData) {
+  const fixedData = { ...templateData };
+  
+  // Replace localhost URLs with production URLs
+  if (fixedData.heroBackgroundImage && fixedData.heroBackgroundImage.includes('localhost:8787')) {
+    fixedData.heroBackgroundImage = fixedData.heroBackgroundImage.replace(
+      'http://localhost:8787', 
+      'https://jetsy-landing.jetsydev.workers.dev'
+    );
+  }
+  
+  if (fixedData.aboutBackgroundImage && fixedData.aboutBackgroundImage.includes('localhost:8787')) {
+    fixedData.aboutBackgroundImage = fixedData.aboutBackgroundImage.replace(
+      'http://localhost:8787', 
+      'https://jetsy-landing.jetsydev.workers.dev'
+    );
+  }
+  
+  if (fixedData.businessLogoUrl && fixedData.businessLogoUrl.includes('localhost:8787')) {
+    fixedData.businessLogoUrl = fixedData.businessLogoUrl.replace(
+      'http://localhost:8787', 
+      'https://jetsy-landing.jetsydev.workers.dev'
+    );
+  }
+  
+  console.log('🖼️ Fixed image URLs for production:', {
+    heroBackgroundImage: fixedData.heroBackgroundImage,
+    aboutBackgroundImage: fixedData.aboutBackgroundImage,
+    businessLogoUrl: fixedData.businessLogoUrl
+  });
+  
+  return fixedData;
 }
 
 // Full static site generator for the Worker environment - using the complete version
@@ -3063,7 +3491,7 @@ function createExceptionalTemplateStaticSite(templateData, projectId) {
         console.log('✅ Jetsy ExceptionalTemplate rendered successfully on Vercel');
         
         // Track page view
-        fetch('https://jetsy.dev/api/track', {
+        fetch('https://jetsy-landing.jetsydev.workers.dev/api/track', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -3286,7 +3714,7 @@ function createStaticSiteFromFiles(projectFiles, projectId, templateData = null)
         console.log('✅ Jetsy site rendered successfully');
         
         // Track page view
-        fetch('https://jetsy.dev/api/track', {
+        fetch('https://jetsy-landing.jetsydev.workers.dev/api/track', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -3349,246 +3777,6 @@ function createStaticSiteFromFiles(projectFiles, projectId, templateData = null)
           </div>
         \`;
       }
-    </script>
-</body>
-</html>`;
-}
-
-function createCompleteStaticSite(templateData, projectId) {
-  // Import the actual generator from our utility file
-  // For now, we'll use a more complete version
-  const {
-    businessName = 'My Business',
-    businessLogoUrl,
-    tagline = '',
-    heroDescription = '',
-    ctaButtonText = 'Get Started',
-    features = [],
-    pricing = [],
-    contactInfo = {},
-    aboutContent = '',
-    aboutBenefits = [],
-    showHeroSection = true,
-    showDynamicSection = true,
-    showAboutSection = true,
-    showPricingSection = true,
-    showContactSection = true,
-    showContactForm = true,
-    showFooter = true
-  } = templateData;
-
-  const title = templateData.seoTitle || `${businessName} - ${tagline}`;
-  
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${escapeHtml(title)}</title>
-    <meta name="description" content="${escapeHtml(heroDescription || tagline)}">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .hover-lift { transition: transform 0.3s ease; }
-        .hover-lift:hover { transform: translateY(-5px); }
-        .hero-overlay { background: rgba(0, 0, 0, 0.6); }
-    </style>
-</head>
-<body class="bg-gray-50">
-    ${showHeroSection ? `
-    <section class="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-purple-900 text-white">
-        <div class="relative z-10 max-w-6xl mx-auto px-4 text-center">
-            ${businessLogoUrl ? `<img src="${businessLogoUrl}" alt="${businessName} Logo" class="h-16 w-auto mx-auto mb-6">` : ''}
-            <h1 class="text-5xl md:text-7xl font-bold mb-6">${escapeHtml(businessName)}</h1>
-            ${tagline ? `<p class="text-xl md:text-2xl mb-8 text-blue-100">${escapeHtml(tagline)}</p>` : ''}
-            ${heroDescription ? `<p class="text-lg md:text-xl mb-8 text-gray-200 max-w-4xl mx-auto">${escapeHtml(heroDescription)}</p>` : ''}
-            <button class="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-lg rounded-lg transition-all duration-300 hover-lift">
-                ${escapeHtml(ctaButtonText)}
-            </button>
-        </div>
-    </section>
-    ` : ''}
-    
-    ${showDynamicSection && features.length > 0 ? `
-    <section class="py-20 bg-white">
-        <div class="max-w-6xl mx-auto px-4">
-            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                ${features.map(feature => `
-                <div class="text-center p-6 rounded-lg hover-lift">
-                    ${feature.icon ? `<div class="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center text-2xl">${feature.icon}</div>` : ''}
-                    <h3 class="text-xl font-semibold text-gray-900 mb-3">${escapeHtml(feature.title || '')}</h3>
-                    <p class="text-gray-600">${escapeHtml(feature.description || '')}</p>
-                </div>
-                `).join('')}
-            </div>
-        </div>
-    </section>
-    ` : ''}
-    
-    ${showAboutSection && aboutContent ? `
-    <section class="py-20 bg-gray-50">
-        <div class="max-w-6xl mx-auto px-4">
-            <div class="prose prose-lg mx-auto text-center">
-                <p class="text-gray-700">${escapeHtml(aboutContent)}</p>
-            </div>
-            ${aboutBenefits.length > 0 ? `
-            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
-                ${aboutBenefits.map(benefit => `
-                <div class="flex items-start space-x-3 p-4 bg-white rounded-lg">
-                    <div class="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                        <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                        </svg>
-                    </div>
-                    <span class="text-gray-700 font-medium">${escapeHtml(benefit)}</span>
-                </div>
-                `).join('')}
-            </div>
-            ` : ''}
-        </div>
-    </section>
-    ` : ''}
-    
-    ${showPricingSection && pricing.length > 0 ? `
-    <section class="py-20 bg-white">
-        <div class="max-w-6xl mx-auto px-4">
-            <div class="grid md:grid-cols-${Math.min(pricing.length, 3)} gap-8">
-                ${pricing.map(plan => `
-                <div class="p-8 bg-white border-2 ${plan.featured ? 'border-blue-500 shadow-xl' : 'border-gray-200'} rounded-lg hover-lift">
-                    <h3 class="text-2xl font-bold text-gray-900 mb-4">${escapeHtml(plan.name || '')}</h3>
-                    <div class="mb-6">
-                        <span class="text-4xl font-bold text-gray-900">${escapeHtml(plan.price || '')}</span>
-                        ${plan.period ? `<span class="text-gray-600">/${escapeHtml(plan.period)}</span>` : ''}
-                    </div>
-                    ${plan.features ? `
-                    <ul class="space-y-3 mb-8">
-                        ${plan.features.map(feature => `
-                        <li class="flex items-center">
-                            <svg class="w-5 h-5 text-green-500 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                            </svg>
-                            ${escapeHtml(feature)}
-                        </li>
-                        `).join('')}
-                    </ul>
-                    ` : ''}
-                    <button class="w-full py-3 px-6 ${plan.featured ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'} font-semibold rounded-lg transition-all duration-300">
-                        ${escapeHtml(plan.ctaText || ctaButtonText)}
-                    </button>
-                </div>
-                `).join('')}
-            </div>
-        </div>
-    </section>
-    ` : ''}
-    
-    ${showContactSection ? `
-    <section class="py-20 bg-gray-50">
-        <div class="max-w-6xl mx-auto px-4">
-            <div class="grid lg:grid-cols-2 gap-12">
-                <div class="space-y-6">
-                    <h3 class="text-2xl font-semibold text-gray-900 mb-6">Get in Touch</h3>
-                    ${contactInfo.email ? `
-                    <div class="flex items-center space-x-3">
-                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                        </svg>
-                        <span class="text-gray-700">${escapeHtml(contactInfo.email)}</span>
-                    </div>
-                    ` : ''}
-                    ${contactInfo.phone ? `
-                    <div class="flex items-center space-x-3">
-                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
-                        </svg>
-                        <span class="text-gray-700">${escapeHtml(contactInfo.phone)}</span>
-                    </div>
-                    ` : ''}
-                </div>
-                
-                ${showContactForm ? `
-                <div class="bg-white p-8 rounded-lg shadow-lg">
-                    <form id="contact-form" class="space-y-6">
-                        <div>
-                            <input type="text" name="name" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Your name">
-                        </div>
-                        <div>
-                            <input type="email" name="email" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="your@email.com">
-                        </div>
-                        <div>
-                            <textarea name="message" rows="4" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Tell us about your project..."></textarea>
-                        </div>
-                        <button type="submit" class="w-full py-3 px-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all duration-300 hover-lift">
-                            Send Message
-                        </button>
-                    </form>
-                </div>
-                ` : ''}
-            </div>
-        </div>
-    </section>
-    ` : ''}
-    
-    ${showFooter ? `
-    <footer class="bg-gray-900 text-white py-12">
-        <div class="max-w-6xl mx-auto px-4 text-center">
-            <h3 class="text-2xl font-bold mb-4">${escapeHtml(businessName)}</h3>
-            ${contactInfo.email || contactInfo.phone ? `
-            <div class="space-y-2 mb-6">
-                ${contactInfo.email ? `<p class="text-gray-400">Email: ${escapeHtml(contactInfo.email)}</p>` : ''}
-                ${contactInfo.phone ? `<p class="text-gray-400">Phone: ${escapeHtml(contactInfo.phone)}</p>` : ''}
-            </div>
-            ` : ''}
-            <p class="text-gray-400">© ${new Date().getFullYear()} ${escapeHtml(businessName)}. All rights reserved. Powered by <a href="https://jetsy.dev" class="text-blue-400">Jetsy</a></p>
-        </div>
-    </footer>
-    ` : ''}
-
-    <script>
-        // Contact form handling
-        document.addEventListener('DOMContentLoaded', () => {
-            const contactForm = document.getElementById('contact-form');
-            if (contactForm) {
-                contactForm.addEventListener('submit', async (e) => {
-                    e.preventDefault();
-                    const formData = new FormData(e.target);
-                    const data = Object.fromEntries(formData.entries());
-                    
-                    try {
-                        const response = await fetch('https://jetsy.dev/api/contact', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ ...data, project_id: '${projectId}', source: 'vercel_deployment' })
-                        });
-                        
-                        if (response.ok) {
-                            alert('Thank you! Your message has been sent successfully.');
-                            e.target.reset();
-                        } else {
-                            alert('Sorry, there was an error sending your message. Please try again.');
-                        }
-                    } catch (error) {
-                        alert('Sorry, there was an error sending your message. Please try again.');
-                    }
-                });
-            }
-            
-            // Analytics tracking
-            fetch('https://jetsy.dev/api/track', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    event_name: 'page_view',
-                    event_category: 'user_interaction',
-                    event_data: JSON.stringify({ project_id: '${projectId}', source: 'vercel_deployment' }),
-                    timestamp: Date.now(),
-                    url: window.location.href,
-                    user_agent: navigator.userAgent,
-                    jetsy_generated: true,
-                    website_id: '${projectId}'
-                })
-            }).catch(() => {});
-        });
     </script>
 </body>
 </html>`;

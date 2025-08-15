@@ -24,7 +24,9 @@ export const ENV_CONFIG = {
   PRODUCTION: {
     LOCAL_URL: 'https://jetsy.dev',
     IMAGE_GENERATION_URL: 'https://jetsy-landing-prod.jetsydev.workers.dev',
-    API_BASE_URL: 'https://jetsy-landing-prod.jetsydev.workers.dev'
+    API_BASE_URL: 'https://jetsy-landing-prod.jetsydev.workers.dev',
+    // Vercel-specific API (has Vercel integration)
+    VERCEL_API_BASE_URL: 'https://jetsy-landing.jetsydev.workers.dev'
   },
   
   // Custom Domain configuration (to avoid infinite loops)
@@ -89,6 +91,12 @@ export const getApiBaseUrl = () => {
   
   const env = getCurrentEnvironment();
   return ENV_CONFIG[env.toUpperCase()].API_BASE_URL;
+};
+
+// Get Vercel API base URL (specific for Vercel deployment functionality)
+export const getVercelApiBaseUrl = () => {
+  const env = getCurrentEnvironment();
+  return ENV_CONFIG[env.toUpperCase()].VERCEL_API_BASE_URL || ENV_CONFIG[env.toUpperCase()].API_BASE_URL;
 };
 
 // Check if we should use production for image generation

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getApiBaseUrl } from '../config/environment';
+import { getVercelApiBaseUrl } from '../config/environment';
 
 const VercelDeploymentManager = ({ projectId, templateData }) => {
   const [deploymentStatus, setDeploymentStatus] = useState(null);
@@ -20,7 +20,7 @@ const VercelDeploymentManager = ({ projectId, templateData }) => {
 
   const loadDeploymentStatus = async () => {
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/vercel/status/${projectId}`);
+      const response = await fetch(`${getVercelApiBaseUrl()}/api/vercel/status/${projectId}`);
       const result = await response.json();
       
       if (result.success) {
@@ -36,7 +36,7 @@ const VercelDeploymentManager = ({ projectId, templateData }) => {
 
   const loadDomainStatus = async () => {
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/vercel/domain/${projectId}`);
+      const response = await fetch(`${getVercelApiBaseUrl()}/api/vercel/domain/${projectId}`);
       const result = await response.json();
       
       if (result.success) {
@@ -62,7 +62,7 @@ const VercelDeploymentManager = ({ projectId, templateData }) => {
     setSuccess(null);
 
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/vercel/deploy/${projectId}`, {
+      const response = await fetch(`${getVercelApiBaseUrl()}/api/vercel/deploy/${projectId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -107,7 +107,7 @@ const VercelDeploymentManager = ({ projectId, templateData }) => {
     setSuccess(null);
 
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/vercel/domain/${projectId}`, {
+      const response = await fetch(`${getVercelApiBaseUrl()}/api/vercel/domain/${projectId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -136,7 +136,7 @@ const VercelDeploymentManager = ({ projectId, templateData }) => {
   const pollDeploymentStatus = () => {
     const interval = setInterval(async () => {
       try {
-        const response = await fetch(`${getApiBaseUrl()}/api/vercel/status/${projectId}`);
+        const response = await fetch(`${getVercelApiBaseUrl()}/api/vercel/status/${projectId}`);
         const result = await response.json();
         
         if (result.success) {
