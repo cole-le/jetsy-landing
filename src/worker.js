@@ -2073,6 +2073,15 @@ async function deployToVercel(projectFiles, templateData, projectId, vercelToken
 
   const result = await response.json();
   
+  // Disable deployment protection for public access
+  try {
+    await disableVercelDeploymentProtection(projectName, vercelToken);
+    console.log('✅ Disabled deployment protection for public access');
+  } catch (error) {
+    console.warn('⚠️ Could not disable deployment protection:', error.message);
+    // Don't fail the entire deployment for this
+  }
+  
   return {
     success: true,
     deploymentId: result.id,
@@ -2144,6 +2153,40 @@ async function checkDomainStatus(domain, projectId, vercelToken) {
     domain: domainStatus.name,
     verified: domainStatus.verified
   };
+}
+
+// Disable Vercel deployment protection to make sites publicly accessible
+async function disableVercelDeploymentProtection(projectName, vercelToken) {
+  // First, get the project info to find the project ID
+  const projectResponse = await fetch(`https://api.vercel.com/v9/projects/${projectName}`, {
+    headers: { 'Authorization': `Bearer ${vercelToken}` }
+  });
+
+  if (!projectResponse.ok) {
+    throw new Error(`Failed to get project info: ${projectResponse.status}`);
+  }
+
+  const project = await projectResponse.json();
+  
+  // Update project settings to disable Vercel Authentication (according to Vercel API docs)
+  const updateResponse = await fetch(`https://api.vercel.com/v9/projects/${project.id}`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${vercelToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      // Disable Vercel Authentication as per official API docs
+      "ssoProtection": null
+    })
+  });
+
+  if (!updateResponse.ok) {
+    const errorData = await updateResponse.json().catch(() => ({}));
+    throw new Error(`Failed to disable deployment protection: ${updateResponse.status} ${errorData.error?.message || ''}`);
+  }
+
+  return await updateResponse.json();
 }
 
 // Get the ExceptionalTemplate component code as a string for embedding in static HTML
