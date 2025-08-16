@@ -274,7 +274,7 @@ const DeploymentButton = ({ projectId, showAsModal = false }) => {
   const getDomainButtonContent = () => {
     if (!domainStatus) {
               return {
-          text: 'Connect custom domain to your website',
+          text: 'Connect custom domain to your website 🔗',
           onClick: openDomainModal,
           disabled: false,
           className: 'bg-black hover:bg-gray-800 text-white'
@@ -308,17 +308,30 @@ const DeploymentButton = ({ projectId, showAsModal = false }) => {
   return (
     <>
       {/* Main deployment button */}
-      <button
-        onClick={buttonConfig.onClick}
-        disabled={buttonConfig.disabled}
-        className={`w-full px-3 py-2 rounded-md font-medium text-sm transition-colors ${
-          buttonConfig.disabled 
-            ? 'opacity-50 cursor-not-allowed' 
-            : ''
-        } ${buttonConfig.className}`}
-      >
-        {buttonConfig.text}
-      </button>
+      {buttonConfig.text === 'View your live website 🌐' ? (
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            buttonConfig.onClick();
+          }}
+          className={`w-full px-3 py-2 rounded-md font-medium text-sm transition-colors inline-block text-center ${buttonConfig.className}`}
+        >
+          {buttonConfig.text}
+        </a>
+      ) : (
+        <button
+          onClick={buttonConfig.onClick}
+          disabled={buttonConfig.disabled}
+          className={`w-full px-3 py-2 rounded-md font-medium text-sm transition-colors ${
+            buttonConfig.disabled 
+              ? 'opacity-50 cursor-not-allowed' 
+              : ''
+          } ${buttonConfig.className}`}
+        >
+          {buttonConfig.text}
+        </button>
+      )}
 
       {/* Domain connection button */}
       {domainButtonConfig && (
@@ -344,7 +357,7 @@ const DeploymentButton = ({ projectId, showAsModal = false }) => {
             isDeploying 
               ? 'opacity-50 cursor-not-allowed' 
               : ''
-          } bg-black hover:bg-gray-800 text-white`}
+          } bg-blue-600 hover:bg-blue-700 text-white`}
         >
           {isDeploying ? (
             <>
@@ -355,7 +368,7 @@ const DeploymentButton = ({ projectId, showAsModal = false }) => {
               Deploying<span className="animate-pulse">...</span>
             </>
           ) : (
-            'Redeploy changes to your live website 🔄'
+            'Update changes to your live website 🚀'
           )}
         </button>
       )}
