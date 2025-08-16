@@ -3171,7 +3171,7 @@ function createCompleteStaticSite(templateData, projectId) {
                             <h3 class="text-2xl font-bold text-gray-900 mb-2">${escapeHtml(plan.name || '')}</h3>
                             <div class="mb-4">
                                 <span class="text-4xl font-bold text-gray-900">${escapeHtml(plan.price || '')}</span>
-                                ${plan.period ? `<span class="text-gray-600">${escapeHtml(plan.period)}</span>` : ''}
+                                ${(plan.showPeriod !== false && plan.period) ? `<span class="text-gray-600">${escapeHtml(plan.period)}</span>` : ''}
                             </div>
                             <p class="text-gray-600">${escapeHtml(plan.description || '')}</p>
                         </div>

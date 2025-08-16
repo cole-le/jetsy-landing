@@ -507,7 +507,7 @@ export const generateStaticComponentHTML = (templateData) => {
                   <span class="text-4xl font-bold text-gray-900">
                     ${escapeHtml(plan.price || '')}
                   </span>
-                  ${plan.period ? `
+                  ${(plan.showPeriod !== false && plan.period) ? `
                     <span class="text-gray-600">/${escapeHtml(plan.period)}</span>
                   ` : ''}
                 </div>

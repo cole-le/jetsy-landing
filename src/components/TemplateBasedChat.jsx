@@ -217,6 +217,7 @@ export const DEFAULT_TEMPLATE_DATA = {
       name: "Pro",
       price: "$29",
       period: "/month",
+      showPeriod: true,
       description: "For growing businesses and creators",
       features: ["Unlimited landing pages", "Premium templates", "Priority support", "Advanced analytics", "Custom domains", "A/B testing"],
       cta: "Start Pro Trial",
@@ -226,6 +227,7 @@ export const DEFAULT_TEMPLATE_DATA = {
       name: "Enterprise",
       price: "$99",
       period: "/month",
+      showPeriod: true,
       description: "For large teams and agencies",
       features: ["Everything in Pro", "Team collaboration", "White-label options", "API access", "Dedicated support", "Custom integrations"],
       cta: "Contact Sales",
@@ -1465,6 +1467,35 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                               className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                           </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Period (e.g., /month)</label>
+                            <input
+                              type="text"
+                              value={plan.period || ''}
+                              onChange={(e) => {
+                                const newPricing = [...templateData.pricing];
+                                newPricing[index].period = e.target.value;
+                                setTemplateData(prev => ({ ...prev, pricing: newPricing }));
+                              }}
+                              className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="/month, /year, or leave empty"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <label className="block text-xs text-gray-600 mb-1">Show Period</label>
+                            <button
+                              onClick={() => {
+                                const newPricing = [...templateData.pricing];
+                                newPricing[index].showPeriod = !newPricing[index].showPeriod;
+                                setTemplateData(prev => ({ ...prev, pricing: newPricing }));
+                              }}
+                              className={`px-2 py-1 text-xs rounded transition-colors ${
+                                plan.showPeriod !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                              }`}
+                            >
+                              {plan.showPeriod !== false ? 'ON' : 'OFF'}
+                            </button>
+                          </div>
                           <div className="col-span-2">
                             <label className="block text-xs text-gray-600 mb-1">Description</label>
                             <input
@@ -1499,6 +1530,8 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                         const newPlan = {
                           name: "New Plan",
                           price: "$0",
+                          period: "/month",
+                          showPeriod: true,
                           description: "Plan description",
                           features: ["Feature 1", "Feature 2"],
                           cta: "Get Started",

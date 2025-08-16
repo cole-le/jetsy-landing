@@ -136,6 +136,7 @@ const ExceptionalTemplate = ({
       name: "Pro",
       price: "$29",
       period: "/month",
+      showPeriod: true,
       description: "For growing businesses and creators",
       features: ["Unlimited landing pages", "Premium templates", "Priority support", "Advanced analytics", "Custom domains", "A/B testing"],
       cta: "Start Pro Trial",
@@ -145,6 +146,7 @@ const ExceptionalTemplate = ({
       name: "Enterprise",
       price: "$99",
       period: "/month",
+      showPeriod: true,
       description: "For large teams and agencies",
       features: ["Everything in Pro", "Team collaboration", "White-label options", "API access", "Dedicated support", "Custom integrations"],
       cta: "Contact Sales",
@@ -897,7 +899,7 @@ const ExceptionalTemplate = ({
                   <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h3>
                   <div className="mb-4">
                     <span className="text-4xl font-bold text-gray-900">{plan.price}</span>
-                    {plan.period && <span className="text-gray-600">{plan.period}</span>}
+                    {plan.showPeriod !== false && plan.period && <span className="text-gray-600">{plan.period}</span>}
                   </div>
                   <p className="text-gray-600">{plan.description}</p>
                 </div>
