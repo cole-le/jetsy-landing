@@ -10,6 +10,20 @@ const DeploymentButton = ({ projectId, templateData }) => {
   const [customDomain, setCustomDomain] = useState('');
   const [error, setError] = useState(null);
 
+  // Function to open modal and clear any previous input
+  const openDomainModal = () => {
+    setCustomDomain(''); // Clear any previous domain input
+    setError(null); // Clear any previous errors
+    setShowDomainModal(true);
+  };
+
+  // Function to close modal and clear input
+  const closeDomainModal = () => {
+    setCustomDomain(''); // Clear domain input
+    setError(null); // Clear errors
+    setShowDomainModal(false);
+  };
+
   // Load deployment and domain status on component mount
   useEffect(() => {
     if (projectId) {
@@ -40,7 +54,7 @@ const DeploymentButton = ({ projectId, templateData }) => {
       
       if (result.success) {
         setDomainStatus(result.domain);
-        setCustomDomain(result.domain.name);
+        // Don't prefill the input - let user enter their own domain
       } else {
         setDomainStatus(null);
       }
@@ -230,29 +244,29 @@ const DeploymentButton = ({ projectId, templateData }) => {
 
   const getDomainButtonContent = () => {
     if (!domainStatus) {
-      return {
-        text: 'Connect custom domain to your website',
-        onClick: () => setShowDomainModal(true),
-        disabled: false,
-        className: 'bg-purple-600 hover:bg-purple-700 text-white'
-      };
+              return {
+          text: 'Connect custom domain to your website',
+          onClick: openDomainModal,
+          disabled: false,
+          className: 'bg-purple-600 hover:bg-purple-700 text-white'
+        };
     }
 
     if (domainStatus.verificationStatus === 'pending') {
-      return {
-        text: (
-          <>
-            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Connecting custom domain<span className="animate-pulse">...</span>
-          </>
-        ),
-        onClick: () => setShowDomainModal(true),
-        disabled: false,
-        className: 'bg-purple-500 hover:bg-purple-600 text-white'
-      };
+              return {
+          text: (
+            <>
+              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Connecting custom domain<span className="animate-pulse">...</span>
+            </>
+          ),
+          onClick: openDomainModal,
+          disabled: false,
+          className: 'bg-purple-500 hover:bg-purple-600 text-white'
+        };
     }
 
     return null;
@@ -301,7 +315,7 @@ const DeploymentButton = ({ projectId, templateData }) => {
                   🌐 Connect Custom Domain
                 </h3>
                 <button
-                  onClick={() => setShowDomainModal(false)}
+                  onClick={closeDomainModal}
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
