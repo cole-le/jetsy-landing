@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getVercelApiBaseUrl } from '../config/environment';
+import { getVercelApiBaseUrl, getApiBaseUrl } from '../config/environment';
 
 const DeploymentButton = ({ projectId, showAsModal = false }) => {
   const [deploymentStatus, setDeploymentStatus] = useState(null);
@@ -34,19 +34,43 @@ const DeploymentButton = ({ projectId, showAsModal = false }) => {
     }
   }, [projectId]);
 
+  // Debug logging for state changes
+  useEffect(() => {
+    console.log('DeploymentButton state changed:', {
+      projectId,
+      deploymentStatus: !!deploymentStatus,
+      domainStatus: !!domainStatus,
+      templateData: !!templateData,
+      isDeploying,
+      error
+    });
+  }, [projectId, deploymentStatus, domainStatus, templateData, isDeploying, error]);
+
   const loadTemplateData = async () => {
     try {
-      const response = await fetch(`/api/projects/${projectId}`);
+      // Use the proper API base URL instead of relative URL
+      const apiBaseUrl = getApiBaseUrl();
+      console.log('Loading template data from:', `${apiBaseUrl}/api/projects/${projectId}`);
+      
+      const response = await fetch(`${apiBaseUrl}/api/projects/${projectId}`);
+      console.log('Template data response status:', response.status);
+      
       const result = await response.json();
+      console.log('Template data response:', result);
       
       if (result.success && result.project.template_data) {
         const parsedTemplateData = typeof result.project.template_data === 'string'
           ? JSON.parse(result.project.template_data)
           : result.project.template_data;
         setTemplateData(parsedTemplateData);
+        console.log('Template data loaded successfully:', !!parsedTemplateData);
+      } else {
+        console.log('No template data available for project:', projectId);
+        setTemplateData(null);
       }
     } catch (error) {
       console.error('Error loading template data:', error);
+      setTemplateData(null);
     }
   };
 
@@ -58,10 +82,13 @@ const DeploymentButton = ({ projectId, showAsModal = false }) => {
       if (result.success) {
         setDeploymentStatus(result.deployment);
       } else {
+        console.log('Deployment status load failed:', result.error);
         setDeploymentStatus(null);
       }
     } catch (error) {
       console.error('Error loading deployment status:', error);
+      // Don't set deployment status to null on network errors - keep previous state
+      // This prevents the button from being disabled due to temporary network issues
     }
   };
 
@@ -74,10 +101,12 @@ const DeploymentButton = ({ projectId, showAsModal = false }) => {
         setDomainStatus(result.domain);
         // Don't prefill the input - let user enter their own domain
       } else {
+        console.log('Domain status load failed:', result.error);
         setDomainStatus(null);
       }
     } catch (error) {
       console.error('Error loading domain status:', error);
+      // Don't set domain status to null on network errors - keep previous state
     }
   };
 
@@ -202,6 +231,14 @@ const DeploymentButton = ({ projectId, showAsModal = false }) => {
   };
 
   const getButtonContent = () => {
+    // Debug logging
+    console.log('Button state debug:', {
+      deploymentStatus: !!deploymentStatus,
+      deploymentStatusType: deploymentStatus?.status,
+      templateData: !!templateData,
+      isDeploying
+    });
+
     // If deployment is in progress (either isDeploying or status is BUILDING)
     if (isDeploying || (deploymentStatus && deploymentStatus.status === 'BUILDING')) {
       return {

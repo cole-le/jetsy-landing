@@ -304,7 +304,7 @@ function App() {
 
     // Save to database via Cloudflare Worker
     try {
-      const response = await fetch('/api/leads', {
+              const response = await fetch(`${getApiBaseUrl()}/api/leads`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -342,7 +342,7 @@ function App() {
 
     // Save onboarding data to database
     try {
-      const response = await fetch('/api/onboarding', {
+              const response = await fetch(`${getApiBaseUrl()}/api/onboarding`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -377,7 +377,7 @@ function App() {
 
     // Save priority access attempt to database
     try {
-      const response = await fetch('/api/priority-access', {
+              const response = await fetch(`${getApiBaseUrl()}/api/priority-access`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -429,7 +429,7 @@ function App() {
   const handleDemoLeadSubmit = async (formData) => {
     trackEvent('demo_lead_submit', formData)
     try {
-      const response = await fetch('/api/demo-leads', {
+              const response = await fetch(`${getApiBaseUrl()}/api/demo-leads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, timestamp: Date.now() })

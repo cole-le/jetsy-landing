@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from '../config/environment';
+
 // Enhanced analytics utility for Jetsy - supports both GTM and custom D1 tracking
 export const trackEvent = (eventName, eventData = {}) => {
   const enrichedData = {
@@ -30,7 +32,7 @@ export const trackEvent = (eventName, eventData = {}) => {
 // Send tracking data to our custom D1 backend
 async function sendToCustomTracking(eventName, eventData) {
   try {
-    const response = await fetch('/api/track', {
+    const response = await fetch(`${getApiBaseUrl()}/api/track`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

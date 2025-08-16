@@ -82,7 +82,7 @@ export default {
       
       // Create a new request to the main worker
       const mainWorkerUrl = new URL(request.url);
-      mainWorkerUrl.hostname = 'jetsy-landing-prod.jetsydev.workers.dev';
+      mainWorkerUrl.hostname = 'jetsy-landing.jetsydev.workers.dev';
       
       // Forward the request to the main worker
       const mainWorkerRequest = new Request(mainWorkerUrl.toString(), {

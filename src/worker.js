@@ -1269,6 +1269,19 @@ async function deployProjectToVercel(projectId, request, env, corsHeaders) {
 
     // Get project data from database
     const db = env.DB;
+    
+    // Check if database is available
+    if (!db) {
+      console.error('Database not available in deployProjectToVercel');
+      return new Response(JSON.stringify({ 
+        error: 'Database not available',
+        success: false 
+      }), { 
+        status: 500, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      });
+    }
+    
     const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
     
     if (!project) {
@@ -1408,6 +1421,18 @@ async function getVercelDeploymentStatus(projectId, env, corsHeaders) {
   try {
     const db = env.DB;
     
+    // Check if database is available
+    if (!db) {
+      console.error('Database not available in getVercelDeploymentStatus');
+      return new Response(JSON.stringify({ 
+        error: 'Database not available',
+        success: false 
+      }), { 
+        status: 500, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      });
+    }
+    
     // Get latest deployment for project
     const deployment = await db.prepare(`
       SELECT * FROM vercel_deployments 
@@ -1515,6 +1540,18 @@ async function addVercelCustomDomain(projectId, request, env, corsHeaders) {
 
     const db = env.DB;
     
+    // Check if database is available
+    if (!db) {
+      console.error('Database not available in addVercelCustomDomain');
+      return new Response(JSON.stringify({ 
+        error: 'Database not available',
+        success: false 
+      }), { 
+        status: 500, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      });
+    }
+    
     // Get project's Vercel project name
     const project = await db.prepare(`
       SELECT vercel_project_name, current_deployment_id 
@@ -1598,6 +1635,18 @@ async function addVercelCustomDomain(projectId, request, env, corsHeaders) {
 async function getVercelDomainStatus(projectId, env, corsHeaders) {
   try {
     const db = env.DB;
+    
+    // Check if database is available
+    if (!db) {
+      console.error('Database not available in getVercelDomainStatus');
+      return new Response(JSON.stringify({ 
+        error: 'Database not available',
+        success: false 
+      }), { 
+        status: 500, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      });
+    }
     
     // Get domain info from database
     const domain = await db.prepare(`
@@ -1697,6 +1746,12 @@ async function getVercelDomainStatus(projectId, env, corsHeaders) {
 // Helper function to ensure Vercel tables exist
 async function ensureVercelTables(env) {
   const db = env.DB;
+  
+  // Check if database is available
+  if (!db) {
+    console.error('Database not available in ensureVercelTables');
+    throw new Error('Database not available');
+  }
   
   // Create vercel_deployments table
   await db.prepare(`

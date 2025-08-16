@@ -2,8 +2,8 @@
 // This file handles environment-aware configuration for development vs production
 
 export const ENV_CONFIG = {
-  // Production URLs
-  PRODUCTION_URL: 'https://jetsy-landing-prod.jetsydev.workers.dev',
+  // Production URLs (now using main worker)
+  PRODUCTION_URL: 'https://jetsy-landing.jetsydev.workers.dev',
   
   // Separate API Server URL (to avoid infinite loops with custom domains)
   API_SERVER_URL: 'https://jetsy-server-prod.jetsydev.workers.dev',
@@ -15,7 +15,7 @@ export const ENV_CONFIG = {
     // Wrangler worker API server
     WORKER_URL: 'http://localhost:8787',
     // Use production for image generation in development
-    IMAGE_GENERATION_URL: 'https://jetsy-landing-prod.jetsydev.workers.dev',
+    IMAGE_GENERATION_URL: 'https://jetsy-landing.jetsydev.workers.dev',
     // Use local for everything else (Vite proxies to worker)
     API_BASE_URL: 'http://localhost:3000'
   },
@@ -23,15 +23,15 @@ export const ENV_CONFIG = {
   // Production configuration
   PRODUCTION: {
     LOCAL_URL: 'https://jetsy.dev',
-    IMAGE_GENERATION_URL: 'https://jetsy-landing-prod.jetsydev.workers.dev',
-    API_BASE_URL: 'https://jetsy-landing-prod.jetsydev.workers.dev',
-    // Vercel-specific API (has Vercel integration)
+    IMAGE_GENERATION_URL: 'https://jetsy-landing.jetsydev.workers.dev',
+    API_BASE_URL: 'https://jetsy-landing.jetsydev.workers.dev',
+    // Vercel-specific API (now same as main API)
     VERCEL_API_BASE_URL: 'https://jetsy-landing.jetsydev.workers.dev'
   },
   
   // Custom Domain configuration (to avoid infinite loops)
   CUSTOM_DOMAIN: {
-    IMAGE_GENERATION_URL: 'https://jetsy-landing-prod.jetsydev.workers.dev',
+    IMAGE_GENERATION_URL: 'https://jetsy-landing.jetsydev.workers.dev',
     API_BASE_URL: 'https://jetsy-server-prod.jetsydev.workers.dev'
   }
 };

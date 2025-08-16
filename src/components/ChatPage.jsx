@@ -51,7 +51,7 @@ const ChatPage = ({ onBackToHome }) => {
       }
 
       // If no stored project or it doesn't exist, load the most recent project
-      const projectsResponse = await fetch('/api/projects?user_id=1');
+      const projectsResponse = await fetch(`${getApiBaseUrl()}/api/projects?user_id=1`);
       if (projectsResponse.ok) {
         const result = await projectsResponse.json();
         if (result.projects && result.projects.length > 0) {
@@ -88,7 +88,7 @@ const ChatPage = ({ onBackToHome }) => {
         // Don't include template_data for new projects - let users chat first
       };
 
-      const response = await fetch('/api/projects', {
+      const response = await fetch(`${getApiBaseUrl()}/api/projects`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(projectData)

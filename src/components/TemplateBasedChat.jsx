@@ -438,7 +438,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         }
       }
 
-      const projectsResponse = await fetch('/api/projects?user_id=1');
+              const projectsResponse = await fetch(`${getApiBaseUrl()}/api/projects?user_id=1`);
       if (projectsResponse.ok) {
         const result = await projectsResponse.json();
         if (result.projects && result.projects.length > 0) {
@@ -500,7 +500,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         // Don't include template_data for new projects - let users chat first
       };
 
-      const response = await fetch('/api/projects', {
+              const response = await fetch(`${getApiBaseUrl()}/api/projects`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(projectData)
@@ -945,7 +945,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                           formData.append('project_id', currentProject.id);
                           formData.append('file', file);
                           try {
-                            const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
+                            const res = await fetch(`${getApiBaseUrl()}/api/upload-image`, { method: 'POST', body: formData });
                             if (res.ok) {
                               const data = await res.json();
                               setTemplateData(prev => ({ ...prev, businessLogoUrl: data.url }));
@@ -1082,7 +1082,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                           formData.append('project_id', currentProject.id);
                           formData.append('file', file);
                           try {
-                            const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
+                            const res = await fetch(`${getApiBaseUrl()}/api/upload-image`, { method: 'POST', body: formData });
                             if (res.ok) {
                               const data = await res.json();
                               setTemplateData(prev => ({ ...prev, heroBackgroundImage: data.url }));
@@ -1361,7 +1361,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                           formData.append('project_id', currentProject.id);
                           formData.append('file', file);
                           try {
-                            const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
+                            const res = await fetch(`${getApiBaseUrl()}/api/upload-image`, { method: 'POST', body: formData });
                             if (res.ok) {
                               const data = await res.json();
                               setTemplateData(prev => ({ ...prev, aboutBackgroundImage: data.url }));

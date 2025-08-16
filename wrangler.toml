@@ -9,53 +9,6 @@ enabled = true
 [build]
 command = "npm run build"
 
-[env.production]
-name = "jetsy-landing-prod"
-
-[env.production.vars]
-# CF_ZONE_ID used by the Worker in production (optional if stored as secret)
-CF_ZONE_ID = "53957945e940cad5e6dd29dd7add1e0c"
-
-[[env.production.d1_databases]]
-binding = "DB"
-database_name = "jetsy-leads"
-database_id = "682478d4-6494-4f47-93e6-be1b6397fe92"
-
-[[env.production.r2_buckets]]
-binding = "IMAGES_BUCKET"
-bucket_name = "jetsy-images-prod"
-
-[env.staging]
-name = "jetsy-landing-staging"
-
-[[env.staging.d1_databases]]
-binding = "DB"
-database_name = "jetsy-leads-staging"
-database_id = "your-staging-database-id-here"
-
-[[env.staging.r2_buckets]]
-binding = "IMAGES_BUCKET"
-bucket_name = "jetsy-images-staging"
-
-[env.development]
-name = "jetsy-landing-dev"
-
-[env.development.vars]
-# Development environment variables
-# Note: Secrets need to be added separately with: npx wrangler secret put OPENAI_API_KEY --env development
-# Note: Secrets need to be added separately with: npx wrangler secret put GEMINI_API_KEY --env development
-
-# Use the global jetsy-leads binding for development too!
-
-[[env.development.d1_databases]]
-binding = "DB"
-database_name = "jetsy-leads"
-database_id = "682478d4-6494-4f47-93e6-be1b6397fe92"
-
-[[env.development.r2_buckets]]
-binding = "IMAGES_BUCKET"
-bucket_name = "jetsy-images-dev"
-
 # Add your D1 database
 [[d1_databases]]
 binding = "DB"
@@ -75,6 +28,8 @@ experimental_remote = true
 # Add your Gemini API key as a secret using: wrangler secret put GEMINI_API_KEY
 # OPENAI_API_KEY = "your-api-key-here"
 # GEMINI_API_KEY = "your-gemini-api-key-here"
+# CF_ZONE_ID used by the Worker (optional if stored as secret)
+CF_ZONE_ID = "53957945e940cad5e6dd29dd7add1e0c"
 
 # Static assets configuration
 [site]
