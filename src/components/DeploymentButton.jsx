@@ -88,15 +88,16 @@ const DeploymentButton = ({ projectId, templateData }) => {
       if (result.success) {
         setDeploymentStatus(result.deployment);
         
-        // Poll for status updates
+        // Keep isDeploying true until we get a final status
+        // The polling will update the status and we'll handle isDeploying there
         pollDeploymentStatus();
       } else {
         setError(`Deployment failed: ${result.error}`);
+        setIsDeploying(false);
       }
     } catch (error) {
       console.error('Deployment error:', error);
       setError(`Deployment failed: ${error.message}`);
-    } finally {
       setIsDeploying(false);
     }
   };
@@ -154,17 +155,21 @@ const DeploymentButton = ({ projectId, templateData }) => {
           // Stop polling if deployment is ready or failed
           if (result.deployment.status === 'READY' || result.deployment.status === 'ERROR') {
             clearInterval(interval);
+            // Set isDeploying to false when deployment reaches final state
+            setIsDeploying(false);
           }
         }
       } catch (error) {
         console.error('Error polling deployment status:', error);
         clearInterval(interval);
+        setIsDeploying(false);
       }
     }, 5000); // Poll every 5 seconds
 
     // Stop polling after 5 minutes
     setTimeout(() => {
       clearInterval(interval);
+      setIsDeploying(false);
     }, 300000);
   };
 
@@ -179,17 +184,7 @@ const DeploymentButton = ({ projectId, templateData }) => {
   };
 
   const getButtonContent = () => {
-    // If no deployment exists yet
-    if (!deploymentStatus) {
-      return {
-        text: 'Deploy website to Internet 🚀',
-        onClick: deployToVercel,
-        disabled: isDeploying || !templateData,
-        className: 'bg-blue-600 hover:bg-blue-700 text-white'
-      };
-    }
-
-    // If deployment is in progress
+    // If deployment is in progress (either isDeploying or status is BUILDING)
     if (isDeploying || (deploymentStatus && deploymentStatus.status === 'BUILDING')) {
       return {
         text: (
@@ -207,8 +202,18 @@ const DeploymentButton = ({ projectId, templateData }) => {
       };
     }
 
+    // If no deployment exists yet
+    if (!deploymentStatus) {
+      return {
+        text: 'Deploy website to Internet 🚀',
+        onClick: deployToVercel,
+        disabled: isDeploying || !templateData,
+        className: 'bg-blue-600 hover:bg-blue-700 text-white'
+      };
+    }
+
     // If deployment is ready
-    if (deploymentStatus && deploymentStatus.status === 'READY') {
+    if (deploymentStatus.status === 'READY') {
       return {
         text: 'View your live website 🌐',
         onClick: handleViewWebsite,
@@ -218,7 +223,7 @@ const DeploymentButton = ({ projectId, templateData }) => {
     }
 
     // If deployment failed
-    if (deploymentStatus && deploymentStatus.status === 'ERROR') {
+    if (deploymentStatus.status === 'ERROR') {
       return {
         text: 'Deploy failed - Try again 🚀',
         onClick: deployToVercel,
@@ -227,11 +232,11 @@ const DeploymentButton = ({ projectId, templateData }) => {
       };
     }
 
-    // Default case - redeploy
+    // Default case - any other status (like 'CANCELED', etc.)
     return {
-      text: 'Redeploy website 🚀',
+      text: 'Deploy website to Internet 🚀',
       onClick: deployToVercel,
-      disabled: isDeploying,
+      disabled: isDeploying || !templateData,
       className: 'bg-blue-600 hover:bg-blue-700 text-white'
     };
   };
@@ -240,6 +245,12 @@ const DeploymentButton = ({ projectId, templateData }) => {
     return deploymentStatus && 
            deploymentStatus.status === 'READY' && 
            (!domainStatus || domainStatus.verificationStatus !== 'verified');
+  };
+
+  const shouldShowRedeployButton = () => {
+    return deploymentStatus && 
+           deploymentStatus.status === 'READY' && 
+           !isDeploying;
   };
 
   const getDomainButtonContent = () => {
@@ -274,6 +285,7 @@ const DeploymentButton = ({ projectId, templateData }) => {
 
   const buttonConfig = getButtonContent();
   const domainButtonConfig = shouldShowDomainButton() ? getDomainButtonContent() : null;
+  const showRedeployButton = shouldShowRedeployButton();
 
   return (
     <>
@@ -302,6 +314,31 @@ const DeploymentButton = ({ projectId, templateData }) => {
           } ${domainButtonConfig.className}`}
         >
           {domainButtonConfig.text}
+        </button>
+      )}
+
+      {/* Redeploy button */}
+      {showRedeployButton && (
+        <button
+          onClick={deployToVercel}
+          disabled={isDeploying}
+          className={`ml-2 px-4 py-2 rounded-md font-medium text-sm transition-colors ${
+            isDeploying 
+              ? 'opacity-50 cursor-not-allowed' 
+              : ''
+          } bg-orange-600 hover:bg-orange-700 text-white`}
+        >
+          {isDeploying ? (
+            <>
+              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Deploying<span className="animate-pulse">...</span>
+            </>
+          ) : (
+            'Redeploy changes to your live website 🔄'
+          )}
         </button>
       )}
 
