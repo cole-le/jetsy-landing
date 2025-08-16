@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import DeploymentButton from './DeploymentButton';
+import WorkflowProgressBar from './WorkflowProgressBar';
 
 const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, onChatClick, onSaveChanges, isChatMode = false, previewMode = 'desktop', onPreviewModeChange }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -164,6 +165,8 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
               {isChatMode ? (
                 <div className="flex items-center space-x-3">
 
+                  {/* Workflow Progress Bar */}
+                  <WorkflowProgressBar currentStage={1} />
                   
                   {/* Data Analytics button - left of preview toggle */}
                   <button
