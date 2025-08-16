@@ -1,7 +1,55 @@
 import React, { useState } from 'react';
+import DeploymentButton from './DeploymentButton';
 
 const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, onChatClick, onSaveChanges, isChatMode = false, previewMode = 'desktop', onPreviewModeChange }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [currentProjectId, setCurrentProjectId] = useState(null);
+  const [showPublishModal, setShowPublishModal] = useState(false);
+
+  // Get current project ID from localStorage
+  React.useEffect(() => {
+    const storedProjectId = localStorage.getItem('jetsy_current_project_id');
+    if (storedProjectId) {
+      setCurrentProjectId(storedProjectId);
+    }
+    
+    // Listen for changes to localStorage
+    const handleStorageChange = () => {
+      const newProjectId = localStorage.getItem('jetsy_current_project_id');
+      setCurrentProjectId(newProjectId);
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also check periodically for changes (since storage event doesn't fire in same tab)
+    const interval = setInterval(() => {
+      const newProjectId = localStorage.getItem('jetsy_current_project_id');
+      if (newProjectId !== currentProjectId) {
+        setCurrentProjectId(newProjectId);
+      }
+    }, 1000);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, [currentProjectId]);
+
+  // Close publish modal when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showPublishModal && !event.target.closest('.publish-modal-container')) {
+        setShowPublishModal(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showPublishModal]);
+
+
 
   const handlePricingClick = (e) => {
     e.preventDefault();
@@ -115,6 +163,8 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
               {/* Save Changes button (chat mode) or Mobile menu button */}
               {isChatMode ? (
                 <div className="flex items-center space-x-3">
+
+                  
                   {/* Data Analytics button - left of preview toggle */}
                   <button
                     onClick={() => {
@@ -153,6 +203,46 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
                     className="px-6 py-2 bg-black hover:bg-gray-800 text-white rounded-lg transition-colors duration-200 font-semibold">
                     Save Changes
                   </button>
+                  
+                  {/* Publish Button - right of Save Changes */}
+                  {currentProjectId && (
+                    <div className="relative group publish-modal-container">
+                      <button
+                        onClick={() => setShowPublishModal(!showPublishModal)}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 font-semibold"
+                      >
+                        <span>Publish 🚀</span>
+                      </button>
+                      
+                      {/* Publish Modal */}
+                      {showPublishModal && (
+                        <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                          <div className="p-4">
+                            <div className="flex items-center justify-between mb-4">
+                              <h3 className="text-lg font-semibold text-gray-900">Publish</h3>
+                              <button
+                                onClick={() => setShowPublishModal(false)}
+                                className="text-gray-400 hover:text-gray-600 p-1"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                            
+                            {/* Deployment Status Section */}
+                            <div className="mb-4">
+                              <div className="text-sm font-medium text-gray-700 mb-2">Status</div>
+                              <DeploymentButton 
+                                projectId={currentProjectId}
+                                showAsModal={true}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="md:hidden">

@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import ProjectSelector from './ProjectSelector';
 import ExceptionalTemplate from './ExceptionalTemplate';
-import VercelDeploymentManager from './VercelDeploymentManager';
-import DeploymentButton from './DeploymentButton';
+
 import { getApiBaseUrl } from '../config/environment';
 
 // Fixed trust/rating text to ensure consistent partial star rendering on the frontend
@@ -301,6 +300,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const [showProjectPanel, setShowProjectPanel] = useState(false);
   const [isEditorMode, setIsEditorMode] = useState(false);
   const [templateData, setTemplateData] = useState(DEFAULT_TEMPLATE_DATA);
+
 
 
 
@@ -1769,11 +1769,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                   </div>
                 </div>
 
-                {/* Vercel Deployment Section */}
-                <VercelDeploymentManager 
-                  projectId={currentProject?.id}
-                  templateData={templateData}
-                />
+
 
               </div>
             </div>
@@ -1792,12 +1788,8 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 <span>Real-time updates</span>
               </div>
-              {currentProject?.id && (
-                <DeploymentButton 
-                  projectId={currentProject.id}
-                  templateData={templateData}
-                />
-              )}
+              
+
             </div>
           </div>
         </div>

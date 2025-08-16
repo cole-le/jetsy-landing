@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getVercelApiBaseUrl } from '../config/environment';
 
-const DeploymentButton = ({ projectId, templateData }) => {
+const DeploymentButton = ({ projectId, showAsModal = false }) => {
   const [deploymentStatus, setDeploymentStatus] = useState(null);
   const [domainStatus, setDomainStatus] = useState(null);
   const [isDeploying, setIsDeploying] = useState(false);
@@ -9,6 +9,7 @@ const DeploymentButton = ({ projectId, templateData }) => {
   const [showDomainModal, setShowDomainModal] = useState(false);
   const [customDomain, setCustomDomain] = useState('');
   const [error, setError] = useState(null);
+  const [templateData, setTemplateData] = useState(null);
 
   // Function to open modal and clear any previous input
   const openDomainModal = () => {
@@ -29,8 +30,25 @@ const DeploymentButton = ({ projectId, templateData }) => {
     if (projectId) {
       loadDeploymentStatus();
       loadDomainStatus();
+      loadTemplateData();
     }
   }, [projectId]);
+
+  const loadTemplateData = async () => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}`);
+      const result = await response.json();
+      
+      if (result.success && result.project.template_data) {
+        const parsedTemplateData = typeof result.project.template_data === 'string'
+          ? JSON.parse(result.project.template_data)
+          : result.project.template_data;
+        setTemplateData(parsedTemplateData);
+      }
+    } catch (error) {
+      console.error('Error loading template data:', error);
+    }
+  };
 
   const loadDeploymentStatus = async () => {
     try {
@@ -198,7 +216,7 @@ const DeploymentButton = ({ projectId, templateData }) => {
         ),
         onClick: () => {},
         disabled: true,
-        className: 'bg-blue-500 text-white cursor-not-allowed'
+        className: 'bg-black text-white cursor-not-allowed'
       };
     }
 
@@ -208,7 +226,7 @@ const DeploymentButton = ({ projectId, templateData }) => {
         text: 'Deploy website to Internet 🚀',
         onClick: deployToVercel,
         disabled: isDeploying || !templateData,
-        className: 'bg-blue-600 hover:bg-blue-700 text-white'
+        className: 'bg-black hover:bg-gray-800 text-white'
       };
     }
 
@@ -218,7 +236,7 @@ const DeploymentButton = ({ projectId, templateData }) => {
         text: 'View your live website 🌐',
         onClick: handleViewWebsite,
         disabled: false,
-        className: 'bg-green-600 hover:bg-green-700 text-white'
+        className: 'bg-black hover:bg-gray-800 text-white'
       };
     }
 
@@ -228,7 +246,7 @@ const DeploymentButton = ({ projectId, templateData }) => {
         text: 'Deploy failed - Try again 🚀',
         onClick: deployToVercel,
         disabled: isDeploying,
-        className: 'bg-red-600 hover:bg-red-700 text-white'
+        className: 'bg-black hover:bg-gray-800 text-white'
       };
     }
 
@@ -237,7 +255,7 @@ const DeploymentButton = ({ projectId, templateData }) => {
       text: 'Deploy website to Internet 🚀',
       onClick: deployToVercel,
       disabled: isDeploying || !templateData,
-      className: 'bg-blue-600 hover:bg-blue-700 text-white'
+      className: 'bg-black hover:bg-gray-800 text-white'
     };
   };
 
@@ -259,7 +277,7 @@ const DeploymentButton = ({ projectId, templateData }) => {
           text: 'Connect custom domain to your website',
           onClick: openDomainModal,
           disabled: false,
-          className: 'bg-purple-600 hover:bg-purple-700 text-white'
+          className: 'bg-black hover:bg-gray-800 text-white'
         };
     }
 
@@ -293,7 +311,7 @@ const DeploymentButton = ({ projectId, templateData }) => {
       <button
         onClick={buttonConfig.onClick}
         disabled={buttonConfig.disabled}
-        className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
+        className={`w-full px-3 py-2 rounded-md font-medium text-sm transition-colors ${
           buttonConfig.disabled 
             ? 'opacity-50 cursor-not-allowed' 
             : ''
@@ -307,7 +325,7 @@ const DeploymentButton = ({ projectId, templateData }) => {
         <button
           onClick={domainButtonConfig.onClick}
           disabled={domainButtonConfig.disabled}
-          className={`ml-2 px-4 py-2 rounded-md font-medium text-sm transition-colors ${
+          className={`w-full mt-2 px-3 py-2 rounded-md font-medium text-sm transition-colors ${
             domainButtonConfig.disabled 
               ? 'opacity-50 cursor-not-allowed' 
               : ''
@@ -322,11 +340,11 @@ const DeploymentButton = ({ projectId, templateData }) => {
         <button
           onClick={deployToVercel}
           disabled={isDeploying}
-          className={`ml-2 px-4 py-2 rounded-md font-medium text-sm transition-colors ${
+          className={`w-full mt-2 px-3 py-2 rounded-md font-medium text-sm transition-colors ${
             isDeploying 
               ? 'opacity-50 cursor-not-allowed' 
               : ''
-          } bg-orange-600 hover:bg-orange-700 text-white`}
+          } bg-black hover:bg-gray-800 text-white`}
         >
           {isDeploying ? (
             <>
