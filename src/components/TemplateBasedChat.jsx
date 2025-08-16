@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } f
 import ProjectSelector from './ProjectSelector';
 import ExceptionalTemplate from './ExceptionalTemplate';
 import VercelDeploymentManager from './VercelDeploymentManager';
+import DeploymentButton from './DeploymentButton';
 import { getApiBaseUrl } from '../config/environment';
 
 // Fixed trust/rating text to ensure consistent partial star rendering on the frontend
@@ -300,65 +301,10 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const [showProjectPanel, setShowProjectPanel] = useState(false);
   const [isEditorMode, setIsEditorMode] = useState(false);
   const [templateData, setTemplateData] = useState(DEFAULT_TEMPLATE_DATA);
-  const [showDomainModal, setShowDomainModal] = useState(false);
-  const [customDomainInput, setCustomDomainInput] = useState('');
-  const [domainStatus, setDomainStatus] = useState(null); // { domain, status }
-  const [isSubmittingDomain, setIsSubmittingDomain] = useState(false);
 
-  const submitCustomDomain = async () => {
-    if (!currentProject?.id || !customDomainInput) return;
-    setIsSubmittingDomain(true);
-    try {
-      const payload = {
-        domain: customDomainInput.trim().toLowerCase(),
-        project_id: currentProject.id,
-        user_id: currentProject.user_id || 0
-      };
-      const res = await fetch(`${getApiBaseUrl()}/api/custom-domains`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const text = await res.text();
-      let j; try { j = JSON.parse(text); } catch { j = { raw: text }; }
-      if (!res.ok || j?.ok === false) {
-        console.error('Create custom domain failed', j);
-        alert('Failed to submit custom domain: ' + (j?.error || JSON.stringify(j)));
-        return;
-      }
-      console.log('Create custom domain OK', j);
-      setDomainStatus({ domain: payload.domain, status: 'pending' });
-      setShowDomainModal(false);
-    } catch (e) {
-      alert('Error submitting custom domain');
-    } finally {
-      setIsSubmittingDomain(false);
-    }
-  };
 
-  // Poll for status if pending
-  useEffect(() => {
-    let timer;
-    const poll = async () => {
-      if (!domainStatus?.domain || domainStatus.status !== 'pending') return;
-      try {
-        const res = await fetch(`${getApiBaseUrl()}/api/custom-domains/${encodeURIComponent(domainStatus.domain)}`);
-        if (res.status === 404) {
-          // No mapping exists anymore; clear local state
-          setDomainStatus(null);
-          return;
-        }
-        if (res.ok) {
-          const j = await res.json();
-          const st = j?.mapping?.status;
-          if (st === 'active') setDomainStatus({ domain: domainStatus.domain, status: 'active' });
-        }
-      } catch {}
-      timer = setTimeout(poll, 5000);
-    };
-    poll();
-    return () => timer && clearTimeout(timer);
-  }, [domainStatus?.domain, domainStatus?.status]);
+
+
   
   // Compute the initial user idea message for display in editor mode
   const initialUserIdea = React.useMemo(() => {
@@ -407,24 +353,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   }, []);
 
   // When we have a project, load any existing custom domain mapping
-  useEffect(() => {
-    const fetchDomains = async () => {
-      if (!currentProject?.id) return;
-      try {
-        const res = await fetch(`${getApiBaseUrl()}/api/custom-domains?project_id=${encodeURIComponent(currentProject.id)}`);
-        if (res.ok) {
-          const data = await res.json();
-          const domains = data?.domains || [];
-          const active = domains.find(d => d.status === 'active');
-          const pending = domains.find(d => d.status === 'pending');
-          if (active) setDomainStatus({ domain: active.domain, status: 'active' });
-          else if (pending) setDomainStatus({ domain: pending.domain, status: 'pending' });
-          else setDomainStatus(null);
-        }
-      } catch {}
-    };
-    fetchDomains();
-  }, [currentProject?.id]);
+
 
   // Auto-save template data when it changes
   useEffect(() => {
@@ -1116,7 +1045,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                         />
                         <label htmlFor="togglePhoneField" className="text-sm text-gray-700">Show phone number field in lead form</label>
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">If disabled, the form subtitle updates to “Enter your email to get started”.</p>
+                      <p className="text-xs text-gray-500 mt-1">If disabled, the form subtitle updates to "Enter your email to get started".</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Hero Badge</label>
@@ -1863,28 +1792,12 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 <span>Real-time updates</span>
               </div>
-              {currentProject?.id ? (
-                <>
-                  {/* Add custom domain button (left of View button) */}
-                  <button
-                    type="button"
-                    onClick={() => setShowDomainModal(true)}
-                    className="px-4 py-2 text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 inline-flex items-center gap-2"
-                  >
-                    Add custom domain name
-                  </button>
-
-                  {/* Decide link target based on domain status */}
-                  <a
-                    href={domainStatus?.status === 'active' && domainStatus?.domain
-                      ? `https://${domainStatus.domain}`
-                      : `/${(currentProject?.user_id || 1)}-${currentProject.id}`}
-                    className="px-6 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200 inline-flex items-center gap-2"
-                  >
-                    <span>View Live Website 🌐</span>
-                  </a>
-                </>
-              ) : null}
+              {currentProject?.id && (
+                <DeploymentButton 
+                  projectId={currentProject.id}
+                  templateData={templateData}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -2013,43 +1926,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         </div>
       </div>
 
-      {/* Custom Domain Modal */}
-      {showDomainModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
-            <h3 className="text-lg font-semibold mb-4">Connect a custom domain</h3>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Your domain</label>
-            <input
-              type="text"
-              className="w-full border rounded-md px-3 py-2 mb-3"
-              placeholder="e.g., www.userdomain.com"
-              value={customDomainInput}
-              onChange={(e) => setCustomDomainInput(e.target.value)}
-            />
-            <div className="text-sm text-gray-600 mb-3">
-              Add this DNS record at your DNS provider:
-              <div className="mt-2 p-3 bg-gray-50 rounded border">
-                <div><strong>Type:</strong> CNAME</div>
-                <div><strong>Name/Host:</strong> www</div>
-                <div><strong>Target/Value:</strong> api.jetsy.dev</div>
-                <div><strong>TTL:</strong> Auto</div>
-                <div className="mt-2">Remove any A/AAAA/MX/TXT records that exist for the same label (www).</div>
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-2">
-              <button onClick={() => setShowDomainModal(false)} className="px-4 py-2 rounded border">Cancel</button>
-              <button onClick={submitCustomDomain} disabled={isSubmittingDomain || !customDomainInput} className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-60">
-                {isSubmittingDomain ? 'Submitting…' : 'Connect domain'}
-              </button>
-            </div>
-            {domainStatus?.status === 'pending' && domainStatus?.domain && (
-              <div className="mt-4 text-sm text-blue-700">
-                Status: pending verification for {domainStatus.domain}. We will auto-detect when it becomes active.
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+
     </div>
   );
 });
