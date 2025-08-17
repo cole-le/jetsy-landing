@@ -5,22 +5,20 @@ import React from 'react';
  * @param {Object} props
  * @param {Object} props.copy - Ad copy content
  * @param {Object} props.visual - Visual elements
- * @param {string} props.linkedInAspectRatio - LinkedIn image aspect ratio
- * @param {string} props.metaAspectRatio - Meta image aspect ratio
+ * @param {string} props.aspectRatio - Image aspect ratio
+ * @param {string} props.platform - Platform type ('linkedin', 'meta', or 'instagram')
  * @param {Function} props.onCopyChange - Callback for copy changes
  * @param {Function} props.onVisualChange - Callback for visual changes
- * @param {Function} props.onLinkedInAspectRatioChange - Callback for LinkedIn aspect ratio changes
- * @param {Function} props.onMetaAspectRatioChange - Callback for Meta aspect ratio changes
+ * @param {Function} props.onAspectRatioChange - Callback for aspect ratio changes
  */
 const AdControls = ({
   copy,
   visual,
-  linkedInAspectRatio,
-  metaAspectRatio,
+  aspectRatio,
+  platform,
   onCopyChange,
   onVisualChange,
-  onLinkedInAspectRatioChange,
-  onMetaAspectRatioChange
+  onAspectRatioChange
 }) => {
   const ctaOptions = [
     'LEARN_MORE',
@@ -30,7 +28,8 @@ const AdControls = ({
     'CONTACT_US',
     'DOWNLOAD',
     'APPLY_NOW',
-    'BOOK_NOW'
+    'BOOK_NOW',
+    'GET_STARTED'
   ];
 
   const handleCopyChange = (field, value) => {
@@ -38,6 +37,7 @@ const AdControls = ({
       ...copy,
       [field]: value
     });
+    console.log('Copy changed:', field, value);
   };
 
   const handleVisualChange = (field, value) => {
@@ -45,11 +45,18 @@ const AdControls = ({
       ...visual,
       [field]: value
     });
+    console.log('Visual changed:', field, value);
   };
+
+  const isLinkedIn = platform === 'linkedin';
+  const isMeta = platform === 'meta';
+  const isInstagram = platform === 'instagram';
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <h2 className="text-xl font-semibold text-gray-900 mb-6">Ad Controls</h2>
+      <h2 className="text-xl font-semibold text-gray-900 mb-6">
+        {isLinkedIn ? 'LinkedIn' : isMeta ? 'Meta (Facebook)' : 'Instagram'} Ad Controls
+      </h2>
       
       <div className="space-y-6">
         {/* Copy Controls */}
@@ -58,9 +65,12 @@ const AdControls = ({
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Primary Text *
+                {isLinkedIn ? 'Intro Text' : 'Primary Text'} *
                 <span className="text-xs text-gray-500 ml-2">
-                  {copy.primaryText.length}/125 chars (Meta) • {copy.primaryText.length}/150 chars (LinkedIn)
+                  {isLinkedIn 
+                    ? `${copy.primaryText.length}/150 chars (LinkedIn)`
+                    : `${copy.primaryText.length}/125 chars (${isMeta ? 'Meta' : 'Instagram'})`
+                  }
                 </span>
               </label>
               <textarea
@@ -68,8 +78,8 @@ const AdControls = ({
                 onChange={(e) => handleCopyChange('primaryText', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 rows={3}
-                placeholder="Enter your primary ad text..."
-                maxLength={150}
+                placeholder={`Enter your ${isLinkedIn ? 'intro' : 'primary'} ad text...`}
+                maxLength={isLinkedIn ? 150 : 125}
               />
             </div>
 
@@ -77,7 +87,10 @@ const AdControls = ({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Headline (Optional)
                 <span className="text-xs text-gray-500 ml-2">
-                  {copy.headline?.length || 0}/40 chars (Meta) • {copy.headline?.length || 0}/70 chars (LinkedIn)
+                  {isLinkedIn 
+                    ? `${copy.headline?.length || 0}/70 chars (LinkedIn)`
+                    : `${copy.headline?.length || 0}/40 chars (${isMeta ? 'Meta' : 'Instagram'})`
+                  }
                 </span>
               </label>
               <input
@@ -86,26 +99,29 @@ const AdControls = ({
                 onChange={(e) => handleCopyChange('headline', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Enter headline..."
-                maxLength={70}
+                maxLength={isLinkedIn ? 70 : 40}
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description (Optional)
-                <span className="text-xs text-gray-500 ml-2">
-                  {copy.description?.length || 0}/25 chars (Meta)
-                </span>
-              </label>
-              <input
-                type="text"
-                value={copy.description || ''}
-                onChange={(e) => handleCopyChange('description', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter description..."
-                maxLength={25}
-              />
-            </div>
+            {/* Description field for Meta and Instagram */}
+            {(isMeta || isInstagram) && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description (Optional)
+                  <span className="text-xs text-gray-500 ml-2">
+                    {copy.description?.length || 0}/25 chars ({isMeta ? 'Meta' : 'Instagram'})
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  value={copy.description || ''}
+                  onChange={(e) => handleCopyChange('description', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter description..."
+                  maxLength={25}
+                />
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -170,37 +186,37 @@ const AdControls = ({
               />
             </div>
 
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="verified"
-                checked={visual.verified || false}
-                onChange={(e) => handleVisualChange('verified', e.target.checked)}
-                className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label htmlFor="verified" className="text-sm font-medium text-gray-700">
-                Verified Badge (LinkedIn)
-              </label>
-            </div>
+            {/* Verified badge only for LinkedIn */}
+            {isLinkedIn && (
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="verified"
+                  checked={visual.verified || false}
+                  onChange={(e) => handleVisualChange('verified', e.target.checked)}
+                  className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="verified" className="text-sm font-medium text-gray-700">
+                  Verified Badge (LinkedIn)
+                </label>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Aspect Ratio Controls */}
         <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-3">Aspect Ratios</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                LinkedIn
-              </label>
-              <div className="space-y-2">
+          <h3 className="text-lg font-medium text-gray-900 mb-3">Image Aspect Ratio</h3>
+          <div className="space-y-3">
+            {isLinkedIn ? (
+              <>
                 <label className="flex items-center space-x-2">
                   <input
                     type="radio"
                     name="linkedin-ratio"
                     value="1:1"
-                    checked={linkedInAspectRatio === '1:1'}
-                    onChange={(e) => onLinkedInAspectRatioChange(e.target.value)}
+                    checked={aspectRatio === '1:1'}
+                    onChange={(e) => onAspectRatioChange(e.target.value)}
                     className="text-blue-600 focus:ring-blue-500"
                   />
                   <span className="text-sm text-gray-700">1:1 (Square)</span>
@@ -210,44 +226,53 @@ const AdControls = ({
                     type="radio"
                     name="linkedin-ratio"
                     value="1200×628"
-                    checked={linkedInAspectRatio === '1200×628'}
-                    onChange={(e) => onLinkedInAspectRatioChange(e.target.value)}
+                    checked={aspectRatio === '1200×628'}
+                    onChange={(e) => onAspectRatioChange(e.target.value)}
                     className="text-blue-600 focus:ring-blue-500"
                   />
                   <span className="text-sm text-gray-700">1200×628 (Landscape)</span>
                 </label>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Meta (Facebook/Instagram)
-              </label>
-              <div className="space-y-2">
+              </>
+            ) : isMeta ? (
+              <>
                 <label className="flex items-center space-x-2">
                   <input
                     type="radio"
                     name="meta-ratio"
-                    value="1080×1350"
-                    checked={metaAspectRatio === '1080×1350'}
-                    onChange={(e) => onMetaAspectRatioChange(e.target.value)}
+                    value="1200×628"
+                    checked={aspectRatio === '1200×628'}
+                    onChange={(e) => onAspectRatioChange(e.target.value)}
                     className="text-blue-600 focus:ring-blue-500"
                   />
-                  <span className="text-sm text-gray-700">1080×1350 (Portrait)</span>
+                  <span className="text-sm text-gray-700">1200×628 (Landscape) - Facebook Standard</span>
                 </label>
+              </>
+            ) : (
+              <>
                 <label className="flex items-center space-x-2">
                   <input
                     type="radio"
-                    name="meta-ratio"
+                    name="instagram-ratio"
                     value="1080×1080"
-                    checked={metaAspectRatio === '1080×1080'}
-                    onChange={(e) => onMetaAspectRatioChange(e.target.value)}
+                    checked={aspectRatio === '1080×1080'}
+                    onChange={(e) => onAspectRatioChange(e.target.value)}
                     className="text-blue-600 focus:ring-blue-500"
                   />
-                  <span className="text-sm text-gray-700">1080×1080 (Square)</span>
+                  <span className="text-sm text-gray-700">1080×1080 (Square) - Instagram Standard</span>
                 </label>
-              </div>
-            </div>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    name="instagram-ratio"
+                    value="1080×1350"
+                    checked={aspectRatio === '1080×1350'}
+                    onChange={(e) => onAspectRatioChange(e.target.value)}
+                    className="text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">1080×1350 (Portrait) - Instagram Stories</span>
+                </label>
+              </>
+            )}
           </div>
         </div>
       </div>

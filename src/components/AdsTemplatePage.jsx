@@ -1,183 +1,267 @@
 import React, { useState } from 'react';
 import LinkedInSingleImageAdPreview from './ads-template/LinkedInSingleImageAdPreview';
 import MetaFeedSingleImageAdPreview from './ads-template/MetaFeedSingleImageAdPreview';
+import InstagramSingleImageAdPreview from './ads-template/InstagramSingleImageAdPreview';
 import AdControls from './ads-template/AdControls';
 
 const AdsTemplatePage = ({ onBackToHome }) => {
   // Demo data as specified in requirements
   const demoLinkedIn = {
     copy: {
-      primaryText: "How founders validate demand before building. See the 3-step playbook.",
-      headline: "Validate ideas in days",
+      primaryText: "Experience the thrill of luxury performance with our exclusive Ferrari collection.",
+      headline: "Luxury Redefined",
+      description: "Premium automotive excellence",
       cta: "LEARN_MORE",
     },
     visual: {
-      imageUrl: "/demo/ads/farm-goat.jpg",
-      logoUrl: "/demo/logos/jetsy.png",
-      brandName: "Jetsy",
+      imageUrl: "/ferrari.jpg",
+      logoUrl: "/ferrari.jpg",
+      brandName: "Ferrari Motors",
       verified: true,
     },
   };
 
   const demoMeta = {
     copy: {
-      primaryText: "Test if people will pay for your idea with a simple landing page + traffic.",
-      headline: "Start validating today",
+      primaryText: "Discover the perfect blend of power and elegance in our latest Ferrari models.",
+      headline: "Power Meets Elegance",
+      description: "Unmatched performance",
       cta: "SIGN_UP",
     },
     visual: {
-      imageUrl: "/demo/ads/founder-laptop.jpg",
-      logoUrl: "/demo/logos/jetsy.png",
-      brandName: "Jetsy",
+      imageUrl: "/ferrari.jpg",
+      logoUrl: "/ferrari.jpg",
+      brandName: "Ferrari Motors",
+    },
+  };
+
+  const demoInstagram = {
+    copy: {
+      primaryText: "Feel the adrenaline rush with our stunning Ferrari sports cars.",
+      headline: "Adrenaline Rush",
+      description: "Pure driving pleasure",
+      cta: "GET_STARTED",
+    },
+    visual: {
+      imageUrl: "/ferrari.jpg",
+      logoUrl: "/ferrari.jpg",
+      brandName: "Ferrari Motors",
     },
   };
 
   // State management
+  const [activePlatform, setActivePlatform] = useState('linkedin'); // 'linkedin', 'meta', or 'instagram'
   const [linkedInCopy, setLinkedInCopy] = useState(demoLinkedIn.copy);
   const [linkedInVisual, setLinkedInVisual] = useState(demoLinkedIn.visual);
   const [metaCopy, setMetaCopy] = useState(demoMeta.copy);
   const [metaVisual, setMetaVisual] = useState(demoMeta.visual);
+  const [instagramCopy, setInstagramCopy] = useState(demoInstagram.copy);
+  const [instagramVisual, setInstagramVisual] = useState(demoInstagram.visual);
   const [linkedInAspectRatio, setLinkedInAspectRatio] = useState('1200×628');
-  const [metaAspectRatio, setMetaAspectRatio] = useState('1080×1350');
+  const [metaAspectRatio, setMetaAspectRatio] = useState('1200×628'); // Facebook landscape format
+  const [instagramAspectRatio, setInstagramAspectRatio] = useState('1080×1080'); // Instagram square format
 
-  // Fallback image URLs for demo purposes
+  // Fallback image URLs for demo purposes - using Ferrari image as backup
   const fallbackImages = {
-    linkedIn: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1200&h=628&fit=crop&crop=center',
-    meta: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1080&h=1350&fit=crop&crop=center',
-    logo: 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=100&h=100&fit=crop&crop=center'
+    linkedIn: '/ferrari.jpg',
+    meta: '/ferrari.jpg',
+    instagram: '/ferrari.jpg',
+    logo: '/ferrari.jpg'
   };
 
-  // Use fallback images if demo URLs don't work
-  const getLinkedInImageUrl = () => {
-    return linkedInVisual.imageUrl.startsWith('/demo/') ? fallbackImages.linkedIn : linkedInVisual.imageUrl;
+  // Update image URLs with fallbacks
+  const linkedInVisualWithFallback = {
+    ...linkedInVisual,
+    imageUrl: linkedInVisual.imageUrl || fallbackImages.linkedIn,
+    logoUrl: linkedInVisual.logoUrl || fallbackImages.logo
   };
 
-  const getMetaImageUrl = () => {
-    return metaVisual.imageUrl.startsWith('/demo/') ? fallbackImages.meta : metaVisual.imageUrl;
+  const metaVisualWithFallback = {
+    ...metaVisual,
+    imageUrl: metaVisual.imageUrl || fallbackImages.meta,
+    logoUrl: metaVisual.logoUrl || fallbackImages.logo
   };
 
-  const getLogoUrl = () => {
-    return linkedInVisual.logoUrl.startsWith('/demo/') ? fallbackImages.logo : linkedInVisual.logoUrl;
+  const instagramVisualWithFallback = {
+    ...instagramVisual,
+    imageUrl: instagramVisual.imageUrl || fallbackImages.instagram,
+    logoUrl: instagramVisual.logoUrl || fallbackImages.logo
   };
+
+  // Debug logging for image URLs
+  console.log('LinkedIn image URL:', linkedInVisualWithFallback.imageUrl);
+  console.log('Meta image URL:', metaVisualWithFallback.imageUrl);
+  console.log('Instagram image URL:', instagramVisualWithFallback.imageUrl);
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          {/* Logo */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <img 
-              src="/jetsy_logo2.png" 
-              alt="Jetsy" 
-              className="h-8 w-auto"
-            />
-            <div className="text-sm text-gray-600">
-              <span className="font-medium">Ads Template</span>
-            </div>
+            <button
+              onClick={onBackToHome}
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+            </button>
+            <h1 className="text-2xl font-bold text-gray-900">Ads Template Preview</h1>
           </div>
-          
-          {/* Back Button */}
+        </div>
+      </div>
+
+      {/* Platform Toggle */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
           <button
-            onClick={onBackToHome}
-            className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
+            onClick={() => setActivePlatform('linkedin')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activePlatform === 'linkedin'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
           >
-            ← Back to Home
+            LinkedIn Ads
+          </button>
+          <button
+            onClick={() => setActivePlatform('meta')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activePlatform === 'meta'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Meta (Facebook) Ads
+          </button>
+          <button
+            onClick={() => setActivePlatform('instagram')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activePlatform === 'instagram'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Instagram Ads
           </button>
         </div>
-      </header>
+      </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Social Media Ads Template</h1>
-          <p className="text-gray-600">Create and preview LinkedIn and Meta (Facebook/Instagram) single image ads</p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Controls */}
-          <div className="lg:col-span-1">
+      <div className="flex flex-col lg:flex-row gap-6 p-6">
+        {/* Left Column - Controls */}
+        <div className="lg:w-1/3">
+          {activePlatform === 'linkedin' ? (
             <AdControls
               copy={linkedInCopy}
               visual={linkedInVisual}
-              linkedInAspectRatio={linkedInAspectRatio}
-              metaAspectRatio={metaAspectRatio}
+              aspectRatio={linkedInAspectRatio}
+              platform="linkedin"
               onCopyChange={setLinkedInCopy}
               onVisualChange={setLinkedInVisual}
-              onLinkedInAspectRatioChange={setLinkedInAspectRatio}
-              onMetaAspectRatioChange={setMetaAspectRatio}
+              onAspectRatioChange={setLinkedInAspectRatio}
             />
-          </div>
+          ) : activePlatform === 'meta' ? (
+            <AdControls
+              copy={metaCopy}
+              visual={metaVisual}
+              aspectRatio={metaAspectRatio}
+              platform="meta"
+              onCopyChange={setMetaCopy}
+              onVisualChange={setMetaVisual}
+              onAspectRatioChange={setMetaAspectRatio}
+            />
+          ) : (
+            <AdControls
+              copy={instagramCopy}
+              visual={instagramVisual}
+              aspectRatio={instagramAspectRatio}
+              platform="instagram"
+              onCopyChange={setInstagramCopy}
+              onVisualChange={setInstagramVisual}
+              onAspectRatioChange={setInstagramAspectRatio}
+            />
+          )}
+        </div>
 
-          {/* Right Column - Ad Previews */}
-          <div className="lg:col-span-2">
-            <div className="space-y-8">
-              {/* LinkedIn Preview */}
+        {/* Right Column - Preview */}
+        <div className="lg:w-2/3">
+          <div className="space-y-6">
+            {activePlatform === 'linkedin' ? (
               <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">LinkedIn Single Image Ad</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">LinkedIn Single Image Ad Preview</h2>
                 <div className="flex justify-center">
                   <LinkedInSingleImageAdPreview
                     copy={linkedInCopy}
-                    visual={{
-                      ...linkedInVisual,
-                      imageUrl: getLinkedInImageUrl(),
-                      logoUrl: getLogoUrl()
-                    }}
+                    visual={linkedInVisualWithFallback}
                     aspectRatio={linkedInAspectRatio}
                   />
                 </div>
               </div>
-
-              {/* Meta Preview */}
+            ) : activePlatform === 'meta' ? (
               <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Meta Feed Single Image Ad</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Meta (Facebook) Feed Single Image Ad Preview</h2>
                 <div className="flex justify-center">
                   <MetaFeedSingleImageAdPreview
                     copy={metaCopy}
-                    visual={{
-                      ...metaVisual,
-                      imageUrl: getMetaImageUrl(),
-                      logoUrl: getLogoUrl()
-                    }}
+                    visual={metaVisualWithFallback}
                     aspectRatio={metaAspectRatio}
                   />
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
+            ) : (
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Instagram Feed Single Image Ad Preview</h2>
+                <div className="flex justify-center">
+                  <InstagramSingleImageAdPreview
+                    copy={instagramCopy}
+                    visual={instagramVisualWithFallback}
+                    aspectRatio={instagramAspectRatio}
+                  />
+                </div>
+              </div>
+            )}
 
-        {/* Platform Guidelines */}
-        <div className="mt-12 bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Platform Guidelines</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                <span className="text-blue-600 mr-2">💼</span>
-                LinkedIn Best Practices
-              </h3>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li>• Intro text: Keep under 150 characters to avoid truncation</li>
-                <li>• Headline: Maximum 70 characters for optimal display</li>
-                <li>• Image ratios: 1:1 (square) or 1200×628 (landscape)</li>
-                <li>• Professional tone with minimal text overlay</li>
-                <li>• Focus on business value and industry insights</li>
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                <span className="text-pink-600 mr-2">📱</span>
-                Meta (Facebook/Instagram) Best Practices
-              </h3>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li>• Primary text: Keep under 125 characters for feed preview</li>
-                <li>• Headline: Maximum 40 characters when shown</li>
-                <li>• Image ratios: 1080×1350 (portrait) or 1080×1080 (square)</li>
-                <li>• Engaging visuals with balanced text overlay</li>
-                <li>• Use hashtags and conversational tone</li>
-              </ul>
+            {/* Platform Guidelines */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Platform Guidelines</h3>
+              {activePlatform === 'linkedin' ? (
+                <div className="space-y-3 text-sm text-gray-700">
+                  <p><strong>LinkedIn Single Image Ads:</strong></p>
+                  <ul className="list-disc list-inside space-y-1 ml-4">
+                    <li>Intro text: ~150 characters (truncates with "See more...")</li>
+                    <li>Headline: ~70 characters (optional)</li>
+                    <li>Image ratios: 1:1 (square) or 1200×628 (landscape)</li>
+                    <li>Professional tone, business-focused content</li>
+                    <li>CTA button appears below the image</li>
+                  </ul>
+                </div>
+              ) : activePlatform === 'meta' ? (
+                <div className="space-y-3 text-sm text-gray-700">
+                  <p><strong>Meta (Facebook) Feed Ads:</strong></p>
+                  <ul className="list-disc list-inside space-y-1 ml-4">
+                    <li>Primary text: ~125 characters (truncates with "See more...")</li>
+                    <li>Headline: ~40 characters (optional)</li>
+                    <li>Description: ~25 characters (optional)</li>
+                    <li>Image ratios: 1200×628 (landscape) - Facebook standard</li>
+                    <li>Casual tone, engagement-focused content</li>
+                    <li>CTA button appears below the image</li>
+                  </ul>
+                </div>
+              ) : (
+                <div className="space-y-3 text-sm text-gray-700">
+                  <p><strong>Instagram Feed Ads:</strong></p>
+                  <ul className="list-disc list-inside space-y-1 ml-4">
+                    <li>Primary text: ~125 characters (truncates with "See more...")</li>
+                    <li>Headline: ~40 characters (optional)</li>
+                    <li>Description: ~25 characters (optional)</li>
+                    <li>Image ratios: 1080×1080 (square) or 1080×1350 (portrait)</li>
+                    <li>Visual-first content, minimal text overlay</li>
+                    <li>CTA button appears below the image</li>
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
         </div>

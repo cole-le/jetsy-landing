@@ -37,7 +37,7 @@ const MetaFeedSingleImageAdPreview = ({
               alt={`${visual.brandName} logo`}
               className="w-full h-full object-cover"
               onError={(e) => {
-                e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0yMCAxMEMyMi43NjEgMTAgMjUgMTIuMjM5IDI1IDE1QzI1IDE3Ljc2MSAyMi43NjEgMjAgMjAgMjBDMTcuMjM5IDIwIDE1IDE3Ljc2MSAxNSAxNUMxNSAxMi4yMzkgMTcuMjM5IDEwIDIwIDEwWiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMjVDMzAgMjcuNzYxIDI3Ljc2MSAzMCAyNSAzMEgxNUMxMi4yMzkgMzAgMTAgMjcuNzYxIDEwIDI1VjIzQzEwIDIwLjIzOSAxMi4yMzkgMTggMTUgMThIMjVDMjcuNzYxIDE4IDMwIDIwLjIzOSAzMCAyM1YyNVoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+';
+                e.currentTarget.src = '/ferrari.jpg';
               }}
             />
           </div>
@@ -63,6 +63,24 @@ const MetaFeedSingleImageAdPreview = ({
         </p>
       </div>
 
+      {/* Headline - Meta displays this prominently */}
+      {copy.headline && (
+        <div className="px-3 pb-2">
+          <h3 className="text-lg font-semibold text-gray-900 leading-tight">
+            {copy.headline}
+          </h3>
+        </div>
+      )}
+
+      {/* Description - Meta specific field */}
+      {copy.description && (
+        <div className="px-3 pb-2">
+          <p className="text-sm text-gray-600 leading-relaxed">
+            {copy.description}
+          </p>
+        </div>
+      )}
+
       {/* Image */}
       <div className={`${imageHeight} w-full bg-gray-100 overflow-hidden`}>
         <img 
@@ -70,7 +88,7 @@ const MetaFeedSingleImageAdPreview = ({
           alt={`${visual.brandName} ad image`}
           className="w-full h-full object-cover"
           onError={(e) => {
-            e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIwIiBoZWlnaHQ9IjMyMCIgdmlld0JveD0iMCAwIDMyMCAzMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMjAiIGhlaWdodD0iMzIwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xNjAgODBDMTc3LjY3MyA4MCAxOTIgOTQuMzI3IDE5MiAxMTJDMjA5LjY3MyAxMTIgMjI0IDEyNi4zMjcgMjI0IDE0NEMyMjQgMTYxLjY3MyAyMDkuNjczIDE3NiAxOTIgMTc2QzE3NC4zMjcgMTc2IDE2MCAxNjEuNjczIDE2MCAxNDRDMTYwIDEyNi4zMjcgMTYwIDExMiAxNjAgODBaIiBmaWxsPSIjOUNBM0FGIi8+CjxwYXRoIGQ9Ik0yNDAgMTYwQzI0MCAxNzcuNjczIDIyNS42NzMgMTkyIDIwOCAxOTJIMTI4QzExMC4zMjcgMTkyIDk2IDE3Ny42NzMgOTYgMTYwVjE0NEM5NiAxMjYuMzI3IDExMC4zMjkgMTEyIDEyOCAxMTJIMjA4QzIyNS42NzMgMTEyIDI0MCAxMjYuMzI3IDI0MCAxNDRWMTYwWiIgZmlsbD0iIzlDQTNBRiIvPgo8L3N2Zz4=';
+            e.currentTarget.src = '/ferrari.jpg';
           }}
         />
       </div>

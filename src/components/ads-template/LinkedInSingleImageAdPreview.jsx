@@ -37,7 +37,7 @@ const LinkedInSingleImageAdPreview = ({
               alt={`${visual.brandName} logo`}
               className="w-full h-full object-cover"
               onError={(e) => {
-                e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xNiA4QzE4LjIwOTEgOCAyMCAxMC4yMDkxIDIwIDEyQzIwIDEzLjc5MDkgMTguMjA5MSAxNiAxNiAxNkMxMy43OTA5IDE2IDEyIDEzLjc5MDkgMTIgMTJDMTIgMTAuMjA5MSAxMy43OTA5IDggMTYgOFoiIGZpbGw9IiM5Q0EzQUYiLz4KPHBhdGggZD0iTTI0IDI0QzI0IDI2LjIwOTEgMjIuMjA5MSAyOCAyMCAyOEgxMkM5Ljc5MDkxIDI4IDggMjYuMjA5MSA4IDI0VjIyQzggMTkuNzkwOSA5Ljc5MDkxIDE4IDEyIDE4SDIwQzIyLjIwOTEgMTggMjQgMTkuNzkwOSAyNCAyMlYyNFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+';
+                e.currentTarget.src = '/ferrari.jpg';
               }}
             />
           </div>
@@ -77,6 +77,15 @@ const LinkedInSingleImageAdPreview = ({
         </p>
       </div>
 
+      {/* Headline - LinkedIn displays this prominently */}
+      {copy.headline && (
+        <div className="px-3 pb-2">
+          <h3 className="text-lg font-semibold text-gray-900 leading-tight">
+            {copy.headline}
+          </h3>
+        </div>
+      )}
+
       {/* Image */}
       <div className={`${imageHeight} w-full bg-gray-100 overflow-hidden`}>
         <img 
@@ -84,7 +93,7 @@ const LinkedInSingleImageAdPreview = ({
           alt={`${visual.brandName} ad image`}
           className="w-full h-full object-cover"
           onError={(e) => {
-            e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgwIiBoZWlnaHQ9IjI1NiIgdmlld0JveD0iMCAwIDQ4MCAyNTYiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0ODAiIGhlaWdodD0iMjU2IiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0yNDAgMTI4QzI2Ni41MTQgMTI4IDI4OCAxNDkuNDg2IDI4OCAxNzZDMjg4IDIwMi41MTQgMjY2LjUxNCAyMjQgMjQwIDIyNEMyMTMuNDg2IDIyNCAxOTIgMjAyLjUxNCAxOTIgMTc2QzE5MiAxNDkuNDg2IDIxMy40ODYgMTI4IDI0MCAxMjhaIiBmaWxsPSIjOUNBM0FGIi8+CjxwYXRoIGQ9Ik0zNjAgMjA4QzM2MCAyMzQuNTE0IDMzOC41MTQgMjU2IDMxMiAyNTZIMTY4QzE0MS40ODYgMjU2IDEyMCAyMzQuNTE0IDEyMCAyMDhWMTg0QzEyMCAxNTcuNDg2IDE0MS40ODYgMTM2IDE2OCAxMzZIMzEyQzMzOC41MTQgMTM2IDM2MCAxNTcuNDg2IDM2MCAxODRWMjA4WiIgZmlsbD0iIzlDQTNBRiIvPgo8L3N2Zz4=';
+            e.currentTarget.src = '/ferrari.jpg';
           }}
         />
       </div>
