@@ -63,7 +63,7 @@ const AdsTemplatePage = ({ onBackToHome }) => {
   const [instagramCopy, setInstagramCopy] = useState(demoInstagram.copy);
   const [instagramVisual, setInstagramVisual] = useState(demoInstagram.visual);
   const [linkedInAspectRatio, setLinkedInAspectRatio] = useState('1200×628');
-  const [metaAspectRatio, setMetaAspectRatio] = useState('1200×628'); // Facebook landscape format
+  const [metaAspectRatio, setMetaAspectRatio] = useState('1:1'); // Meta square format
   const [instagramAspectRatio, setInstagramAspectRatio] = useState('1080×1080'); // Instagram square format
 
   // Fallback image URLs for demo purposes - using Ferrari image as backup

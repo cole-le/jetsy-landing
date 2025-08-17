@@ -100,12 +100,23 @@ const AdControls = ({
                   <input
                     type="radio"
                     name="meta-ratio"
-                    value="1200×628"
-                    checked={aspectRatio === '1200×628'}
+                    value="1:1"
+                    checked={aspectRatio === '1:1'}
                     onChange={(e) => onAspectRatioChange(e.target.value)}
                     className="text-blue-600 focus:ring-blue-500"
                   />
-                  <span className="text-sm text-gray-700">1200×628 (Landscape) - Facebook Standard</span>
+                  <span className="text-sm text-gray-700">1:1 (Square)</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    name="meta-ratio"
+                    value="4:5"
+                    checked={aspectRatio === '4:5'}
+                    onChange={(e) => onAspectRatioChange(e.target.value)}
+                    className="text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">4:5 (Vertical)</span>
                 </label>
               </>
             ) : (

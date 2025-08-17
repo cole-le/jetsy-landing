@@ -12,9 +12,19 @@ const MetaFeedSingleImageAdPreview = ({
   visual,
   aspectRatio
 }) => {
-  const isPortrait = aspectRatio === '1080×1350';
+  const isSquare = aspectRatio === '1:1';
+  const isVertical = aspectRatio === '4:5';
   const cardWidth = 'w-80';
-  const imageHeight = isPortrait ? 'h-96' : 'h-80';
+  
+  // Set image height based on aspect ratio
+  let imageHeight;
+  if (isSquare) {
+    imageHeight = 'h-80'; // Square image
+  } else if (isVertical) {
+    imageHeight = 'h-96'; // Vertical image (taller)
+  } else {
+    imageHeight = 'h-80'; // Default fallback
+  }
 
   const truncateText = (text, maxLength) => {
     if (text.length <= maxLength) return text;
@@ -139,7 +149,7 @@ const MetaFeedSingleImageAdPreview = ({
 
         {/* CTA Button - Meta Style */}
         <div className="flex justify-end">
-          <button className="bg-gray-200 text-gray-800 px-4 py-1.5 rounded font-medium hover:bg-gray-300 transition-colors text-sm">
+          <button className="bg-gray-200 text-gray-800 px-4 py-1.5 rounded font-bold hover:bg-gray-300 transition-colors text-sm">
             {getCTALabel(copy.cta)}
           </button>
         </div>
