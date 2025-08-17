@@ -96,11 +96,8 @@ function App() {
         setCurrentStep('ad-creatives');
       }
     } else if (path === '/ads_template') {
-      // Handle ads template route
-      (async () => {
-        const allowed = await verifyChatPassword();
-        setCurrentStep(allowed ? 'ads-template' : 'hero');
-      })();
+      // Handle ads template route - no password required
+      setCurrentStep('ads-template');
     } else if (/^\/[0-9]+-[0-9]+$/.test(path)) {
       const pair = path.slice(1);
       const [userIdStr, projectIdStr] = pair.split('-');
