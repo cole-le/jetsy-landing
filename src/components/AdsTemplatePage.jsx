@@ -189,37 +189,28 @@ const AdsTemplatePage = ({ onBackToHome }) => {
         <div className="lg:w-2/3">
           <div className="space-y-6">
             {activePlatform === 'linkedin' ? (
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">LinkedIn Single Image Ad Preview</h2>
-                <div className="flex justify-center">
-                  <LinkedInSingleImageAdPreview
-                    copy={linkedInCopy}
-                    visual={linkedInVisualWithFallback}
-                    aspectRatio={linkedInAspectRatio}
-                  />
-                </div>
+              <div className="flex justify-center">
+                <LinkedInSingleImageAdPreview
+                  copy={linkedInCopy}
+                  visual={linkedInVisualWithFallback}
+                  aspectRatio={linkedInAspectRatio}
+                />
               </div>
             ) : activePlatform === 'meta' ? (
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Meta (Facebook) Feed Single Image Ad Preview</h2>
-                <div className="flex justify-center">
-                  <MetaFeedSingleImageAdPreview
-                    copy={metaCopy}
-                    visual={metaVisualWithFallback}
-                    aspectRatio={metaAspectRatio}
-                  />
-                </div>
+              <div className="flex justify-center">
+                <MetaFeedSingleImageAdPreview
+                  copy={metaCopy}
+                  visual={metaVisualWithFallback}
+                  aspectRatio={metaAspectRatio}
+                />
               </div>
             ) : (
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Instagram Feed Single Image Ad Preview</h2>
-                <div className="flex justify-center">
-                  <InstagramSingleImageAdPreview
-                    copy={instagramCopy}
-                    visual={instagramVisualWithFallback}
-                    aspectRatio={instagramAspectRatio}
-                  />
-                </div>
+              <div className="flex justify-center">
+                <InstagramSingleImageAdPreview
+                  copy={instagramCopy}
+                  visual={instagramVisualWithFallback}
+                  aspectRatio={instagramAspectRatio}
+                />
               </div>
             )}
 
