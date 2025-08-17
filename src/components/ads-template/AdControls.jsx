@@ -65,6 +65,78 @@ const AdControls = ({
 
       
       <div className="space-y-6">
+        {/* Aspect Ratio Controls */}
+        <div>
+          <h3 className="text-lg font-medium text-gray-900 mb-3">Image Aspect Ratio</h3>
+          <div className="space-y-3">
+            {isLinkedIn ? (
+              <>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    name="linkedin-ratio"
+                    value="1:1"
+                    checked={aspectRatio === '1:1'}
+                    onChange={(e) => onAspectRatioChange(e.target.value)}
+                    className="text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">1:1 (Square)</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    name="linkedin-ratio"
+                    value="1200×628"
+                    checked={aspectRatio === '1200×628'}
+                    onChange={(e) => onAspectRatioChange(e.target.value)}
+                    className="text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">1200×628 (Landscape)</span>
+                </label>
+              </>
+            ) : isMeta ? (
+              <>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    name="meta-ratio"
+                    value="1200×628"
+                    checked={aspectRatio === '1200×628'}
+                    onChange={(e) => onAspectRatioChange(e.target.value)}
+                    className="text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">1200×628 (Landscape) - Facebook Standard</span>
+                </label>
+              </>
+            ) : (
+              <>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    name="instagram-ratio"
+                    value="1080×1080"
+                    checked={aspectRatio === '1080×1080'}
+                    onChange={(e) => onAspectRatioChange(e.target.value)}
+                    className="text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">1080×1080 (Square) - Instagram Standard</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    name="instagram-ratio"
+                    value="1080×1350"
+                    checked={aspectRatio === '1080×1350'}
+                    onChange={(e) => onAspectRatioChange(e.target.value)}
+                    className="text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">1080×1350 (Portrait) - Instagram Stories</span>
+                </label>
+              </>
+            )}
+          </div>
+        </div>
+
         {/* Copy Controls */}
         <div>
           <h3 className="text-lg font-medium text-gray-900 mb-3">Ad Copy</h3>
@@ -149,6 +221,20 @@ const AdControls = ({
                 ))}
               </select>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Link URL *
+              </label>
+              <input
+                type="url"
+                value={copy.linkUrl || ''}
+                onChange={(e) => handleCopyChange('linkUrl', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter link URL (e.g., https://example.com)..."
+                required
+              />
+            </div>
           </div>
         </div>
 
@@ -195,93 +281,7 @@ const AdControls = ({
               />
             </div>
 
-            {/* Verified badge only for LinkedIn */}
-            {isLinkedIn && (
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="verified"
-                  checked={visual.verified || false}
-                  onChange={(e) => handleVisualChange('verified', e.target.checked)}
-                  className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label htmlFor="verified" className="text-sm font-medium text-gray-700">
-                  Verified Badge (LinkedIn)
-                </label>
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* Aspect Ratio Controls */}
-        <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-3">Image Aspect Ratio</h3>
-          <div className="space-y-3">
-            {isLinkedIn ? (
-              <>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="radio"
-                    name="linkedin-ratio"
-                    value="1:1"
-                    checked={aspectRatio === '1:1'}
-                    onChange={(e) => onAspectRatioChange(e.target.value)}
-                    className="text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700">1:1 (Square)</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="radio"
-                    name="linkedin-ratio"
-                    value="1200×628"
-                    checked={aspectRatio === '1200×628'}
-                    onChange={(e) => onAspectRatioChange(e.target.value)}
-                    className="text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700">1200×628 (Landscape)</span>
-                </label>
-              </>
-            ) : isMeta ? (
-              <>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="radio"
-                    name="meta-ratio"
-                    value="1200×628"
-                    checked={aspectRatio === '1200×628'}
-                    onChange={(e) => onAspectRatioChange(e.target.value)}
-                    className="text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700">1200×628 (Landscape) - Facebook Standard</span>
-                </label>
-              </>
-            ) : (
-              <>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="radio"
-                    name="instagram-ratio"
-                    value="1080×1080"
-                    checked={aspectRatio === '1080×1080'}
-                    onChange={(e) => onAspectRatioChange(e.target.value)}
-                    className="text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700">1080×1080 (Square) - Instagram Standard</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="radio"
-                    name="instagram-ratio"
-                    value="1080×1350"
-                    checked={aspectRatio === '1080×1350'}
-                    onChange={(e) => onAspectRatioChange(e.target.value)}
-                    className="text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700">1080×1350 (Portrait) - Instagram Stories</span>
-                </label>
-              </>
-            )}
           </div>
         </div>
       </div>

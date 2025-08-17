@@ -12,6 +12,7 @@ const AdsTemplatePage = ({ onBackToHome }) => {
       headline: "Luxury Redefined",
       description: "Premium automotive excellence",
       cta: "LEARN_MORE",
+      linkUrl: "https://www.ferrari.com",
     },
     visual: {
       imageUrl: "/ferrari.jpg",
@@ -27,6 +28,7 @@ const AdsTemplatePage = ({ onBackToHome }) => {
       headline: "Power Meets Elegance",
       description: "Unmatched performance",
       cta: "SIGN_UP",
+      linkUrl: "https://www.ferrari.com",
     },
     visual: {
       imageUrl: "/ferrari.jpg",
@@ -41,6 +43,7 @@ const AdsTemplatePage = ({ onBackToHome }) => {
       headline: "Adrenaline Rush",
       description: "Pure driving pleasure",
       cta: "GET_STARTED",
+      linkUrl: "https://www.ferrari.com",
     },
     visual: {
       imageUrl: "/ferrari.jpg",

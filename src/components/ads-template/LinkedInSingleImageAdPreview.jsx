@@ -157,11 +157,23 @@ const LinkedInSingleImageAdPreview = ({
         {/* CTA Button and Domain - LinkedIn style */}
         <div className="flex items-center justify-between">
           <div className="text-sm text-gray-500">
-            jetsy.dev
+            {copy.linkUrl ? new URL(copy.linkUrl).hostname.replace('www.', '') : 'jetsy.dev'}
           </div>
-          <button className="border-2 border-blue-600 text-blue-600 bg-transparent px-4 py-1 rounded-full text-sm font-medium hover:bg-blue-50 transition-colors">
-            {getCTALabel(copy.cta)}
-          </button>
+          {copy.linkUrl && (
+            <a
+              href={copy.linkUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="border-2 border-blue-600 text-blue-600 bg-transparent px-4 py-1 rounded-full text-sm font-medium hover:bg-blue-50 transition-colors cursor-pointer"
+            >
+              {getCTALabel(copy.cta)}
+            </a>
+          )}
+          {!copy.linkUrl && (
+            <button className="border-2 border-blue-600 text-blue-600 bg-transparent px-4 py-1 rounded-full text-sm font-medium hover:bg-blue-50 transition-colors cursor-not-allowed opacity-50">
+              {getCTALabel(copy.cta)}
+            </button>
+          )}
         </div>
       </div>
 
