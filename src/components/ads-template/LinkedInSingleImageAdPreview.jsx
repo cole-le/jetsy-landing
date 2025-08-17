@@ -25,17 +25,34 @@ const LinkedInSingleImageAdPreview = ({
   const formatTextWithLinks = (text) => {
     // Regular expression to find URLs (including www URLs)
     const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
-    const parts = text.split(urlRegex);
     
-    return parts.map((part, index) => {
-      if (urlRegex.test(part)) {
-        return (
-          <span key={index} className="text-blue-600 hover:underline cursor-pointer">
-            {part}
-          </span>
-        );
+    // Split text by line breaks first to preserve paragraphs
+    const paragraphs = text.split('\n');
+    
+    return paragraphs.map((paragraph, pIndex) => {
+      if (paragraph.trim() === '') {
+        // Empty paragraph - add spacing
+        return <div key={pIndex} className="h-3"></div>;
       }
-      return part;
+      
+      // Process URLs within each paragraph
+      const parts = paragraph.split(urlRegex);
+      const formattedParts = parts.map((part, index) => {
+        if (urlRegex.test(part)) {
+          return (
+            <span key={index} className="text-blue-600 hover:underline cursor-pointer">
+              {part}
+            </span>
+          );
+        }
+        return part;
+      });
+      
+      return (
+        <div key={pIndex} className="mb-2 last:mb-0">
+          {formattedParts}
+        </div>
+      );
     });
   };
 
