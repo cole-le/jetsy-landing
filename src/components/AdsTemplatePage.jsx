@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { FaFacebook, FaLinkedin, FaInstagram, FaFacebookF } from 'react-icons/fa';
+import { SiLinkedin, SiFacebook, SiInstagram } from 'react-icons/si';
 import LinkedInSingleImageAdPreview from './ads-template/LinkedInSingleImageAdPreview';
 import MetaFeedSingleImageAdPreview from './ads-template/MetaFeedSingleImageAdPreview';
 import InstagramSingleImageAdPreview from './ads-template/InstagramSingleImageAdPreview';
@@ -112,33 +114,36 @@ const AdsTemplatePage = ({ onBackToHome }) => {
         <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
           <button
             onClick={() => setActivePlatform('linkedin')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
               activePlatform === 'linkedin'
                 ? 'bg-white text-blue-600 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            LinkedIn Ads
+            <SiLinkedin className="w-4 h-4 text-blue-600" />
+            <span>LinkedIn Ads</span>
           </button>
           <button
             onClick={() => setActivePlatform('meta')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
               activePlatform === 'meta'
                 ? 'bg-white text-blue-600 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            Meta (Facebook) Ads
+            <SiFacebook className="w-4 h-4 text-blue-600" />
+            <span>Meta Ads</span>
           </button>
           <button
             onClick={() => setActivePlatform('instagram')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
               activePlatform === 'instagram'
                 ? 'bg-white text-blue-600 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            Instagram Ads
+            <SiInstagram className="w-4 h-4 text-pink-500" />
+            <span>Instagram Ads</span>
           </button>
         </div>
       </div>
