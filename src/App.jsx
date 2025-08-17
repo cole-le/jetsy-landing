@@ -19,6 +19,7 @@ import ExceptionalTemplate from './components/ExceptionalTemplate'
 import ProjectDataAnalytics from './components/ProjectDataAnalytics'
 import PublicRouteView from './components/PublicRouteView'
 import AdCreativesPage from './components/AdCreativesPage'
+import AdsTemplatePage from './components/AdsTemplatePage'
 
 function App() {
   const [currentStep, setCurrentStep] = useState('hero') // hero, faq, pricing, lead-capture, onboarding, login, demo-booking, demo-thankyou, chat
@@ -94,6 +95,12 @@ function App() {
         setAdCreativesProjectId(pid);
         setCurrentStep('ad-creatives');
       }
+    } else if (path === '/ads_template') {
+      // Handle ads template route
+      (async () => {
+        const allowed = await verifyChatPassword();
+        setCurrentStep(allowed ? 'ads-template' : 'hero');
+      })();
     } else if (/^\/[0-9]+-[0-9]+$/.test(path)) {
       const pair = path.slice(1);
       const [userIdStr, projectIdStr] = pair.split('-');
@@ -219,6 +226,8 @@ function App() {
       window.history.pushState({}, '', '/chat');
     } else if (currentStep === 'ad-creatives' && adCreativesProjectId && path !== `/ad-creatives/${adCreativesProjectId}`) {
       window.history.pushState({}, '', `/ad-creatives/${adCreativesProjectId}`);
+    } else if (currentStep === 'ads-template' && path !== '/ads_template') {
+      window.history.pushState({}, '', '/ads_template');
     } else if (currentStep === 'data-analytics' && analyticsProjectId && path !== `/data_analytics/project_${analyticsProjectId}`) {
       window.history.pushState({}, '', `/data_analytics/project_${analyticsProjectId}`);
     } else if (currentStep === 'faq' && path !== '/faq') {
@@ -681,6 +690,13 @@ function App() {
             setRouteProjectId(projectId);
             setCurrentStep('chat');
           }}
+        />
+      )}
+
+      {/* Ads Template Page */}
+      {currentStep === 'ads-template' && (
+        <AdsTemplatePage 
+          onBackToHome={() => setCurrentStep('hero')}
         />
       )}
 
