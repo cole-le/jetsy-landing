@@ -85,23 +85,26 @@ const LinkedInSingleImageAdPreview = ({
         />
       </div>
 
-      {/* Headline - LinkedIn displays this BELOW the image in larger, bolder font */}
-      {copy.headline && (
-        <div className="px-3 py-2">
-          <h3 className="text-lg font-bold text-gray-900 leading-tight">
-            {copy.headline}
-          </h3>
-        </div>
-      )}
+      {/* Headline, Domain, and CTA Section - LinkedIn style with light blue background */}
+      <div className="bg-blue-50 px-3 py-2">
+        {/* Headline - LinkedIn displays this BELOW the image in smaller, bold font */}
+        {copy.headline && (
+          <div className="mb-2">
+            <h3 className="text-sm font-bold text-gray-900 leading-tight">
+              {copy.headline}
+            </h3>
+          </div>
+        )}
 
-      {/* CTA Button and Domain - LinkedIn style */}
-      <div className="px-3 py-3 flex items-center justify-between">
-        <div className="text-sm text-gray-500">
-          jetsy.dev
+        {/* CTA Button and Domain - LinkedIn style */}
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-500">
+            jetsy.dev
+          </div>
+          <button className="border-2 border-blue-600 text-blue-600 bg-transparent px-4 py-1 rounded-full text-sm font-medium hover:bg-blue-50 transition-colors">
+            {getCTALabel(copy.cta)}
+          </button>
         </div>
-        <button className="bg-blue-600 text-white px-6 py-2 rounded-md font-medium hover:bg-blue-700 transition-colors">
-          {getCTALabel(copy.cta)}
-        </button>
       </div>
 
       {/* Social Bar */}
