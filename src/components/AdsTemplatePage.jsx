@@ -214,46 +214,7 @@ const AdsTemplatePage = ({ onBackToHome }) => {
               </div>
             )}
 
-            {/* Platform Guidelines */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Platform Guidelines</h3>
-              {activePlatform === 'linkedin' ? (
-                <div className="space-y-3 text-sm text-gray-700">
-                  <p><strong>LinkedIn Single Image Ads:</strong></p>
-                  <ul className="list-disc list-inside space-y-1 ml-4">
-                    <li>Intro text: ~150 characters (truncates with "See more...")</li>
-                    <li>Headline: ~70 characters (optional)</li>
-                    <li>Image ratios: 1:1 (square) or 1200×628 (landscape)</li>
-                    <li>Professional tone, business-focused content</li>
-                    <li>CTA button appears below the image</li>
-                  </ul>
-                </div>
-              ) : activePlatform === 'meta' ? (
-                <div className="space-y-3 text-sm text-gray-700">
-                  <p><strong>Meta (Facebook) Feed Ads:</strong></p>
-                  <ul className="list-disc list-inside space-y-1 ml-4">
-                    <li>Primary text: ~125 characters (truncates with "See more...")</li>
-                    <li>Headline: ~40 characters (optional)</li>
-                    <li>Description: ~25 characters (optional)</li>
-                    <li>Image ratios: 1200×628 (landscape) - Facebook standard</li>
-                    <li>Casual tone, engagement-focused content</li>
-                    <li>CTA button appears below the image</li>
-                  </ul>
-                </div>
-              ) : (
-                <div className="space-y-3 text-sm text-gray-700">
-                  <p><strong>Instagram Feed Ads:</strong></p>
-                  <ul className="list-disc list-inside space-y-1 ml-4">
-                    <li>Primary text: ~125 characters (truncates with "See more...")</li>
-                    <li>Headline: ~40 characters (optional)</li>
-                    <li>Description: ~25 characters (optional)</li>
-                    <li>Image ratios: 1080×1080 (square) or 1080×1350 (portrait)</li>
-                    <li>Visual-first content, minimal text overlay</li>
-                    <li>CTA button appears below the image</li>
-                  </ul>
-                </div>
-              )}
-            </div>
+
           </div>
         </div>
       </div>

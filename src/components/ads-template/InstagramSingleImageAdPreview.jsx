@@ -23,7 +23,27 @@ const InstagramSingleImageAdPreview = ({
 
   const getCTALabel = (cta) => {
     if (!cta) return 'Learn more';
-    return cta.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+    
+    switch (cta) {
+      case 'LEARN_MORE': return 'Learn more';
+      case 'SIGN_UP': return 'Sign up';
+      case 'GET_OFFER': return 'Get offer';
+      case 'SUBSCRIBE': return 'Subscribe';
+      case 'CONTACT_US': return 'Contact us';
+      case 'DOWNLOAD': return 'Download';
+      case 'APPLY': return 'Apply';
+      case 'APPLY_NOW': return 'Apply now';
+      case 'BOOK_NOW': return 'Book now';
+      case 'GET_STARTED': return 'Get started';
+      case 'VIEW_QUOTE': return 'View Quote';
+      case 'REGISTER': return 'Register';
+      case 'JOIN': return 'Join';
+      case 'ATTEND': return 'Attend';
+      case 'REQUEST_DEMO': return 'Request Demo';
+      case 'BUY_NOW': return 'Buy Now';
+      case 'SHOP_NOW': return 'Shop Now';
+      default: return cta.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+    }
   };
 
   return (
