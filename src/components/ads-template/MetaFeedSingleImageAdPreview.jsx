@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 /**
  * Meta Feed Single Image Ad Preview Component
@@ -12,6 +12,8 @@ const MetaFeedSingleImageAdPreview = ({
   visual,
   aspectRatio
 }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
   const isSquare = aspectRatio === '1:1';
   const isVertical = aspectRatio === '4:5';
   const cardWidth = 'w-80';
@@ -29,6 +31,50 @@ const MetaFeedSingleImageAdPreview = ({
   const truncateText = (text, maxLength) => {
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + '...';
+  };
+
+  // Format text with blue links and preserve paragraph spacing
+  const formatTextWithLinks = (text) => {
+    if (!text) return '';
+    
+    // Split text by newlines to preserve paragraph spacing
+    const paragraphs = text.split('\n');
+    
+    return paragraphs.map((paragraph, index) => {
+      if (paragraph.trim() === '') {
+        // Empty paragraph - add spacing
+        return <div key={index} className="h-3"></div>;
+      }
+      
+      // Replace URLs with blue links
+      const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
+      const parts = paragraph.split(urlRegex);
+      
+      const formattedParts = parts.map((part, partIndex) => {
+        if (urlRegex.test(part)) {
+          // This is a URL - make it blue and clickable
+          const url = part.startsWith('www.') ? `https://${part}` : part;
+          return (
+            <a
+              key={partIndex}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline"
+            >
+              {part}
+            </a>
+          );
+        }
+        return part;
+      });
+      
+      return (
+        <div key={index} className="mb-2 last:mb-0">
+          {formattedParts}
+        </div>
+      );
+    });
   };
 
   const getCTALabel = (cta) => {
@@ -102,12 +148,31 @@ const MetaFeedSingleImageAdPreview = ({
 
       {/* Primary Text */}
       <div className="px-3 pb-2">
-        <p className="text-sm text-gray-900 leading-relaxed">
-          {truncateText(copy.primaryText, 125)}
-          {copy.primaryText.length > 125 && (
-            <span className="text-blue-600 font-medium cursor-pointer"> See more...</span>
+        <div className="text-sm text-gray-900 leading-relaxed">
+          {isExpanded ? (
+            formatTextWithLinks(copy.primaryText)
+          ) : (
+            <>
+              {formatTextWithLinks(truncateText(copy.primaryText, 93))}
+              {copy.primaryText.length > 93 && (
+                <span 
+                  className="text-gray-500 font-medium cursor-pointer hover:text-gray-700"
+                  onClick={() => setIsExpanded(true)}
+                >
+                  ...See more
+                </span>
+              )}
+            </>
           )}
-        </p>
+          {isExpanded && (
+            <span 
+              className="text-gray-500 font-medium cursor-pointer hover:text-gray-700 ml-1"
+              onClick={() => setIsExpanded(false)}
+            >
+              See less
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Image */}
