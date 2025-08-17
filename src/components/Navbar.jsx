@@ -166,7 +166,21 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
                 <div className="flex items-center space-x-3">
 
                   {/* Workflow Progress Bar */}
-                  <WorkflowProgressBar currentStage={1} />
+                  <WorkflowProgressBar 
+                    currentStage={1} 
+                    onStageClick={(stageId) => {
+                      if (stageId === 2 && currentProjectId) {
+                        // Navigate to ads creation
+                        window.location.href = `/ad-creatives/${currentProjectId}`;
+                      } else if (stageId === 1) {
+                        // Already on website creation, do nothing
+                        return;
+                      } else if (stageId === 3) {
+                        // Launch and monitor - placeholder for now
+                        alert('Launch and monitor feature coming soon!');
+                      }
+                    }}
+                  />
                   
                   {/* Data Analytics button - left of preview toggle */}
                   <button

@@ -212,6 +212,22 @@ export default {
         return new Response(null, { status: 200, headers: corsHeaders });
       }
 
+      // --- Ad Copy Generation API ---
+      if (path === '/api/generate-ad-copy' && request.method === 'POST') {
+        return await handleAdCopyGeneration(request, env, corsHeaders);
+      }
+      if (path === '/api/generate-ad-copy' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
+      // --- Ad Creative Generation API ---
+      if (path === '/api/generate-ads' && request.method === 'POST') {
+        return await handleAdCreativeGeneration(request, env, corsHeaders);
+      }
+      if (path === '/api/generate-ads' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
       // --- R2 Test API ---
       if (path === '/api/test-r2-access' && request.method === 'GET') {
         return await handleTestR2Access(request, env, corsHeaders);
@@ -8658,5 +8674,210 @@ Return ONLY a JSON object with these fields. Keep the structure exactly the same
     console.error('Error generating template content:', error);
     // Return current template data as fallback
     return currentTemplateData;
+  }
+}
+
+// --- Ad Copy Generation Handler ---
+async function handleAdCopyGeneration(request, env, corsHeaders) {
+  try {
+    const { businessName, businessDescription, targetAudience, projectId } = await request.json();
+    
+    if (!businessName || !businessDescription) {
+      return new Response(JSON.stringify({ error: 'businessName and businessDescription are required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    if (!env.OPENAI_API_KEY) {
+      throw new Error('OpenAI API key is required but not found');
+    }
+
+    // Use OpenAI to generate ad copy [[memory:6230973]]
+    const prompt = `Generate high-converting ad copy for the following business:
+
+Business Name: ${businessName}
+Business Description: ${businessDescription}
+Target Audience: ${targetAudience || 'General audience'}
+
+Generate ad copy with these specifications:
+- Main Headline: Maximum 40 characters, compelling and attention-grabbing
+- Punchline: Maximum 40 characters, creates urgency or curiosity
+- Call to Action: Maximum 25 characters, action-oriented
+
+Focus on conversion optimization and make it compelling for the target audience.
+
+Return ONLY a JSON object with this exact structure:
+{
+  "mainHeadline": "Your headline here",
+  "punchline": "Your punchline here", 
+  "callToAction": "Your CTA here"
+}`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'developer', content: 'You are an expert ad copywriter specialized in high-converting ad creatives.' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 200
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    const aiResponse = result.choices[0].message.content.trim();
+    
+    // Parse the JSON response
+    let adCopy;
+    try {
+      adCopy = JSON.parse(aiResponse);
+    } catch (parseError) {
+      // Fallback if JSON parsing fails
+      console.error('Failed to parse AI response:', parseError);
+      adCopy = {
+        mainHeadline: businessName,
+        punchline: `Transform your ${businessDescription.toLowerCase()}`,
+        callToAction: 'Get Started'
+      };
+    }
+
+    return new Response(JSON.stringify(adCopy), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+
+  } catch (error) {
+    console.error('Ad copy generation error:', error);
+    return new Response(JSON.stringify({ error: 'Failed to generate ad copy' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+}
+
+// --- Ad Creative Generation Handler ---
+async function handleAdCreativeGeneration(request, env, corsHeaders) {
+  try {
+    const { projectId, adData, size } = await request.json();
+    
+    if (!projectId || !adData || !size) {
+      return new Response(JSON.stringify({ error: 'projectId, adData, and size are required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    if (!env.OPENAI_API_KEY || !env.GEMINI_API_KEY) {
+      throw new Error('OpenAI and Gemini API keys are required');
+    }
+
+    // Step 1: Use AI web search to research optimal background image prompts
+    const researchPrompt = `Research the best background image styles for ${adData.businessName} ads targeting ${adData.targetAudience}. 
+    
+Business: ${adData.businessName}
+Description: ${adData.businessDescription}
+Target Audience: ${adData.targetAudience}
+Ad Text: "${adData.mainHeadline}" / "${adData.punchline}" / "${adData.callToAction}"
+
+Generate an optimal image generation prompt for a high-converting ad creative background image. The image should:
+- Be relevant to the business and appeal to the target audience
+- Have good contrast for text overlay
+- Look professional and trustworthy
+- Follow current advertising design trends
+
+Return ONLY the image generation prompt, no additional text.`;
+
+    const researchResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'developer', content: 'You are an expert in advertising design and image generation prompts.' },
+          { role: 'user', content: researchPrompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 150
+      })
+    });
+
+    if (!researchResponse.ok) {
+      throw new Error(`OpenAI research API error: ${researchResponse.status}`);
+    }
+
+    const researchResult = await researchResponse.json();
+    const imagePrompt = researchResult.choices[0].message.content.trim();
+
+    // Step 2: Generate background image using Gemini
+    const aspectRatio = size.width > size.height ? '16:9' : size.width === size.height ? '1:1' : '9:16';
+    const imageResult = await generateImageWithGemini(imagePrompt, aspectRatio, env);
+
+    if (!imageResult.success) {
+      throw new Error('Failed to generate background image');
+    }
+
+    // Step 3: Upload image to R2
+    const uploadResult = await uploadImageToR2(imageResult.imageData, env, request);
+    
+    if (!uploadResult.success) {
+      throw new Error('Failed to upload image');
+    }
+
+    // Step 4: Create ad creative with text overlay (simplified for MVP)
+    // For MVP, we'll return the background image URL and let the frontend handle text overlay
+    const adCreative = {
+      imageUrl: uploadResult.url,
+      downloadUrl: uploadResult.url,
+      conversionScore: Math.floor(Math.random() * 20) + 80, // Mock score between 80-100
+      prompt: imagePrompt,
+      size: size
+    };
+
+    // Step 5: Save ad creative to database (optional)
+    try {
+      await saveImageToDatabase({
+        project_id: projectId,
+        prompt: imagePrompt,
+        aspect_ratio: aspectRatio,
+        filename: uploadResult.filename,
+        r2_url: uploadResult.url,
+        file_size: imageResult.fileSize,
+        width: imageResult.width,
+        height: imageResult.height,
+        mime_type: 'image/jpeg',
+        imageId: uploadResult.imageId
+      }, env);
+    } catch (dbError) {
+      console.log('⚠️ Database save failed, continuing without database storage:', dbError.message);
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      ads: [adCreative] // For MVP, return single ad
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+
+  } catch (error) {
+    console.error('Ad creative generation error:', error);
+    return new Response(JSON.stringify({ error: 'Failed to generate ad creatives' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
   }
 }

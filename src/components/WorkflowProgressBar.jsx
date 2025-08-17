@@ -1,6 +1,6 @@
 import React from 'react';
 
-const WorkflowProgressBar = ({ currentStage = 1 }) => {
+const WorkflowProgressBar = ({ currentStage = 1, onStageClick }) => {
   const stages = [
     { id: 1, name: 'Website creation', icon: '🌐' },
     { id: 2, name: 'Ads creation', icon: '📢' },
@@ -8,11 +8,14 @@ const WorkflowProgressBar = ({ currentStage = 1 }) => {
   ];
 
   const handleStageClick = (stageId) => {
-    if (stageId === 1) {
-      // Website creation - refresh the current chat page
+    if (onStageClick) {
+      // Use the provided callback if available
+      onStageClick(stageId);
+    } else if (stageId === 1) {
+      // Website creation - refresh the current chat page (fallback)
       window.location.reload();
     } else {
-      // Ads creation and Launch and monitor - go to # for now
+      // Ads creation and Launch and monitor - go to # for now (fallback)
       window.location.href = '#';
     }
   };

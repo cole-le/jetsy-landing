@@ -293,7 +293,7 @@ export const DEFAULT_TEMPLATE_DATA = {
   showFooter: true
 };
 
-const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode = 'desktop' }, ref) => {
+const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode = 'desktop', initialProjectId }, ref) => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -396,10 +396,11 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
 
   const loadOrRestoreProject = async () => {
     try {
-      const storedProjectId = getStoredProjectId();
+      // Check if we have an initialProjectId from the route first
+      const projectIdToLoad = initialProjectId || getStoredProjectId();
       
-      if (storedProjectId) {
-        const response = await fetch(`${getApiBaseUrl()}/api/projects/${storedProjectId}`);
+      if (projectIdToLoad) {
+        const response = await fetch(`${getApiBaseUrl()}/api/projects/${projectIdToLoad}`);
         if (response.ok) {
           const result = await response.json();
           const project = result.project;
@@ -433,6 +434,11 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             // Reset to default template data and switch to chat mode
             setTemplateData(DEFAULT_TEMPLATE_DATA);
             setIsEditorMode(false);
+          }
+          
+          // Update stored project ID if we loaded from initialProjectId
+          if (initialProjectId) {
+            setStoredProjectId(project.id);
           }
           
           await loadChatMessages(project.id);
@@ -727,7 +733,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       <div className="w-1/4 bg-white border-r border-gray-200 flex flex-col">
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center">
               <div>
                 <h1 className="text-xl font-semibold text-gray-900">
@@ -750,8 +756,8 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                 Projects
               </button>
             </div>
+                      </div>
           </div>
-        </div>
 
         {/* Project Panel */}
         {showProjectPanel && (

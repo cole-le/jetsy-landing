@@ -18,6 +18,7 @@ import TemplateBasedChat from './components/TemplateBasedChat'
 import ExceptionalTemplate from './components/ExceptionalTemplate'
 import ProjectDataAnalytics from './components/ProjectDataAnalytics'
 import PublicRouteView from './components/PublicRouteView'
+import AdCreativesPage from './components/AdCreativesPage'
 
 function App() {
   const [currentStep, setCurrentStep] = useState('hero') // hero, faq, pricing, lead-capture, onboarding, login, demo-booking, demo-thankyou, chat
@@ -35,6 +36,7 @@ function App() {
   const [analyticsProjectId, setAnalyticsProjectId] = useState(null);
   const [routeUserId, setRouteUserId] = useState(null);
   const [routeProjectId, setRouteProjectId] = useState(null);
+  const [adCreativesProjectId, setAdCreativesProjectId] = useState(null);
 
   useEffect(() => {
     // Track page view
@@ -69,6 +71,29 @@ function App() {
         const allowed = await verifyChatPassword();
         setCurrentStep(allowed ? 'chat' : 'hero');
       })();
+    } else if (path.startsWith('/chat/')) {
+      // Handle /chat/{project-id} routes
+      const projectIdStr = path.slice('/chat/'.length);
+      const pid = parseInt(projectIdStr, 10);
+      if (!isNaN(pid)) {
+        (async () => {
+          const allowed = await verifyChatPassword();
+          if (allowed) {
+            setRouteProjectId(pid);
+            setCurrentStep('chat');
+          } else {
+            setCurrentStep('hero');
+          }
+        })();
+      }
+    } else if (path.startsWith('/ad-creatives/')) {
+      // Handle /ad-creatives/{project-id} routes
+      const projectIdStr = path.slice('/ad-creatives/'.length);
+      const pid = parseInt(projectIdStr, 10);
+      if (!isNaN(pid)) {
+        setAdCreativesProjectId(pid);
+        setCurrentStep('ad-creatives');
+      }
     } else if (/^\/[0-9]+-[0-9]+$/.test(path)) {
       const pair = path.slice(1);
       const [userIdStr, projectIdStr] = pair.split('-');
@@ -188,8 +213,12 @@ function App() {
     console.log('currentStep changed to:', currentStep);
     
     // Only update URL if it doesn't match the current step
-    if (currentStep === 'chat' && path !== '/chat') {
+    if (currentStep === 'chat' && routeProjectId && path !== `/chat/${routeProjectId}`) {
+      window.history.pushState({}, '', `/chat/${routeProjectId}`);
+    } else if (currentStep === 'chat' && !routeProjectId && path !== '/chat') {
       window.history.pushState({}, '', '/chat');
+    } else if (currentStep === 'ad-creatives' && adCreativesProjectId && path !== `/ad-creatives/${adCreativesProjectId}`) {
+      window.history.pushState({}, '', `/ad-creatives/${adCreativesProjectId}`);
     } else if (currentStep === 'data-analytics' && analyticsProjectId && path !== `/data_analytics/project_${analyticsProjectId}`) {
       window.history.pushState({}, '', `/data_analytics/project_${analyticsProjectId}`);
     } else if (currentStep === 'faq' && path !== '/faq') {
@@ -199,7 +228,7 @@ function App() {
     } else if (currentStep === 'hero' && path !== '/') {
       window.history.pushState({}, '', '/');
     }
-  }, [currentStep, isInitialLoad, analyticsProjectId]);
+  }, [currentStep, isInitialLoad, analyticsProjectId, routeProjectId, adCreativesProjectId]);
 
   const handleChatClick = async () => {
     const verify = async () => {
@@ -640,6 +669,18 @@ function App() {
           onBackToHome={() => setCurrentStep('hero')} 
           onSaveChanges={handleSaveChanges}
           previewMode={previewMode}
+          initialProjectId={routeProjectId}
+        />
+      )}
+
+      {/* Ad Creatives Page */}
+      {currentStep === 'ad-creatives' && adCreativesProjectId && (
+        <AdCreativesPage 
+          projectId={adCreativesProjectId}
+          onNavigateToChat={(projectId) => {
+            setRouteProjectId(projectId);
+            setCurrentStep('chat');
+          }}
         />
       )}
 
