@@ -15,8 +15,8 @@ const AdsTemplatePage = ({ onBackToHome }) => {
     },
     visual: {
       imageUrl: "/ferrari.jpg",
-      logoUrl: "/ferrari.jpg",
-      brandName: "Ferrari Motors",
+      logoUrl: "/ferrari_logo.jpg",
+      brandName: "Ferrari",
       verified: true,
     },
   };
@@ -30,8 +30,8 @@ const AdsTemplatePage = ({ onBackToHome }) => {
     },
     visual: {
       imageUrl: "/ferrari.jpg",
-      logoUrl: "/ferrari.jpg",
-      brandName: "Ferrari Motors",
+      logoUrl: "/ferrari_logo.jpg",
+      brandName: "Ferrari",
     },
   };
 
@@ -44,8 +44,8 @@ const AdsTemplatePage = ({ onBackToHome }) => {
     },
     visual: {
       imageUrl: "/ferrari.jpg",
-      logoUrl: "/ferrari.jpg",
-      brandName: "Ferrari Motors",
+      logoUrl: "/ferrari_logo.jpg",
+      brandName: "Ferrari",
     },
   };
 
@@ -66,7 +66,7 @@ const AdsTemplatePage = ({ onBackToHome }) => {
     linkedIn: '/ferrari.jpg',
     meta: '/ferrari.jpg',
     instagram: '/ferrari.jpg',
-    logo: '/ferrari.jpg'
+    logo: '/ferrari_logo.jpg'
   };
 
   // Update image URLs with fallbacks

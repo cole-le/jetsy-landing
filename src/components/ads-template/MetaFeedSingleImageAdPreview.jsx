@@ -37,7 +37,7 @@ const MetaFeedSingleImageAdPreview = ({
               alt={`${visual.brandName} logo`}
               className="w-full h-full object-cover"
               onError={(e) => {
-                e.currentTarget.src = '/ferrari.jpg';
+                e.currentTarget.src = '/ferrari_logo.jpg';
               }}
             />
           </div>
