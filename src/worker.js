@@ -228,6 +228,22 @@ export default {
         return new Response(null, { status: 200, headers: corsHeaders });
       }
 
+      // --- Business Info Auto-fill API ---
+      if (path === '/api/auto-fill-business-info' && request.method === 'POST') {
+        return await handleAutoFillBusinessInfo(request, env, corsHeaders);
+      }
+      if (path === '/api/auto-fill-business-info' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
+      // --- Save Business Info API ---
+      if (path === '/api/save-business-info' && request.method === 'POST') {
+        return await handleSaveBusinessInfo(request, env, corsHeaders);
+      }
+      if (path === '/api/save-business-info' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
       // --- R2 Test API ---
       if (path === '/api/test-r2-access' && request.method === 'GET') {
         return await handleTestR2Access(request, env, corsHeaders);
@@ -8876,6 +8892,256 @@ Return ONLY the image generation prompt, no additional text.`;
   } catch (error) {
     console.error('Ad creative generation error:', error);
     return new Response(JSON.stringify({ error: 'Failed to generate ad creatives' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+}
+
+// --- Business Info Auto-fill Handler ---
+async function handleAutoFillBusinessInfo(request, env, corsHeaders) {
+  try {
+    const { projectId } = await request.json();
+    
+    if (!projectId) {
+      return new Response(JSON.stringify({ error: 'projectId is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    if (!env.OPENAI_API_KEY) {
+      throw new Error('OpenAI API key is required but not found');
+    }
+
+    // Get project data from database
+    const db = env.DB;
+    const projectResult = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+    
+    if (!projectResult) {
+      return new Response(JSON.stringify({ error: 'Project not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    const project = projectResult;
+    
+    // Get chat messages to understand the business idea
+    const chatResult = await db.prepare('SELECT * FROM chat_messages WHERE project_id = ? ORDER BY timestamp ASC').bind(projectId).all();
+    const chatMessages = chatResult.results || [];
+    
+    // Get the initial user message (business idea)
+    const initialMessage = chatMessages.find(msg => msg.role === 'user');
+    if (!initialMessage) {
+      return new Response(JSON.stringify({ error: 'No initial business idea found' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    // Parse template data if it exists
+    let templateData = {};
+    if (project.template_data) {
+      try {
+        templateData = typeof project.template_data === 'string' 
+          ? JSON.parse(project.template_data) 
+          : project.template_data;
+      } catch (e) {
+        console.log('Failed to parse template data:', e);
+      }
+    }
+
+    // Build context for AI analysis
+    const businessContext = {
+      projectName: project.project_name,
+      initialIdea: initialMessage.message,
+      templateData: templateData,
+      chatHistory: chatMessages.slice(0, 5).map(msg => `${msg.role}: ${msg.message}`).join('\n')
+    };
+
+    // Extract existing business information from template data
+    let existingBusinessName = '';
+    let existingBusinessDescription = '';
+    let existingTargetAudience = '';
+
+    if (templateData) {
+      // Look for business name in various possible fields
+      existingBusinessName = templateData.businessName || 
+                           templateData.companyName || 
+                           templateData.brandName || 
+                           templateData.name || 
+                           project.project_name || '';
+
+      // Look for business description
+      existingBusinessDescription = templateData.businessDescription || 
+                                  templateData.description || 
+                                  templateData.about || 
+                                  templateData.summary || '';
+
+      // Look for target audience
+      existingTargetAudience = templateData.targetAudience || 
+                             templateData.targetMarket || 
+                             templateData.audience || 
+                             templateData.customerSegment || '';
+    }
+
+    // Log what we found for debugging
+    console.log('Extracted existing business info:', {
+      existingBusinessName,
+      existingBusinessDescription,
+      existingTargetAudience,
+      templateDataKeys: templateData ? Object.keys(templateData) : 'No template data'
+    });
+
+    // Use OpenAI to analyze and enhance existing business information
+    const prompt = `Analyze the following business information and enhance/complete the missing details:
+
+PROJECT CONTEXT:
+- Project Name: ${businessContext.projectName}
+- Initial Business Idea: ${businessContext.initialIdea}
+- Template Data: ${JSON.stringify(businessContext.templateData, null, 2)}
+- Chat History: ${businessContext.chatHistory}
+
+EXISTING BUSINESS INFORMATION:
+- Business Name: ${existingBusinessName || 'NOT PROVIDED'}
+- Business Description: ${existingBusinessDescription || 'NOT PROVIDED'}
+- Target Audience: ${existingTargetAudience || 'NOT PROVIDED'}
+
+INSTRUCTIONS:
+1. Business Name: Use the existing business name if provided, otherwise generate a professional one (max 50 characters)
+2. Business Description: Enhance the existing description or generate a new one if missing (max 200 characters)
+3. Target Audience: Enhance the existing audience description or generate a new one if missing (max 100 characters)
+
+IMPORTANT RULES:
+- If a business name already exists, USE IT - do not change it
+- Only enhance descriptions and target audience if they are missing or incomplete
+- Maintain consistency with the existing business concept
+- Return ONLY a raw JSON object without any markdown formatting
+
+Example response format:
+{"businessName": "EXISTING_OR_NEW_NAME", "businessDescription": "ENHANCED_DESCRIPTION", "targetAudience": "ENHANCED_AUDIENCE"}`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'You are an expert business analyst and naming consultant. Your job is to enhance existing business information, not replace it. If a business name already exists, you MUST use it exactly as provided. Only generate new information for missing fields. Always respond with raw JSON only, no markdown formatting.' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 300
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    const aiResponse = result.choices[0].message.content.trim();
+    
+    // Parse the JSON response - handle markdown formatting
+    let businessInfo;
+    try {
+      // Clean up the response - remove markdown formatting if present
+      let cleanResponse = aiResponse.trim();
+      
+      // Remove markdown code blocks if present
+      if (cleanResponse.startsWith('```json')) {
+        cleanResponse = cleanResponse.replace(/^```json\s*/, '');
+      }
+      if (cleanResponse.endsWith('```')) {
+        cleanResponse = cleanResponse.replace(/\s*```$/, '');
+      }
+      
+      // Remove any leading/trailing whitespace
+      cleanResponse = cleanResponse.trim();
+      
+      businessInfo = JSON.parse(cleanResponse);
+    } catch (parseError) {
+      // Fallback if JSON parsing fails
+      console.error('Failed to parse AI response:', parseError);
+      console.error('Raw AI response:', aiResponse);
+      businessInfo = {
+        businessName: project.project_name || 'My Business',
+        businessDescription: `Professional ${project.project_name || 'business'} services`,
+        targetAudience: 'Business professionals and individuals'
+      };
+    }
+
+    // Validate business info before saving
+    if (!businessInfo.businessName || !businessInfo.businessDescription || !businessInfo.targetAudience) {
+      console.error('Invalid business info generated:', businessInfo);
+      throw new Error('Generated business information is incomplete');
+    }
+
+    // Ensure we preserve the existing business name if it was already provided
+    if (existingBusinessName && existingBusinessName.trim()) {
+      businessInfo.businessName = existingBusinessName.trim();
+      console.log('Preserved existing business name:', businessInfo.businessName);
+    }
+
+    // Save the generated business info to the database
+    await db.prepare(`
+      UPDATE projects 
+      SET business_name = ?, business_description = ?, target_audience = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).bind(businessInfo.businessName, businessInfo.businessDescription, businessInfo.targetAudience, projectId).run();
+
+    return new Response(JSON.stringify({
+      success: true,
+      businessInfo: businessInfo
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+
+  } catch (error) {
+    console.error('Business info auto-fill error:', error);
+    return new Response(JSON.stringify({ error: 'Failed to auto-fill business information' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+}
+
+// --- Save Business Info Handler ---
+async function handleSaveBusinessInfo(request, env, corsHeaders) {
+  try {
+    const { projectId, businessName, businessDescription, targetAudience } = await request.json();
+    
+    if (!projectId || !businessName || !businessDescription || !targetAudience) {
+      return new Response(JSON.stringify({ error: 'All fields are required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    // Save business info to database
+    const db = env.DB;
+    await db.prepare(`
+      UPDATE projects 
+      SET business_name = ?, business_description = ?, target_audience = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).bind(businessName, businessDescription, targetAudience, projectId).run();
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Business information saved successfully'
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+
+  } catch (error) {
+    console.error('Save business info error:', error);
+    return new Response(JSON.stringify({ error: 'Failed to save business information' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });

@@ -43,20 +43,95 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
       
       setProject(projectData);
       
-      // Extract business information from project data
-      const templateData = projectData.template_data ? JSON.parse(projectData.template_data) : {};
-      
-      setAdData(prev => ({
-        ...prev,
-        businessName: templateData.businessName || templateData.companyName || projectData.project_name || '',
-        businessDescription: templateData.businessDescription || templateData.description || '',
-        targetAudience: templateData.targetAudience || templateData.targetMarket || ''
-      }));
+      // Check if we have business information in the database
+      if (projectData.business_name && projectData.business_description && projectData.target_audience) {
+        // Use database values
+        setAdData(prev => ({
+          ...prev,
+          businessName: projectData.business_name,
+          businessDescription: projectData.business_description,
+          targetAudience: projectData.target_audience
+        }));
+      } else {
+        // Try to extract from template data as fallback
+        const templateData = projectData.template_data ? JSON.parse(projectData.template_data) : {};
+        
+        setAdData(prev => ({
+          ...prev,
+          businessName: templateData.businessName || templateData.companyName || projectData.project_name || '',
+          businessDescription: templateData.businessDescription || templateData.description || '',
+          targetAudience: templateData.targetAudience || templateData.targetMarket || ''
+        }));
+
+        // Auto-fill business information using AI if fields are empty
+        if (!projectData.business_name || !projectData.business_description || !projectData.target_audience) {
+          await autoFillBusinessInfo();
+        }
+      }
 
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const autoFillBusinessInfo = async () => {
+    try {
+      setIsGenerating(true);
+      
+      const response = await fetch(`${getApiBaseUrl()}/api/auto-fill-business-info`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.businessInfo) {
+          setAdData(prev => ({
+            ...prev,
+            businessName: result.businessInfo.businessName || '',
+            businessDescription: result.businessInfo.businessDescription || '',
+            targetAudience: result.businessInfo.targetAudience || ''
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error auto-filling business info:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const saveBusinessInfo = async () => {
+    try {
+      setIsGenerating(true);
+      
+      const response = await fetch(`${getApiBaseUrl()}/api/save-business-info`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId,
+          businessName: adData.businessName,
+          businessDescription: adData.businessDescription,
+          targetAudience: adData.targetAudience
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          alert('Business information saved successfully!');
+        }
+      } else {
+        throw new Error('Failed to save business information');
+      }
+    } catch (error) {
+      console.error('Error saving business info:', error);
+      alert('Failed to save business information. Please try again.');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -210,7 +285,16 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
           <div className="space-y-6">
             {/* Business Information */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Business Information</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">Business Information</h2>
+                <button
+                  onClick={autoFillBusinessInfo}
+                  disabled={isGenerating}
+                  className="bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                >
+                  {isGenerating ? 'Filling...' : 'Auto-fill with AI'}
+                </button>
+              </div>
               
               <div className="space-y-4">
                 <div>
@@ -223,7 +307,11 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
                     onChange={(e) => handleInputChange('businessName', e.target.value)}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter your business name"
+                    maxLength={50}
                   />
+                  <div className="text-xs text-gray-500 text-right mt-1">
+                    {adData.businessName.length}/50 characters
+                  </div>
                 </div>
 
                 <div>
@@ -236,7 +324,11 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
                     rows={3}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Describe what your business does"
+                    maxLength={200}
                   />
+                  <div className="text-xs text-gray-500 text-right mt-1">
+                    {adData.businessDescription.length}/200 characters
+                  </div>
                 </div>
 
                 <div>
@@ -249,7 +341,22 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
                     onChange={(e) => handleInputChange('targetAudience', e.target.value)}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Who is your target audience?"
+                    maxLength={100}
                   />
+                  <div className="text-xs text-gray-500 text-right mt-1">
+                    {adData.targetAudience.length}/100 characters
+                  </div>
+                </div>
+
+                {/* Save Button */}
+                <div className="flex justify-end pt-2">
+                  <button
+                    onClick={saveBusinessInfo}
+                    disabled={isGenerating || !adData.businessName || !adData.businessDescription || !adData.targetAudience}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm"
+                  >
+                    {isGenerating ? 'Saving...' : 'Save Business Info'}
+                  </button>
                 </div>
               </div>
             </div>
