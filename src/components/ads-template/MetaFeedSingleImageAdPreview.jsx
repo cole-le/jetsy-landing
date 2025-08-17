@@ -46,6 +46,17 @@ const MetaFeedSingleImageAdPreview = ({
     }
   };
 
+  // Extract domain from linkUrl for display
+  const getDomain = (url) => {
+    if (!url) return 'example.com';
+    try {
+      const domain = new URL(url).hostname.replace('www.', '');
+      return domain;
+    } catch {
+      return 'example.com';
+    }
+  };
+
   return (
     <div className={`${cardWidth} bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden`}>
       {/* Top Bar */}
@@ -63,7 +74,13 @@ const MetaFeedSingleImageAdPreview = ({
           </div>
           <div className="flex flex-col">
             <span className="font-bold text-gray-900 text-sm">{visual.brandName}</span>
-            <span className="text-xs text-gray-500">Sponsored</span>
+            <div className="flex items-center space-x-1">
+              <span className="text-xs text-gray-500">Sponsored</span>
+              {/* Globe icon next to Sponsored text */}
+              <svg className="w-3 h-3 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+              </svg>
+            </div>
           </div>
         </div>
         <button className="p-1 hover:bg-gray-100 rounded">
@@ -83,24 +100,6 @@ const MetaFeedSingleImageAdPreview = ({
         </p>
       </div>
 
-      {/* Headline - Meta displays this prominently */}
-      {copy.headline && (
-        <div className="px-3 pb-2">
-          <h3 className="text-lg font-semibold text-gray-900 leading-tight">
-            {copy.headline}
-          </h3>
-        </div>
-      )}
-
-      {/* Description - Meta specific field */}
-      {copy.description && (
-        <div className="px-3 pb-2">
-          <p className="text-sm text-gray-600 leading-relaxed">
-            {copy.description}
-          </p>
-        </div>
-      )}
-
       {/* Image */}
       <div className={`${imageHeight} w-full bg-gray-100 overflow-hidden`}>
         <img 
@@ -113,11 +112,37 @@ const MetaFeedSingleImageAdPreview = ({
         />
       </div>
 
-      {/* CTA Button */}
-      <div className="px-3 py-3 flex justify-end">
-        <button className="bg-blue-600 text-white px-6 py-2 rounded-full font-medium hover:bg-blue-700 transition-colors">
-          {getCTALabel(copy.cta)}
-        </button>
+      {/* Link Preview Section - Light Grey Background */}
+      <div className="bg-gray-50 px-3 py-3">
+        {/* Website URL */}
+        <div className="text-xs text-gray-500 mb-1">
+          {getDomain(copy.linkUrl)}
+        </div>
+        
+        {/* Headline */}
+        {copy.headline && (
+          <div className="mb-1">
+            <h3 className="text-sm font-semibold text-gray-900 leading-tight">
+              {copy.headline}
+            </h3>
+          </div>
+        )}
+
+        {/* Description */}
+        {copy.description && (
+          <div className="mb-2">
+            <p className="text-xs text-gray-600 leading-relaxed">
+              {copy.description}
+            </p>
+          </div>
+        )}
+
+        {/* CTA Button - Meta Style */}
+        <div className="flex justify-end">
+          <button className="bg-gray-200 text-gray-800 px-4 py-1.5 rounded font-medium hover:bg-gray-300 transition-colors text-sm">
+            {getCTALabel(copy.cta)}
+          </button>
+        </div>
       </div>
 
       {/* Actions Row */}
