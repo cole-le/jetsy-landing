@@ -12,6 +12,7 @@ const LinkedInSingleImageAdPreview = ({
   visual,
   aspectRatio
 }) => {
+  const [isExpanded, setIsExpanded] = React.useState(false);
   const isSquare = aspectRatio === '1:1';
   const cardWidth = isSquare ? 'w-96' : 'w-[480px]';
   const imageHeight = isSquare ? 'h-96' : 'h-64';
@@ -19,6 +20,23 @@ const LinkedInSingleImageAdPreview = ({
   const truncateText = (text, maxLength) => {
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + '...';
+  };
+
+  const formatTextWithLinks = (text) => {
+    // Regular expression to find URLs (including www URLs)
+    const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    
+    return parts.map((part, index) => {
+      if (urlRegex.test(part)) {
+        return (
+          <span key={index} className="text-blue-600 hover:underline cursor-pointer">
+            {part}
+          </span>
+        );
+      }
+      return part;
+    });
   };
 
   const getCTALabel = (cta) => {
@@ -81,9 +99,17 @@ const LinkedInSingleImageAdPreview = ({
       {/* Intro Text - LinkedIn displays this above the image */}
       <div className="px-3 py-2">
         <p className="text-sm text-gray-900 leading-relaxed">
-          {truncateText(copy.primaryText, 150)}
-          {copy.primaryText.length > 150 && (
-            <span className="text-blue-600 font-medium cursor-pointer"> See more...</span>
+          {isExpanded 
+            ? formatTextWithLinks(copy.primaryText)
+            : formatTextWithLinks(truncateText(copy.primaryText, 211))
+          }
+          {copy.primaryText.length > 211 && (
+            <span 
+              className="text-gray-500 font-medium cursor-pointer hover:text-gray-700 transition-colors"
+              onClick={() => setIsExpanded(!isExpanded)}
+            >
+              {isExpanded ? ' See less' : ' ...see more'}
+            </span>
           )}
         </p>
       </div>
