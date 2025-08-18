@@ -1,22 +1,23 @@
 import React from 'react';
 
-const WorkflowProgressBar = ({ currentStage = 1, onStageClick }) => {
+const WorkflowProgressBar = ({ currentStage = 1, onStageClick, projectId }) => {
   const stages = [
     { id: 1, name: 'Website creation', icon: '🌐' },
     { id: 2, name: 'Ads creation', icon: '📢' },
     { id: 3, name: 'Launch and monitor', icon: '🚀' }
   ];
 
+  const getHref = (stageId) => {
+    if (!projectId) return '#';
+    if (stageId === 1) return `/chat/${projectId}`;
+    if (stageId === 2) return `/ad-creatives/${projectId}`;
+    if (stageId === 3) return `/data_analytics/project_${projectId}`;
+    return '#';
+  };
+
   const handleStageClick = (stageId) => {
     if (onStageClick) {
-      // Use the provided callback if available
       onStageClick(stageId);
-    } else if (stageId === 1) {
-      // Website creation - refresh the current chat page (fallback)
-      window.location.reload();
-    } else {
-      // Ads creation and Launch and monitor - go to # for now (fallback)
-      window.location.href = '#';
     }
   };
 
@@ -26,13 +27,15 @@ const WorkflowProgressBar = ({ currentStage = 1, onStageClick }) => {
         <div key={stage.id} className="flex items-center">
           {/* Stage indicator */}
           <div className="flex items-center">
-            <button
+            <a
+              href={getHref(stage.id)}
               onClick={() => handleStageClick(stage.id)}
               className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 cursor-pointer hover:scale-105 ${
                 stage.id <= currentStage
                   ? 'bg-blue-600 text-white hover:bg-blue-700'
                   : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
               }`}
+              title={stage.name}
             >
               {stage.id < currentStage ? (
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -41,10 +44,11 @@ const WorkflowProgressBar = ({ currentStage = 1, onStageClick }) => {
               ) : (
                 <span>{stage.icon}</span>
               )}
-            </button>
+            </a>
             
             {/* Stage name */}
-            <button
+            <a
+              href={getHref(stage.id)}
               onClick={() => handleStageClick(stage.id)}
               className={`ml-2 text-xs font-medium transition-colors duration-200 cursor-pointer hover:underline ${
                 stage.id <= currentStage
@@ -53,7 +57,7 @@ const WorkflowProgressBar = ({ currentStage = 1, onStageClick }) => {
               }`}
             >
               {stage.name}
-            </button>
+            </a>
           </div>
           
           {/* Connector line */}

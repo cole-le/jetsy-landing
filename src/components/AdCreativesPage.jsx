@@ -343,6 +343,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
           {/* Workflow Progress Bar */}
           <WorkflowProgressBar 
             currentStage={2} 
+            projectId={projectId}
             onStageClick={(stageId) => {
               if (stageId === 1) {
                 handleNavigateToWebsiteCreation();
@@ -379,7 +380,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
         
  
         {/* Platform Toggle */}
-        <div className="mb-6">
+        <div className="mb-0">
           <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
             <button
               onClick={() => setActivePlatform('linkedin')}
