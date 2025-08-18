@@ -5,7 +5,6 @@ import { getApiBaseUrl } from '../config/environment';
 const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDeleted }) => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [editingProject, setEditingProject] = useState(null);
@@ -46,16 +45,10 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
   };
 
   // Create new project
-  const createProject = async () => {
-    if (!newProjectName.trim()) return;
-    if (newProjectName.trim().length > 40) {
-      setError('Project name must be 40 characters or less');
-      return;
-    }
-
+  const createNewProject = async () => {
     try {
       const projectData = {
-        project_name: newProjectName.trim(),
+        project_name: 'New business',
         user_id: 1,
         files: {
           "src/App.jsx": `import React from 'react';\nimport './index.css';\nfunction App() {\n  return (\n    <div className=\"min-h-screen bg-gray-50\">\n      <div className=\"container mx-auto px-4 py-8\">\n        <h1 className=\"text-4xl font-bold text-center text-gray-900 mb-8\">Welcome to Your Landing Page</h1>\n        <p className=\"text-center text-gray-600 mb-8\">This is a placeholder. Start chatting to customize your landing page!</p>\n      </div>\n    </div>\n  );\n}\nexport default App;`,
@@ -75,8 +68,6 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
         const newProject = { id: result.project_id, ...projectData };
         setProjects(prev => [newProject, ...prev]);
         onProjectSelect(newProject);
-        setNewProjectName('');
-        setShowCreateModal(false);
       } else {
         setError('Failed to create project');
       }
@@ -189,14 +180,11 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-medium text-gray-900">Your Projects</h3>
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={createNewProject}
             className="bg-blue-600 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             + New
           </button>
-        </div>
-        <div className="text-xs text-gray-500 mt-2">
-          💡 Project names are automatically updated by AI to reflect your business idea. Keep them short and descriptive!
         </div>
       </div>
 
@@ -281,45 +269,6 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
       {error && (
         <div className="px-4 py-2 bg-red-50 border-t border-red-200">
           <p className="text-sm text-red-600">{error}</p>
-        </div>
-      )}
-
-      {/* Create Project Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Create New Project</h3>
-            <input
-              type="text"
-              value={newProjectName}
-              onChange={(e) => setNewProjectName(e.target.value)}
-              placeholder="Enter project name..."
-              maxLength={40}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              onKeyPress={(e) => e.key === 'Enter' && createProject()}
-            />
-            <div className="text-xs text-gray-500 mt-1 mb-3">
-              {newProjectName.length}/40 characters - Keep it short and descriptive
-            </div>
-            <div className="flex justify-end space-x-3 mt-4">
-              <button
-                onClick={() => {
-                  setShowCreateModal(false);
-                  setNewProjectName('');
-                }}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={createProject}
-                disabled={!newProjectName.trim()}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
-              >
-                Create
-              </button>
-            </div>
-          </div>
         </div>
       )}
 
