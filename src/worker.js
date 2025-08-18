@@ -5912,7 +5912,7 @@ async function getIndexHTML() {
 // Handle image generation using Google Gemini Imagen 3 Generate
 async function handleImageGeneration(request, env, corsHeaders) {
   try {
-    const { project_id, prompt, aspect_ratio = '1:1', number_of_images = 1 } = await request.json();
+    const { project_id, prompt, aspect_ratio = '1:1', number_of_images = 1, update_project_field } = await request.json();
     
     if (!project_id || !prompt) {
       return new Response(JSON.stringify({ error: 'project_id and prompt are required' }), {
@@ -5965,6 +5965,9 @@ async function handleImageGeneration(request, env, corsHeaders) {
             width: imageResult.width,
             height: imageResult.height
           });
+
+          // Note: Images are not auto-saved to project template_data
+          // User must click Save Changes to persist the new image URLs
         }
       }
     }
@@ -6073,10 +6076,12 @@ async function uploadImageToR2(imageBytes, env, request, mimeType = 'image/jpeg'
       throw new Error('R2 bucket binding not available');
     }
 
-    // Convert to ArrayBuffer if needed
+    // Convert to ArrayBuffer if needed; ensure correct slice to avoid offset issues
     let uploadData = imageBytes;
     if (imageBytes instanceof Uint8Array) {
-      uploadData = imageBytes.buffer;
+      const start = imageBytes.byteOffset;
+      const end = imageBytes.byteOffset + imageBytes.byteLength;
+      uploadData = imageBytes.buffer.slice(start, end);
     }
 
     // Upload to R2

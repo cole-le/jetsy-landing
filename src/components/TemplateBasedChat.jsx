@@ -305,6 +305,8 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const [isRegeneratingBusinessName, setIsRegeneratingBusinessName] = useState(false);
   const skipAutoSaveRef = useRef(false);
   const [isRegeneratingLogo, setIsRegeneratingLogo] = useState(false);
+  const [isRegeneratingHeroBg, setIsRegeneratingHeroBg] = useState(false);
+  const [isRegeneratingAboutBg, setIsRegeneratingAboutBg] = useState(false);
 
 
 
@@ -417,6 +419,97 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       alert('Failed to regenerate business name. Please try again.');
     } finally {
       setIsRegeneratingBusinessName(false);
+    }
+  };
+
+  const handleRegenerateHeroBackground = async () => {
+    if (!currentProject?.id || isRegeneratingHeroBg) return;
+    try {
+      setIsRegeneratingHeroBg(true);
+      const resp = await fetch(`${getApiBaseUrl()}/api/generate-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: currentProject.id,
+          prompt: `Ultra-relevant background image for ${templateData.businessName || 'Your Business'} hero section. 16:9 cinematic background, photographic or high-quality illustration, darker tones or strong contrast to support overlay text readability. No text of any kind: no words, no lettering, no logos, no watermarks. Avoid brand names and copyrighted content.`,
+          aspect_ratio: '16:9',
+          number_of_images: 1
+        })
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      if (!(data.success && data.images && data.images.length > 0)) {
+        throw new Error('No images generated');
+      }
+      const url = data.images[0].url;
+      // Suppress the next auto-save so user must click Save Changes
+      skipAutoSaveRef.current = true;
+      setTemplateData(prev => ({ ...prev, heroBackgroundImage: url }));
+    } catch (e) {
+      console.error('Hero background regeneration failed:', e);
+      alert('Failed to regenerate hero background. Please try again.');
+    } finally {
+      setIsRegeneratingHeroBg(false);
+    }
+  };
+
+  const handleRegenerateAboutBackground = async () => {
+    if (!currentProject?.id || isRegeneratingAboutBg) return;
+    try {
+      setIsRegeneratingAboutBg(true);
+      const resp = await fetch(`${getApiBaseUrl()}/api/generate-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: currentProject.id,
+          prompt: `Ultra-relevant background image for ${templateData.businessName || 'Your Business'} about section. 16:9 cinematic background, photographic or high-quality illustration, darker tones or strong contrast to support overlay text readability. No text of any kind: no words, no lettering, no logos, no watermarks. Avoid brand names and copyrighted content.`,
+          aspect_ratio: '16:9',
+          number_of_images: 1
+        })
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      if (!(data.success && data.images && data.images.length > 0)) {
+        throw new Error('No images generated');
+      }
+      const url = data.images[0].url;
+      // Suppress the next auto-save so user must click Save Changes
+      skipAutoSaveRef.current = true;
+      setTemplateData(prev => ({ ...prev, aboutBackgroundImage: url }));
+    } catch (e) {
+      console.error('About background regeneration failed:', e);
+      alert('Failed to regenerate about background. Please try again.');
+    } finally {
+      setIsRegeneratingAboutBg(false);
+    }
+  };
+
+  const handleRegenerateLogo = async () => {
+    if (!currentProject?.id || isRegeneratingLogo) return;
+    try {
+      setIsRegeneratingLogo(true);
+      const response = await fetch(`${getApiBaseUrl()}/api/generate-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: currentProject.id,
+          prompt: `Abstract, text-free logo mark for ${templateData.businessName || 'Your Business'}. Unique and memorable symbol only (no letters, no words, no typography, no text, no watermarks). Minimal modern vector emblem, clean geometric forms, balanced composition, flat scalable design, strong silhouette, 1:1 aspect ratio`,
+          aspect_ratio: '1:1',
+          number_of_images: 1
+        })
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      if (!(result.success && result.images && result.images.length > 0)) {
+        throw new Error('No images generated');
+      }
+      const newLogoUrl = result.images[0].url;
+      setTemplateData(prev => ({ ...prev, businessLogoUrl: newLogoUrl }));
+    } catch (error) {
+      console.error('Logo regeneration failed:', error);
+      alert('Failed to regenerate logo. Please try again.');
+    } finally {
+      setIsRegeneratingLogo(false);
     }
   };
 
@@ -990,51 +1083,25 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                             onClick={() => setTemplateData(prev => ({ ...prev, businessLogoUrl: null }))}
                             className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded"
                           >Remove</button>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (!currentProject?.id || isRegeneratingLogo) return;
-                              try {
-                                setIsRegeneratingLogo(true);
-                                const response = await fetch(`${getApiBaseUrl()}/api/generate-image`, {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({
-                                    project_id: currentProject.id,
-                                    prompt: `Abstract, text-free logo mark for ${templateData.businessName || 'Your Business'}. Unique and memorable symbol only (no letters, no words, no typography, no text, no watermarks). Minimal modern vector emblem, clean geometric forms, balanced composition, flat scalable design, strong silhouette, 1:1 aspect ratio`,
-                                    aspect_ratio: '1:1',
-                                    number_of_images: 1
-                                  })
-                                });
-                                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                                const result = await response.json();
-                                if (!(result.success && result.images && result.images.length > 0)) {
-                                  throw new Error('No images generated');
-                                }
-                                const newLogoUrl = result.images[0].url;
-                                setTemplateData(prev => ({ ...prev, businessLogoUrl: newLogoUrl }));
-                                // Rely on auto-save mechanism; no page reload
-                              } catch (error) {
-                                console.error('Logo regeneration failed:', error);
-                                alert('Failed to regenerate logo. Please try again.');
-                              } finally {
-                                setIsRegeneratingLogo(false);
-                              }
-                            }}
-                            disabled={isRegeneratingLogo}
-                            className={`px-3 py-1.5 text-xs rounded-md bg-black text-white hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed`}
-                            title="Regenerate business logo with AI (not saved until auto-save or manual save)"
-                          >
-                            {isRegeneratingLogo ? (
-                              <span className="flex items-center space-x-2">
-                                <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></span>
-                                <span>Regenerating ...</span>
-                              </span>
-                            ) : '✨ Regenerate Logo with AI'}
-                          </button>
                         </div>
                       </div>
                     ) : null}
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleRegenerateLogo}
+                        disabled={isRegeneratingLogo}
+                        className={`px-3 py-1.5 text-xs rounded-md bg-black text-white hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed`}
+                        title="Regenerate business logo with AI (not saved until auto-save or manual save)"
+                      >
+                        {isRegeneratingLogo ? (
+                          <span className="flex items-center space-x-2">
+                            <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></span>
+                            <span>Regenerating ...</span>
+                          </span>
+                        ) : '✨ Regenerate Logo with AI'}
+                      </button>
+                    </div>
                     <div data-logo-section>
                       <div className="flex items-center space-x-4">
                         <div>
@@ -1181,6 +1248,22 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                           >Remove</button>
                         </div>
                       ) : null }
+                      <div className="flex justify-end mb-3">
+                        <button
+                          type="button"
+                          onClick={handleRegenerateHeroBackground}
+                          disabled={isRegeneratingHeroBg}
+                          className={`px-3 py-1.5 text-xs rounded-md bg-black text-white hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed`}
+                          title="Regenerate hero background image with AI (not saved until auto-save or manual save)"
+                        >
+                          {isRegeneratingHeroBg ? (
+                            <span className="flex items-center space-x-2">
+                              <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></span>
+                              <span>Regenerating ...</span>
+                            </span>
+                          ) : '✨ Regenerate Hero Background with AI'}
+                        </button>
+                      </div>
                       <input
                         type="file"
                         accept="image/*"
@@ -1460,6 +1543,22 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                           >Remove</button>
                         </div>
                       ) : null }
+                      <div className="flex justify-end mb-3">
+                        <button
+                          type="button"
+                          onClick={handleRegenerateAboutBackground}
+                          disabled={isRegeneratingAboutBg}
+                          className={`px-3 py-1.5 text-xs rounded-md bg-black text-white hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed`}
+                          title="Regenerate about background image with AI (not saved until auto-save or manual save)"
+                        >
+                          {isRegeneratingAboutBg ? (
+                            <span className="flex items-center space-x-2">
+                              <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></span>
+                              <span>Regenerating ...</span>
+                            </span>
+                          ) : '✨ Regenerate About Background with AI'}
+                        </button>
+                      </div>
                       <input
                         type="file"
                         accept="image/*"
