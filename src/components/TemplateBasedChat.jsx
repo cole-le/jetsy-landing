@@ -309,11 +309,80 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const [isRegeneratingAboutBg, setIsRegeneratingAboutBg] = useState(false);
   const isInitialLoadRef = useRef(true);
 
+  // Progress tracking state
+  const [aiProgress, setAiProgress] = useState({
+    isActive: false,
+    currentStep: '',
+    steps: [],
+    completedSteps: [],
+    currentStepIndex: 0,
+    startTime: null,
+    estimatedTimePerStep: 0
+  });
 
+  // Progress tracking functions
+  const startAiProgress = (steps) => {
+    const estimatedTimePerStep = 4000; // 4 seconds per step on average for much longer, realistic timing
+    setAiProgress({
+      isActive: true,
+      currentStep: steps[0] || '',
+      steps: steps,
+      completedSteps: [],
+      currentStepIndex: 0,
+      startTime: Date.now(),
+      estimatedTimePerStep
+    });
+  };
 
+  const updateAiProgress = (stepIndex, stepName, isCompleted = false) => {
+    setAiProgress(prev => {
+      const newCompletedSteps = [...prev.completedSteps];
+      if (isCompleted && stepIndex < prev.steps.length) {
+        newCompletedSteps[stepIndex] = prev.steps[stepIndex];
+      }
+      
+      return {
+        ...prev,
+        currentStep: stepName,
+        currentStepIndex: stepIndex,
+        completedSteps: newCompletedSteps
+      };
+    });
+  };
 
+  const completeAiProgress = () => {
+    setAiProgress(prev => ({
+      ...prev,
+      isActive: false,
+      currentStep: 'Complete!',
+      completedSteps: [...prev.steps]
+    }));
+    
+    // Clear progress after a delay
+    setTimeout(() => {
+      setAiProgress({
+        isActive: false,
+        currentStep: '',
+        steps: [],
+        completedSteps: [],
+        currentStepIndex: 0,
+        startTime: null,
+        estimatedTimePerStep: 0
+      });
+    }, 3000);
+  };
 
-  
+  // Calculate estimated time remaining
+  const getEstimatedTimeRemaining = () => {
+    if (!aiProgress.isActive || !aiProgress.startTime) return 0;
+    
+    const elapsed = Date.now() - aiProgress.startTime;
+    const totalEstimated = aiProgress.steps.length * aiProgress.estimatedTimePerStep;
+    const remaining = Math.max(0, totalEstimated - elapsed);
+    
+    return Math.ceil(remaining / 1000); // Return seconds
+  };
+
   // Compute the initial user idea message for display in editor mode
   const initialUserIdea = React.useMemo(() => {
     if (!messages || messages.length === 0) return null;
@@ -712,6 +781,90 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     setInputMessage('');
     setIsLoading(true);
 
+    // Start progress tracking for AI generation
+    const progressSteps = [
+      'Analyzing your business idea...',
+      'Researching industry best practices...',
+      'Designing landing page structure...',
+      'Selecting optimal color scheme...',
+      'Choosing typography and fonts...',
+      'Creating responsive layout grid...',
+      'Designing hero section layout...',
+      'Planning content hierarchy...',
+      'Structuring navigation menu...',
+      'Designing feature sections...',
+      'Creating pricing table layout...',
+      'Designing contact form...',
+      'Planning footer structure...',
+      'Setting up responsive breakpoints...',
+      'Configuring mobile navigation...',
+      'Optimizing touch targets...',
+      'Setting up grid systems...',
+      'Configuring spacing scales...',
+      'Setting up component library...',
+      'Configuring animation system...',
+      'Setting up CSS custom properties...',
+      'Configuring dark mode support...',
+      'Setting up accessibility features...',
+      'Configuring performance optimizations...',
+      'Setting up testing framework...',
+      'Configuring build system...',
+      'Setting up deployment pipeline...',
+      'Finalizing design system...',
+      'Generating hero background image...',
+      'Creating business logo...',
+      'Generating about section background...',
+      'Optimizing for mobile devices...',
+      'Implementing SEO best practices...',
+      'Finalizing your landing page...'
+    ];
+    
+    startAiProgress(progressSteps);
+
+    // Start fake progress updates in parallel with real AI call
+    const startFakeProgress = async () => {
+      // Step 1: Analyzing business idea (longer wait)
+      updateAiProgress(0, progressSteps[0]);
+      await new Promise(resolve => setTimeout(resolve, 5000 + Math.random() * 1000));
+
+      // Step 2: Researching industry best practices (longer wait)
+      updateAiProgress(1, progressSteps[1]);
+      await new Promise(resolve => setTimeout(resolve, 6000 + Math.random() * 1000));
+
+      // Step 3: Designing landing page structure (longer wait)
+      updateAiProgress(2, progressSteps[2]);
+      await new Promise(resolve => setTimeout(resolve, 7000 + Math.random() * 1000));
+
+      // Step 4: Selecting optimal color scheme (longer wait)
+      updateAiProgress(3, progressSteps[3]);
+      await new Promise(resolve => setTimeout(resolve, 5000 + Math.random() * 1000));
+
+      // Step 5: Choosing typography and fonts (longer wait)
+      updateAiProgress(4, progressSteps[4]);
+      await new Promise(resolve => setTimeout(resolve, 6000 + Math.random() * 1000));
+
+      // Step 6: Creating responsive layout grid (longer wait)
+      updateAiProgress(5, progressSteps[5]);
+      await new Promise(resolve => setTimeout(resolve, 7000 + Math.random() * 1000));
+
+      // Step 7: Designing hero section layout (longer wait)
+      updateAiProgress(6, progressSteps[6]);
+      await new Promise(resolve => setTimeout(resolve, 6000 + Math.random() * 1000));
+
+      // Step 8: Planning content hierarchy (longest wait - this is where the real work happens)
+      updateAiProgress(7, progressSteps[7]);
+      await new Promise(resolve => setTimeout(resolve, 12000 + Math.random() * 2000));
+
+      // Continue with remaining steps if AI hasn't finished yet
+      for (let i = 8; i < progressSteps.length; i++) {
+        updateAiProgress(i, progressSteps[i]);
+        await new Promise(resolve => setTimeout(resolve, 3000 + Math.random() * 1000));
+      }
+    };
+
+    // Start fake progress in background
+    startFakeProgress();
+
     try {
       // Add user message to chat history
       await fetch(`${getApiBaseUrl()}/api/chat_messages`, {
@@ -725,7 +878,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         })
       });
 
-      // Call AI to generate template content
+      // Call AI to generate template content IMMEDIATELY (this is the fix!)
       const aiResponse = await fetch(`${getApiBaseUrl()}/api/template-generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -738,6 +891,9 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
 
       if (aiResponse.ok) {
         const result = await aiResponse.json();
+        
+        // Complete progress immediately when AI finishes (this stops the fake progress)
+        completeAiProgress();
         
         // Update template data with AI-generated content
         if (result.template_data) {
@@ -798,8 +954,6 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
           }
         }
 
-
-
         // Handle generated background images and AI-generated logo
         if (result.generated_images && result.generated_images.length > 0) {
           console.log('🎨 Generated background images:', result.generated_images);
@@ -846,6 +1000,9 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     } catch (error) {
       console.error('Error processing message:', error);
       
+      // Complete progress even on error
+      completeAiProgress();
+      
       // Fallback response
       const fallbackMessage = {
         id: Date.now() + 1,
@@ -858,6 +1015,10 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       setIsEditorMode(true);
     } finally {
       setIsLoading(false);
+      // Ensure progress is cleared if it wasn't already
+      if (aiProgress.isActive) {
+        completeAiProgress();
+      }
     }
   };
 
@@ -992,8 +1153,47 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                     <div className="bg-gray-100 text-gray-900 px-4 py-2 rounded-lg">
                       <div className="flex items-center space-x-2">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-                        <span className="text-sm">AI is thinking...</span>
+                        <span className="text-sm">
+                          {aiProgress.isActive ? aiProgress.currentStep : 'AI is thinking...'}
+                        </span>
                       </div>
+                      
+                      {/* Show progress steps in chat mode for initial generation */}
+                      {aiProgress.isActive && messages.length === 0 && (
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                          <div className="space-y-2">
+                            {aiProgress.steps.map((step, index) => {
+                              const isCompleted = aiProgress.completedSteps.includes(step);
+                              const isCurrent = aiProgress.currentStep === step;
+                              
+                              return (
+                                <div key={index} className={`flex items-center space-x-2 text-xs ${
+                                  isCompleted ? 'text-green-600' : isCurrent ? 'text-blue-600 font-medium' : 'text-gray-500'
+                                }`}>
+                                  <div className={`w-3 h-3 rounded-full flex items-center justify-center ${
+                                    isCompleted 
+                                      ? 'bg-green-500 text-white' 
+                                      : isCurrent 
+                                        ? 'bg-blue-500 text-white' 
+                                        : 'bg-gray-300'
+                                  }`}>
+                                    {isCompleted ? '✓' : isCurrent ? '⟳' : '•'}
+                                  </div>
+                                  <span>{step}</span>
+                                  {isCurrent && (
+                                    <span className="ml-auto text-blue-500 animate-pulse">⟳</span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="mt-3 pt-2 border-t border-gray-200 text-center">
+                            <div className="text-xs text-gray-500">
+                              Estimated time: ~{getEstimatedTimeRemaining()} seconds
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1001,6 +1201,29 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
 
               {/* Input */}
               <div className="p-4">
+                {/* Progress indicator for AI generation in chat mode */}
+                {aiProgress.isActive && messages.length === 0 && (
+                  <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex items-center space-x-2 text-sm text-blue-700">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      <span className="font-medium">Current step:</span>
+                      <span>{aiProgress.currentStep}</span>
+                    </div>
+                    <div className="mt-2 w-full bg-blue-200 rounded-full h-1.5">
+                      <div 
+                        className="bg-blue-600 h-1.5 rounded-full transition-all duration-500 ease-out"
+                        style={{ 
+                          width: `${(aiProgress.completedSteps.length / aiProgress.steps.length) * 100}%` 
+                        }}
+                      ></div>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-xs text-blue-600">
+                      <span>{aiProgress.completedSteps.length} of {aiProgress.steps.length} steps</span>
+                      <span>~{getEstimatedTimeRemaining()}s remaining</span>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="relative bg-white border border-gray-200 rounded-2xl shadow-lg p-6">
                   <div className="flex items-start gap-4">
                     <div className="flex-1">
@@ -1008,10 +1231,10 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                         value={inputMessage}
                         onChange={(e) => setInputMessage(e.target.value)}
                         onKeyPress={handleKeyPress}
-                        placeholder="Describe your startup idea or business..."
+                        placeholder={aiProgress.isActive ? "AI is generating your website... Please wait." : "Describe your startup idea or business..."}
                         className="w-full px-4 py-3 bg-transparent border-none outline-none resize-none text-text placeholder-mutedText text-lg leading-relaxed min-h-[80px] md:min-h-[60px] max-h-[400px] md:max-h-[200px]"
                         rows={4}
-                        disabled={isLoading}
+                        disabled={isLoading || aiProgress.isActive}
                         style={{ fontFamily: 'inherit' }}
                       />
                     </div>
@@ -1020,15 +1243,15 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                   {/* Submit Button - Positioned in bottom right corner */}
                   <button
                     onClick={handleSendMessage}
-                    disabled={isLoading || !inputMessage.trim()}
+                    disabled={isLoading || !inputMessage.trim() || aiProgress.isActive}
                     className={`absolute bottom-6 right-6 p-3 rounded-full transition-colors duration-200 flex-shrink-0 ${
-                      inputMessage.trim() && !isLoading
+                      inputMessage.trim() && !isLoading && !aiProgress.isActive
                         ? 'bg-black hover:bg-gray-800' 
                         : 'bg-gray-300 cursor-not-allowed'
                     }`}
                     title="Submit message"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 -960 960 960" className={`shrink-0 h-6 w-6 ${inputMessage.trim() && !isLoading ? 'text-white' : 'text-gray-500'}`} fill="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 -960 960 960" className={`shrink-0 h-6 w-6 ${inputMessage.trim() && !isLoading && !aiProgress.isActive ? 'text-white' : 'text-gray-500'}`} fill="currentColor">
                       <path d="M442.39-616.87 309.78-487.26q-11.82 11.83-27.78 11.33t-27.78-12.33q-11.83-11.83-11.83-27.78 0-15.96 11.83-27.79l198.43-199q11.83-11.82 28.35-11.82t28.35 11.82l198.43 199q11.83 11.83 11.83 27.79 0 15.95-11.83 27.78-11.82 11.83-27.78 11.83t-27.78-11.83L521.61-618.87v348.83q0 16.95-11.33 28.28-11.32 11.33-28.28 11.33t-28.28-11.33q-11.33-11.33-11.33-28.28z"></path>
                     </svg>
                   </button>
@@ -1052,6 +1275,79 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                       </div>
                     </div>
                   ) : null}
+                  
+                  {/* AI Generation Progress Display */}
+                  {aiProgress.isActive && (
+                    <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
+                      <div className="flex items-center mb-4">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
+                        <h3 className="text-lg font-semibold text-blue-900">AI is building your website...</h3>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        {aiProgress.steps.map((step, index) => {
+                          const isCompleted = aiProgress.completedSteps.includes(step);
+                          const isCurrent = aiProgress.currentStep === step;
+                          const isUpcoming = index > aiProgress.currentStepIndex;
+                          
+                          return (
+                            <div key={index} className={`flex items-center space-x-3 transition-all duration-300 ${
+                              isCompleted ? 'opacity-100' : isCurrent ? 'opacity-100' : 'opacity-60'
+                            }`}>
+                              <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-medium ${
+                                isCompleted 
+                                  ? 'bg-green-500 text-white' 
+                                  : isCurrent 
+                                    ? 'bg-blue-500 text-white animate-pulse' 
+                                    : 'bg-gray-300 text-gray-600'
+                              }`}>
+                                {isCompleted ? '✓' : isCurrent ? '⟳' : (index + 1)}
+                              </div>
+                              <span className={`text-sm ${
+                                isCompleted 
+                                  ? 'text-green-700 font-medium' 
+                                  : isCurrent 
+                                    ? 'text-blue-700 font-semibold' 
+                                    : 'text-gray-600'
+                              }`}>
+                                {step}
+                              </span>
+                              {isCurrent && (
+                                <div className="ml-auto">
+                                  <div className="animate-pulse bg-blue-400 h-2 w-2 rounded-full"></div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      
+                      <div className="mt-4 pt-4 border-t border-blue-200">
+                        <div className="flex items-center justify-between text-sm text-blue-700">
+                          <span>Progress: {aiProgress.completedSteps.length} of {aiProgress.steps.length} steps</span>
+                          <div className="flex items-center space-x-3">
+                            <span className="font-medium">
+                              {Math.round((aiProgress.completedSteps.length / aiProgress.steps.length) * 100)}%
+                            </span>
+                            {aiProgress.isActive && (
+                              <span className="text-xs bg-blue-100 px-2 py-1 rounded">
+                                ~{getEstimatedTimeRemaining()}s remaining
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-2 w-full bg-blue-200 rounded-full h-2">
+                          <div 
+                            className="bg-blue-600 h-2 rounded-full transition-all duration-500 ease-out"
+                            style={{ 
+                              width: `${(aiProgress.completedSteps.length / aiProgress.steps.length) * 100}%` 
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   <p className="text-gray-600 mb-6">
                     Your landing page has been generated! Customize the content below and see changes in real-time.
                   </p>
