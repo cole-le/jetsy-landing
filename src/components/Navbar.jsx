@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import DeploymentButton from './DeploymentButton';
 import WorkflowProgressBar from './WorkflowProgressBar';
+import { getApiBaseUrl } from '../config/environment';
 
 const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, onChatClick, onSaveChanges, isChatMode = false, isAdCreativesMode = false, previewMode = 'desktop', onPreviewModeChange }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [isAdGenerating, setIsAdGenerating] = useState(false);
+  const [adsExist, setAdsExist] = useState(false);
+  const [hasTemplateData, setHasTemplateData] = useState(false);
 
   // Get current project ID from localStorage
   React.useEffect(() => {
@@ -35,6 +38,33 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
       window.removeEventListener('storage', handleStorageChange);
       clearInterval(interval);
     };
+  }, [currentProjectId]);
+
+  // Check if ads data exists for current project
+  React.useEffect(() => {
+    const controller = new AbortController();
+    const loadAdsState = async () => {
+      try {
+        if (!currentProjectId) {
+          setAdsExist(false);
+          setHasTemplateData(false);
+          return;
+        }
+        const res = await fetch(`${getApiBaseUrl()}/api/projects/${currentProjectId}`, { signal: controller.signal });
+        if (!res.ok) return;
+        const json = await res.json();
+        const project = json.project;
+        // Treat non-empty ads_data as existence
+        setAdsExist(!!project?.ads_data);
+        setHasTemplateData(!!project?.template_data);
+      } catch (_) {
+        // ignore
+      }
+    };
+    loadAdsState();
+    // refresh when project changes and also every 10s
+    const interval = setInterval(loadAdsState, 10000);
+    return () => { controller.abort(); clearInterval(interval); };
   }, [currentProjectId]);
 
   // Close publish modal when clicking outside
@@ -180,7 +210,8 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
 
                             {/* Workflow Progress Bar */}
           <WorkflowProgressBar 
-            currentStage={1} 
+            currentStage={adsExist ? 2 : 1} 
+            pulseStageId={adsExist ? 2 : (hasTemplateData ? 2 : undefined)}
             onStageClick={(stageId) => {
               if (stageId === 2 && currentProjectId) {
                 // Navigate to ads creation

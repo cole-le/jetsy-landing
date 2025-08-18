@@ -1,6 +1,6 @@
 import React from 'react';
 
-const WorkflowProgressBar = ({ currentStage = 1, onStageClick, projectId }) => {
+const WorkflowProgressBar = ({ currentStage = 1, onStageClick, projectId, pulseStageId }) => {
   const stages = [
     { id: 1, name: 'Website creation', icon: '🌐' },
     { id: 2, name: 'Ads creation', icon: '📢' },
@@ -27,24 +27,29 @@ const WorkflowProgressBar = ({ currentStage = 1, onStageClick, projectId }) => {
         <div key={stage.id} className="flex items-center">
           {/* Stage indicator */}
           <div className="flex items-center">
-            <a
-              href={getHref(stage.id)}
-              onClick={() => handleStageClick(stage.id)}
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 cursor-pointer hover:scale-105 ${
-                stage.id <= currentStage
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
-              }`}
-              title={stage.name}
-            >
-              {stage.id < currentStage ? (
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              ) : (
-                <span>{stage.icon}</span>
+            <div className="relative">
+              {pulseStageId === stage.id && (
+                <span className="absolute -inset-1 rounded-full border border-blue-400/60 animate-ping" />
               )}
-            </a>
+              <a
+                href={getHref(stage.id)}
+                onClick={() => handleStageClick(stage.id)}
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 cursor-pointer hover:scale-105 ${
+                  stage.id <= currentStage
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
+                }`}
+                title={stage.name}
+              >
+                {stage.id < currentStage ? (
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                ) : (
+                  <span>{stage.icon}</span>
+                )}
+              </a>
+            </div>
             
             {/* Stage name */}
             <a
