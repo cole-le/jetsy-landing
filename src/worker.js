@@ -5907,31 +5907,68 @@ async function saveImageToDatabase(imageData, env) {
     // Use the hash for the image record
     const finalProjectId = projectIdHash;
 
-    const stmt = env.DB.prepare(`
-      INSERT INTO images (
-        image_id, project_id, filename, original_prompt, aspect_ratio, 
-        width, height, file_size, mime_type, r2_url, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    // Check if image with this ID already exists
+    const existingImage = await env.DB.prepare('SELECT image_id FROM images WHERE image_id = ?').bind(imageId).first();
+    
+    if (existingImage) {
+      console.log('🔄 Image ID already exists, creating new record with timestamp suffix...');
+      // Create a new unique image ID by adding timestamp
+      const timestamp = Date.now();
+      const newImageId = `${imageId}_${timestamp}`;
+      
+      const stmt = env.DB.prepare(`
+        INSERT INTO images (
+          image_id, project_id, filename, original_prompt, aspect_ratio, 
+          width, height, file_size, mime_type, r2_url, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
 
-    const result = await stmt.bind(
-      imageId,
-      finalProjectId,
-      imageData.filename,
-      imageData.prompt,
-      imageData.aspect_ratio,
-      imageData.width,
-      imageData.height,
-      imageData.file_size,
-      imageData.mime_type,
-      imageData.r2_url,
-      currentTime
-    ).run();
+      const result = await stmt.bind(
+        newImageId,
+        finalProjectId,
+        imageData.filename,
+        imageData.prompt,
+        imageData.aspect_ratio,
+        imageData.width,
+        imageData.height,
+        imageData.file_size,
+        imageData.mime_type,
+        imageData.r2_url,
+        currentTime
+      ).run();
 
-    return {
-      success: true,
-      image_id: imageId
-    };
+      return {
+        success: true,
+        image_id: newImageId
+      };
+    } else {
+      // Original image ID doesn't exist, use it
+      const stmt = env.DB.prepare(`
+        INSERT INTO images (
+          image_id, project_id, filename, original_prompt, aspect_ratio, 
+          width, height, file_size, mime_type, r2_url, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      const result = await stmt.bind(
+        imageId,
+        finalProjectId,
+        imageData.filename,
+        imageData.prompt,
+        imageData.aspect_ratio,
+        imageData.width,
+        imageData.height,
+        imageData.file_size,
+        imageData.mime_type,
+        imageData.r2_url,
+        currentTime
+      ).run();
+
+      return {
+        success: true,
+        image_id: imageId
+      };
+    }
 
   } catch (error) {
     console.error('Database save error:', error);
@@ -9044,7 +9081,7 @@ async function handleGenerateAdsWithAI(request, env, corsHeaders) {
       throw new Error('Failed to upload image to R2');
     }
 
-    // Save image to database
+    // Save image to database - always create new record
     let imageId = uploadResult.imageId;
     try {
       const dbResult = await saveImageToDatabase({
