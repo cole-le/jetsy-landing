@@ -8984,9 +8984,41 @@ async function handleGenerateAdsWithAI(request, env, corsHeaders) {
     // Ensure ads columns exist in database
     await ensureAdsColumns(env);
 
-    // Extract business information from project data
-    const businessName = projectData.businessName || 'Your Business';
-    const templateData = projectData.templateData || {};
+    // Fetch business information from database using project ID
+    const db = env.DB;
+    const projectResult = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+    
+    if (!projectResult) {
+      return new Response(JSON.stringify({ error: 'Project not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    // Parse template data to get business information
+    let templateData = {};
+    let businessName = 'Your Business';
+    
+    if (projectResult.template_data) {
+      try {
+        templateData = typeof projectResult.template_data === 'string' 
+          ? JSON.parse(projectResult.template_data) 
+          : projectResult.template_data;
+        
+        // Extract business name from template data
+        businessName = templateData.businessName || 
+                      templateData.companyName || 
+                      templateData.brandName || 
+                      templateData.name || 
+                      projectResult.project_name || 'Your Business';
+      } catch (e) {
+        console.log('Failed to parse template data:', e);
+        businessName = projectResult.project_name || 'Your Business';
+      }
+    } else {
+      businessName = projectResult.project_name || 'Your Business';
+    }
+    
     const files = projectData.files || {};
 
     // Analyze business type and generate context-aware ads
@@ -9107,9 +9139,19 @@ async function handleGenerateAdsWithAI(request, env, corsHeaders) {
   }
 }
 
-// Helper function to generate ads content using OpenAI
+// Helper function to generate ads content using OpenAI with Sabri Suby's copywriting style
 async function generateAdsContent(businessName, templateData, businessType, env) {
-  const prompt = `Generate high-converting ad copy for ${businessName}, a ${businessType} business.
+  const prompt = `You are a marketing genius and expert copywriter specializing in the direct response copywriting style of Sabri Suby. Your mission is to create ads that grab attention, create desire, and drive action.
+
+SABRI SUBY COPYWRITING PRINCIPLES:
+- **Hook First**: Start with a powerful, attention-grabbing statement that stops the scroll
+- **Problem-Agitation-Solution**: Identify the problem, agitate it, then present your solution
+- **Specificity**: Use specific numbers, results, and outcomes
+- **Urgency & Scarcity**: Create FOMO (Fear of Missing Out) and urgency
+- **Social Proof**: Include testimonials, case studies, or proof elements
+- **Risk Reversal**: Remove risk with guarantees or free trials
+- **Emotional Triggers**: Use words that evoke emotion and desire
+- **Clear CTA**: Make the next step crystal clear and compelling
 
 Business Context:
 - Name: ${businessName}
@@ -9118,24 +9160,33 @@ Business Context:
 - Target Audience: ${templateData.targetAudience || 'Professionals and businesses'}
 - Value Proposition: ${templateData.tagline || 'Transform your business'}
 
-Generate ad copy for three platforms:
+Generate high-converting ad copy for three platforms using Sabri Suby's style:
 
 1. LinkedIn Ads (Professional/B2B):
-- Primary Text: 150-200 characters, professional tone, business-focused
-- Headline: 40 characters max, compelling and professional
-- Description: 60 characters max, business value proposition
+- Primary Text: 150-200 characters, professional but attention-grabbing
+- Headline: 40 characters max, compelling and specific
+- Description: 60 characters max, benefit-focused with social proof
 - CTA: "LEARN_MORE", "GET_DEMO", "CONTACT_US", or similar
 
 2. Meta Ads (Facebook/Instagram):
-- Primary Text: 125 characters max, engaging and conversational
-- Headline: 40 characters max, attention-grabbing
-- Description: 30 characters max, benefit-focused
+- Primary Text: 125 characters max, conversational and engaging
+- Headline: 40 characters max, attention-grabbing with specificity
+- Description: 30 characters max, benefit-focused with urgency
 - CTA: "SIGN_UP", "GET_STARTED", "LEARN_MORE", or similar
 
 3. Instagram Ads:
 - Description: 125 characters max, visually appealing and engaging
-- Headline: 40 characters max, trendy and modern
+- Headline: 40 characters max, trendy and modern with emotional triggers
 - CTA: "GET_STARTED", "SHOP_NOW", "LEARN_MORE", or similar
+
+COPYWRITING TECHNIQUES TO USE:
+- Start with a hook that stops the scroll
+- Use specific numbers and results
+- Create urgency and scarcity
+- Include social proof elements
+- Use emotional trigger words
+- Make benefits clear and compelling
+- End with a strong, clear CTA
 
 Return ONLY a JSON object with this exact structure:
 {
@@ -9210,9 +9261,9 @@ Return ONLY a JSON object with this exact structure:
   }
 }
 
-// Helper function to generate image prompt for ads
+// Helper function to generate image prompt for ads - attention-grabbing images without text
 async function generateImagePromptForAds(businessName, templateData, businessType, env) {
-  const prompt = `Generate an optimal image generation prompt for ${businessName}, a ${businessType} business.
+  const prompt = `You are a marketing genius specializing in creating attention-grabbing ad images. Generate an optimal image generation prompt for ${businessName}, a ${businessType} business.
 
 Business Context:
 - Name: ${businessName}
@@ -9220,22 +9271,28 @@ Business Context:
 - Description: ${templateData.businessDescription || templateData.aboutContent || 'Innovative business solution'}
 - Industry: ${businessType}
 
-Create a professional, high-converting ad background image prompt that:
-- Represents the business type and industry
-- Has good contrast for text overlay
-- Looks modern and trustworthy
-- Appeals to the target audience
+IMPORTANT IMAGE REQUIREMENTS:
+- **NO TEXT WHATSOEVER**: The image must contain absolutely no text, letters, numbers, or written content
+- **NO LOGOS**: No business logos, watermarks, or brand elements
+- **ATTENTION-GRABBING**: Create an image that stops the scroll and captures attention
+- **EMOTIONAL IMPACT**: Use visual elements that evoke desire, success, or aspiration
+- **UNIVERSAL APPEAL**: Image should work across all social media platforms
+
+CREATIVE APPROACH:
+Sometimes the most effective ad images are NOT directly related to the business but convey the feeling of success, wealth, or desire that the target audience wants. For example:
+- For a business validation tool like Jetsy: A luxury supercar (conveys success/wealth)
+- For a fitness app: A fit person achieving their goals (conveys transformation)
+- For a business consulting service: A person in a luxury office (conveys success)
+
+IMAGE CHARACTERISTICS:
+- High contrast for text overlay
+- Modern, professional aesthetic
+- Visually striking and memorable
+- Suitable for text overlay (not too busy)
 - Follows current advertising design trends
-- Is suitable for all social media platforms (LinkedIn, Meta, Instagram)
+- Appeals to the target audience's aspirations
 
-The image should be:
-- High quality and professional
-- Relevant to the business
-- Visually appealing
-- Suitable for text overlay
-- Modern and contemporary
-
-Return ONLY the image generation prompt, no additional text or formatting.`;
+Return ONLY the image generation prompt, no additional text or formatting. Make it specific and detailed for the AI image generator.`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -9246,7 +9303,7 @@ Return ONLY the image generation prompt, no additional text or formatting.`;
     body: JSON.stringify({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'developer', content: 'You are an expert in advertising design and image generation prompts.' },
+        { role: 'developer', content: 'You are an expert in advertising design and image generation prompts, specializing in attention-grabbing visuals without text.' },
         { role: 'user', content: prompt }
       ],
       temperature: 0.7,

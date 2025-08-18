@@ -120,16 +120,25 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
         }
       }
 
-      // Load business logo from template data if available
+      // Load business logo and name from template data if available
       if (projectData.template_data) {
         try {
           const templateData = JSON.parse(projectData.template_data);
+          
+          // Update business logo for all platforms
           if (templateData.businessLogoUrl) {
-            // Update all platform visuals with the business logo
             const logoUrl = templateData.businessLogoUrl;
             setLinkedInVisual(prev => ({ ...prev, logoUrl }));
             setMetaVisual(prev => ({ ...prev, logoUrl }));
             setInstagramVisual(prev => ({ ...prev, logoUrl }));
+          }
+          
+          // Update business name for all platforms
+          if (templateData.businessName) {
+            const businessName = templateData.businessName;
+            setLinkedInVisual(prev => ({ ...prev, brandName: businessName }));
+            setMetaVisual(prev => ({ ...prev, brandName: businessName }));
+            setInstagramVisual(prev => ({ ...prev, brandName: businessName }));
           }
         } catch (error) {
           console.error('Error parsing template data:', error);
@@ -156,7 +165,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
         body: JSON.stringify({
           projectId: projectId,
           projectData: {
-            businessName: project.project_name,
+            // The AI will fetch business name from database using projectId
             templateData: project.template_data ? JSON.parse(project.template_data) : {},
             files: project.files ? JSON.parse(project.files) : {}
           }

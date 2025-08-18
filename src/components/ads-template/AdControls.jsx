@@ -275,26 +275,58 @@ const AdControls = ({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Logo URL
               </label>
-              <input
-                type="url"
-                value={visual.logoUrl}
-                onChange={(e) => handleVisualChange('logoUrl', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter logo URL..."
-              />
+              <div className="space-y-2">
+                <input
+                  type="url"
+                  value={visual.logoUrl}
+                  onChange={(e) => handleVisualChange('logoUrl', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter logo URL..."
+                />
+                {visual.logoUrl && (
+                  <div className="flex items-center space-x-2">
+                    <img 
+                      src={visual.logoUrl} 
+                      alt="Business Logo" 
+                      className="w-12 h-12 object-cover rounded-lg border border-gray-200"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        console.log('Logo image failed to load');
+                      }}
+                    />
+                    <span className="text-xs text-gray-500">Logo Preview</span>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Ad Image URL *
               </label>
-              <input
-                type="url"
-                value={visual.imageUrl}
-                onChange={(e) => handleVisualChange('imageUrl', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter ad image URL..."
-              />
+              <div className="space-y-2">
+                <input
+                  type="url"
+                  value={visual.imageUrl}
+                  onChange={(e) => handleVisualChange('imageUrl', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter ad image URL..."
+                />
+                {visual.imageUrl && (
+                  <div className="flex items-center space-x-2">
+                    <img 
+                      src={visual.imageUrl} 
+                      alt="Ad Image" 
+                      className="w-24 h-24 object-cover rounded-lg border border-gray-200"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        console.log('Ad image failed to load');
+                      }}
+                    />
+                    <span className="text-xs text-gray-500">Image Preview</span>
+                  </div>
+                )}
+              </div>
             </div>
 
 
