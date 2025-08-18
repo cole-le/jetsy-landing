@@ -212,6 +212,7 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
           <WorkflowProgressBar 
             currentStage={adsExist ? 2 : 1} 
             pulseStageId={adsExist ? 2 : (hasTemplateData ? 2 : undefined)}
+            projectId={currentProjectId}
             onStageClick={(stageId) => {
               if (stageId === 2 && currentProjectId) {
                 // Navigate to ads creation
