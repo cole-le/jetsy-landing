@@ -321,21 +321,7 @@ const AdControls = ({
               </div>
             )}
 
-            {/* Save Button for this platform */}
-            <div className="pt-4">
-              <button
-                onClick={() => {
-                  // This will be handled by the parent component's saveAdsEdits function
-                  alert('Use the "Save All Changes" button at the top to save your edits');
-                }}
-                className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-              >
-                💾 Save {platform === 'linkedin' ? 'LinkedIn' : platform === 'meta' ? 'Meta' : 'Instagram'} Changes
-              </button>
-              <p className="text-xs text-gray-500 mt-2 text-center">
-                Changes are saved automatically when you use the main "Save All Changes" button
-              </p>
-            </div>
+
           </div>
         </div>
       </div>

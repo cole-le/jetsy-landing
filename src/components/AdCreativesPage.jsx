@@ -349,6 +349,14 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
               }
             }}
           />
+          
+          {/* Save Changes Button */}
+          <button
+            onClick={saveAdsEdits}
+            className="bg-black text-white px-6 py-2 rounded-lg hover:bg-gray-800 transition-colors font-medium"
+          >
+            Save Changes
+          </button>
         </div>
       </header>
 
@@ -359,8 +367,8 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
           <p className="text-gray-600">Generate high-converting ad creatives for your business</p>
         </div>
 
-        {/* AI Generation and Save Buttons */}
-        <div className="mb-8 flex flex-wrap gap-4 items-center">
+        {/* AI Generation Button */}
+        <div className="mb-8">
           <button
             onClick={generateAdsWithAI}
             disabled={isGenerating}
@@ -368,17 +376,6 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
           >
             {isGenerating ? 'Generating Ads with AI...' : '🎨 Generate Ad with AI'}
           </button>
-          
-          <button
-            onClick={saveAdsEdits}
-            className="bg-green-600 text-white py-4 px-8 rounded-xl font-semibold text-lg hover:bg-green-700 transition-all"
-          >
-            💾 Save All Changes
-          </button>
-          
-          <p className="text-sm text-gray-500 mt-2 w-full">
-            AI will analyze your business and generate compelling ad copy and images for all platforms. Use the Save button to persist your edits.
-          </p>
         </div>
 
         {/* Platform Toggle */}
