@@ -333,6 +333,14 @@ export default {
         return new Response(null, { status: 200, headers: corsHeaders });
       }
 
+      // --- Generate Ads Image Only (no DB save) ---
+      if (path === '/api/generate-ads-image' && request.method === 'POST') {
+        return await handleGenerateAdsImageOnly(request, env, corsHeaders);
+      }
+      if (path === '/api/generate-ads-image' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
       // Serve static files
       return await serveStaticFiles(request, env);
 
@@ -391,6 +399,65 @@ async function handleContactSubmission(request, env, corsHeaders) {
   } catch (err) {
     console.error('Contact submission error:', err);
     return new Response(JSON.stringify({ error: 'Failed to store contact submission' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  }
+}
+
+// Generate a new ads image only (no DB saves) and return the URL/imageId
+async function handleGenerateAdsImageOnly(request, env, corsHeaders) {
+  try {
+    const { projectId } = await request.json();
+    if (!projectId) {
+      return new Response(JSON.stringify({ success: false, error: 'projectId is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    await ensureAdsColumns(env);
+    const db = env.DB;
+    const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+    if (!project) {
+      return new Response(JSON.stringify({ success: false, error: 'Project not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    let templateData = {};
+    try {
+      templateData = project.template_data
+        ? (typeof project.template_data === 'string' ? JSON.parse(project.template_data) : project.template_data)
+        : {};
+    } catch {}
+
+    const businessName = templateData.businessName || project.project_name || 'Your Business';
+    const businessType = await detectBusinessType(businessName, env);
+
+    const imagePrompt = await generateImagePromptForAds(businessName, templateData, businessType, env);
+    const imageResult = await generateImageWithGemini(imagePrompt, '1:1', env);
+    if (!imageResult.success) {
+      throw new Error('Failed to generate image');
+    }
+
+    const uploadResult = await uploadImageToR2(imageResult.imageData, env, request);
+    if (!uploadResult.success) {
+      throw new Error('Failed to upload image to R2');
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      imageUrl: uploadResult.url,
+      imageId: uploadResult.imageId,
+      filename: uploadResult.filename
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  } catch (err) {
+    return new Response(JSON.stringify({ success: false, error: err.message || 'Failed to generate image' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
   }
 }
 
@@ -1845,7 +1912,6 @@ async function ensureAdsColumns(env) {
     // Column probably already exists
   }
 }
-
 async function handleGeneratePlatformAdCopy(request, env, corsHeaders) {
   try {
     const { projectId, platform } = await request.json();
@@ -2185,7 +2251,6 @@ async function disableVercelDeploymentProtection(projectName, vercelToken) {
 
   return await updateResponse.json();
 }
-
 // Get the ExceptionalTemplate component code as a string for embedding in static HTML
 function getExceptionalTemplateComponentCode() {
   return `
@@ -5353,7 +5418,6 @@ MULTI-STEP TASK HANDLING:
 - Generate appropriate images for each task that requires them
 - Return the final code with ALL changes applied in the correct order
 - Support separators: "then", "next", "also", "after that", semicolons, etc.
-
 Return only the JSON response with assistant_message, updated_files, image_requests, and business_info.`;
 
         const requestBody = {
@@ -8413,7 +8477,6 @@ Context:
 - Business type: ${businessType}
 - Business name: ${businessName}
 - Business idea: ${businessIdeaText}
-
 Output JSON example:
 {"hero_background_prompt": "...", "about_background_prompt": "..."}`;
 

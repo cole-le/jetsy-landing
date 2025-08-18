@@ -119,6 +119,32 @@ const AdControls = ({
     }
   };
 
+  const [isImageRegenerating, setIsImageRegenerating] = useState(false);
+  const handleGenerateImage = async () => {
+    try {
+      setIsImageRegenerating(true);
+      const resp = await fetch(`${getApiBaseUrl()}/api/generate-ads-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId })
+      });
+      if (!resp.ok) throw new Error('Failed to generate image');
+      const data = await resp.json();
+      if (data.success && data.imageUrl) {
+        onVisualChange({
+          ...visual,
+          imageUrl: data.imageUrl
+        });
+        // Note: not saved to DB; user must click Save Changes in header
+      }
+    } catch (e) {
+      console.error('Generate image failed:', e);
+      alert('Failed to generate image. Please try again.');
+    } finally {
+      setIsImageRegenerating(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
 
@@ -333,6 +359,22 @@ const AdControls = ({
         <div>
           <h3 className="text-lg font-medium text-gray-900 mb-3">Visual Elements</h3>
           <div className="space-y-4">
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleGenerateImage}
+                disabled={isImageRegenerating}
+                className={`px-3 py-1.5 text-xs rounded-md bg-black text-white hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed`}
+                title="Regenerate a new ad image with AI (not saved)"
+              >
+                {isImageRegenerating ? (
+                  <span className="flex items-center space-x-2">
+                    <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></span>
+                    <span>Regnerating...</span>
+                  </span>
+                ) : '✨ Regenerate Ad Image with AI'}
+              </button>
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Brand Name *
