@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getApiBaseUrl } from '../config/environment';
 import WorkflowProgressBar from './WorkflowProgressBar';
 import { FaFacebook, FaLinkedin, FaInstagram, FaFacebookF } from 'react-icons/fa';
@@ -278,6 +278,20 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
     }
   };
 
+  // Prevent page scroll when hovering controls: only scroll the inner controls container
+  const handleControlsWheel = useCallback((e) => {
+    const el = e.currentTarget;
+    const delta = e.deltaY;
+    const canScrollDown = el.scrollTop + el.clientHeight < el.scrollHeight;
+    const canScrollUp = el.scrollTop > 0;
+    // If the inner container can scroll in the wheel direction, prevent default page scroll
+    if ((delta > 0 && canScrollDown) || (delta < 0 && canScrollUp)) {
+      e.preventDefault();
+      e.stopPropagation();
+      el.scrollTop += delta;
+    }
+  }, []);
+
   const handleNavigateToWebsiteCreation = () => {
     onNavigateToChat(projectId);
   };
@@ -395,42 +409,47 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
 
         {/* Main Content */}
         <div className="flex flex-col lg:flex-row gap-6">
-          {/* Left Column - Controls */}
+          {/* Left Column - Controls (independent scroll) */}
           <div className="lg:w-1/3">
-            {activePlatform === 'linkedin' ? (
-              <AdControls
-                copy={linkedInCopy}
-                visual={linkedInVisual}
-                aspectRatio={linkedInAspectRatio}
-                platform="linkedin"
-                onCopyChange={setLinkedInCopy}
-                onVisualChange={setLinkedInVisual}
-                onAspectRatioChange={setLinkedInAspectRatio}
-                projectId={projectId}
-              />
-            ) : activePlatform === 'meta' ? (
-              <AdControls
-                copy={metaCopy}
-                visual={metaVisual}
-                aspectRatio={metaAspectRatio}
-                platform="meta"
-                onCopyChange={setMetaCopy}
-                onVisualChange={setMetaVisual}
-                onAspectRatioChange={setMetaAspectRatio}
-                projectId={projectId}
-              />
-            ) : (
-              <AdControls
-                copy={instagramCopy}
-                visual={instagramVisual}
-                aspectRatio={instagramAspectRatio}
-                platform="instagram"
-                onCopyChange={setInstagramCopy}
-                onVisualChange={setInstagramVisual}
-                onAspectRatioChange={setInstagramAspectRatio}
-                projectId={projectId}
-              />
-            )}
+            <div
+              className="max-h-[calc(100vh-112px)] overflow-y-auto pr-2"
+              onWheel={handleControlsWheel}
+            >
+              {activePlatform === 'linkedin' ? (
+                <AdControls
+                  copy={linkedInCopy}
+                  visual={linkedInVisual}
+                  aspectRatio={linkedInAspectRatio}
+                  platform="linkedin"
+                  onCopyChange={setLinkedInCopy}
+                  onVisualChange={setLinkedInVisual}
+                  onAspectRatioChange={setLinkedInAspectRatio}
+                  projectId={projectId}
+                />
+              ) : activePlatform === 'meta' ? (
+                <AdControls
+                  copy={metaCopy}
+                  visual={metaVisual}
+                  aspectRatio={metaAspectRatio}
+                  platform="meta"
+                  onCopyChange={setMetaCopy}
+                  onVisualChange={setMetaVisual}
+                  onAspectRatioChange={setMetaAspectRatio}
+                  projectId={projectId}
+                />
+              ) : (
+                <AdControls
+                  copy={instagramCopy}
+                  visual={instagramVisual}
+                  aspectRatio={instagramAspectRatio}
+                  platform="instagram"
+                  onCopyChange={setInstagramCopy}
+                  onVisualChange={setInstagramVisual}
+                  onAspectRatioChange={setInstagramAspectRatio}
+                  projectId={projectId}
+                />
+              )}
+            </div>
           </div>
 
           {/* Right Column - Preview */}

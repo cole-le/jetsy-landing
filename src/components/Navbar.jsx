@@ -195,16 +195,6 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
             }}
           />
 
-          {/* Additional Navigation */}
-          <div className="flex items-center space-x-4 ml-6">
-            <a
-              href="/ads_template"
-              className="text-sm text-gray-600 hover:text-gray-900 transition-colors px-3 py-2 rounded-md hover:bg-gray-100"
-            >
-              🎨 Ads Template
-            </a>
-          </div>
-
           {/* Data Analytics button - left of preview toggle */}
                   <button
                     onClick={() => {
@@ -306,7 +296,7 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
                         <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
                         <span>Generating Ads...</span>
                       </span>
-                    ) : '🎨 Generate Ad with AI'}
+                    ) : '✨ Generate Ad with AI'}
                   </button>
                   <button 
                     onClick={() => window.dispatchEvent(new CustomEvent('ad-creatives:save'))}
