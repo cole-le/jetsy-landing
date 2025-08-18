@@ -376,13 +376,10 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">AI-Powered Ads Creation</h1>
-          <p className="text-gray-600">Generate high-converting ad creatives for your business</p>
-        </div>
-
+        
+ 
         {/* Platform Toggle */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4 mb-6">
+        <div className="mb-6">
           <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
             <button
               onClick={() => setActivePlatform('linkedin')}
