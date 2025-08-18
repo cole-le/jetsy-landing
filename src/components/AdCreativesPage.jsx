@@ -1,28 +1,84 @@
 import React, { useState, useEffect } from 'react';
 import { getApiBaseUrl } from '../config/environment';
 import WorkflowProgressBar from './WorkflowProgressBar';
+import { FaFacebook, FaLinkedin, FaInstagram, FaFacebookF } from 'react-icons/fa';
+import { SiLinkedin, SiFacebook, SiInstagram } from 'react-icons/si';
+import LinkedInSingleImageAdPreview from './ads-template/LinkedInSingleImageAdPreview';
+import MetaFeedSingleImageAdPreview from './ads-template/MetaFeedSingleImageAdPreview';
+import InstagramSingleImageAdPreview from './ads-template/InstagramSingleImageAdPreview';
+import AdControls from './ads-template/AdControls';
 
 const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [adData, setAdData] = useState({
-    businessName: '',
-    businessDescription: '',
-    targetAudience: '',
-    mainHeadline: '',
-    punchline: '',
-    callToAction: '',
-    selectedSize: 'square' // square, landscape, portrait
-  });
-  const [generatedAds, setGeneratedAds] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Creative sizes configuration
-  const creativeSizes = {
-    square: { name: 'Square', dimensions: '1080x1080', width: 1080, height: 1080 },
-    landscape: { name: 'Landscape', dimensions: '1200x628', width: 1200, height: 628 },
-    portrait: { name: 'Portrait', dimensions: '1080x1350', width: 1080, height: 1350 }
+  // Default Ferrari ads template data for first load
+  const defaultAdsData = {
+    linkedIn: {
+      copy: {
+        primaryText: "Experience the thrill of luxury performance with our exclusive Ferrari collection.",
+        headline: "Luxury Redefined",
+        description: "Premium automotive excellence",
+        cta: "LEARN_MORE",
+        linkUrl: "https://www.ferrari.com",
+      },
+      visual: {
+        imageUrl: "/ferrari.jpg",
+        logoUrl: "/ferrari_logo.jpg",
+        brandName: "Ferrari",
+        verified: true,
+      },
+    },
+    meta: {
+      copy: {
+        primaryText: "Discover the perfect blend of power and elegance in our latest Ferrari models.",
+        headline: "Power Meets Elegance",
+        description: "Unmatched performance",
+        cta: "SIGN_UP",
+        linkUrl: "https://www.ferrari.com",
+      },
+      visual: {
+        imageUrl: "/ferrari.jpg",
+        logoUrl: "/ferrari_logo.jpg",
+        brandName: "Ferrari",
+      },
+    },
+    instagram: {
+      copy: {
+        primaryText: "Feel the adrenaline rush with our stunning Ferrari sports cars.",
+        headline: "Adrenaline Rush",
+        description: "Pure driving pleasure",
+        cta: "GET_STARTED",
+        linkUrl: "https://www.ferrari.com",
+      },
+      visual: {
+        imageUrl: "/ferrari.jpg",
+        logoUrl: "/ferrari_logo.jpg",
+        brandName: "Ferrari",
+      },
+    },
+  };
+
+  // State management for ads
+  const [activePlatform, setActivePlatform] = useState('linkedin');
+  const [linkedInCopy, setLinkedInCopy] = useState(defaultAdsData.linkedIn.copy);
+  const [linkedInVisual, setLinkedInVisual] = useState(defaultAdsData.linkedIn.visual);
+  const [metaCopy, setMetaCopy] = useState(defaultAdsData.meta.copy);
+  const [metaVisual, setMetaVisual] = useState(defaultAdsData.meta.visual);
+  const [instagramCopy, setInstagramCopy] = useState(defaultAdsData.instagram.copy);
+  const [instagramVisual, setInstagramVisual] = useState(defaultAdsData.instagram.visual);
+  const [linkedInAspectRatio, setLinkedInAspectRatio] = useState('1200×628');
+  const [metaAspectRatio, setMetaAspectRatio] = useState('1:1');
+  const [instagramAspectRatio, setInstagramAspectRatio] = useState('1080×1080');
+
+  // Fallback image URLs for demo purposes
+  const fallbackImages = {
+    linkedIn: '/ferrari.jpg',
+    meta: '/ferrari.jpg',
+    instagram: '/ferrari.jpg',
+    logo: '/ferrari_logo.jpg'
   };
 
   useEffect(() => {
@@ -43,29 +99,40 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
       
       setProject(projectData);
       
-      // Check if we have business information in the database
-      if (projectData.business_name && projectData.business_description && projectData.target_audience) {
-        // Use database values
-        setAdData(prev => ({
-          ...prev,
-          businessName: projectData.business_name,
-          businessDescription: projectData.business_description,
-          targetAudience: projectData.target_audience
-        }));
-      } else {
-        // Try to extract from template data as fallback
-        const templateData = projectData.template_data ? JSON.parse(projectData.template_data) : {};
-        
-        setAdData(prev => ({
-          ...prev,
-          businessName: templateData.businessName || templateData.companyName || projectData.project_name || '',
-          businessDescription: templateData.businessDescription || templateData.description || '',
-          targetAudience: templateData.targetAudience || templateData.targetMarket || ''
-        }));
+      // Load existing ads data if available
+      if (projectData.ads_data) {
+        try {
+          const adsData = JSON.parse(projectData.ads_data);
+          if (adsData.linkedIn) {
+            setLinkedInCopy(adsData.linkedIn.copy || defaultAdsData.linkedIn.copy);
+            setLinkedInVisual(adsData.linkedIn.visual || defaultAdsData.linkedIn.visual);
+          }
+          if (adsData.meta) {
+            setMetaCopy(adsData.meta.copy || defaultAdsData.meta.copy);
+            setMetaVisual(adsData.meta.visual || defaultAdsData.meta.visual);
+          }
+          if (adsData.instagram) {
+            setInstagramCopy(adsData.instagram.copy || defaultAdsData.instagram.copy);
+            setInstagramVisual(adsData.instagram.visual || defaultAdsData.instagram.visual);
+          }
+        } catch (error) {
+          console.error('Error parsing ads data:', error);
+        }
+      }
 
-        // Auto-fill business information using AI if fields are empty
-        if (!projectData.business_name || !projectData.business_description || !projectData.target_audience) {
-          await autoFillBusinessInfo();
+      // Load business logo from template data if available
+      if (projectData.template_data) {
+        try {
+          const templateData = JSON.parse(projectData.template_data);
+          if (templateData.businessLogoUrl) {
+            // Update all platform visuals with the business logo
+            const logoUrl = templateData.businessLogoUrl;
+            setLinkedInVisual(prev => ({ ...prev, logoUrl }));
+            setMetaVisual(prev => ({ ...prev, logoUrl }));
+            setInstagramVisual(prev => ({ ...prev, logoUrl }));
+          }
+        } catch (error) {
+          console.error('Error parsing template data:', error);
         }
       }
 
@@ -76,62 +143,88 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
     }
   };
 
-  const autoFillBusinessInfo = async () => {
+  const generateAdsWithAI = async () => {
+    if (!project) return;
+
     try {
       setIsGenerating(true);
       
-      const response = await fetch(`${getApiBaseUrl()}/api/auto-fill-business-info`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success && result.businessInfo) {
-          setAdData(prev => ({
-            ...prev,
-            businessName: result.businessInfo.businessName || '',
-            businessDescription: result.businessInfo.businessDescription || '',
-            targetAudience: result.businessInfo.targetAudience || ''
-          }));
-        }
-      }
-    } catch (error) {
-      console.error('Error auto-filling business info:', error);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const saveBusinessInfo = async () => {
-    try {
-      setIsGenerating(true);
-      
-      const response = await fetch(`${getApiBaseUrl()}/api/save-business-info`, {
+      // Call AI to generate ads content and image
+      const response = await fetch(`${getApiBaseUrl()}/api/generate-ads-with-ai`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          projectId,
-          businessName: adData.businessName,
-          businessDescription: adData.businessDescription,
-          targetAudience: adData.targetAudience
+          projectId: projectId,
+          projectData: {
+            businessName: project.project_name,
+            templateData: project.template_data ? JSON.parse(project.template_data) : {},
+            files: project.files ? JSON.parse(project.files) : {}
+          }
         })
       });
 
       if (response.ok) {
         const result = await response.json();
-        if (result.success) {
-          alert('Business information saved successfully!');
+        
+        if (result.success && result.adsData) {
+          // Update ads data with AI-generated content
+          const { linkedIn, meta, instagram, imageUrl, imageId } = result.adsData;
+          
+          if (linkedIn) {
+            setLinkedInCopy(linkedIn.copy);
+            setLinkedInVisual(prev => ({ ...prev, ...linkedIn.visual, imageUrl }));
+          }
+          if (meta) {
+            setMetaCopy(meta.copy);
+            setMetaVisual(prev => ({ ...prev, ...meta.visual, imageUrl }));
+          }
+          if (instagram) {
+            setInstagramCopy(instagram.copy);
+            setInstagramVisual(prev => ({ ...prev, ...instagram.visual, imageUrl }));
+          }
+
+          // Save ads data to database
+          await saveAdsData({
+            linkedIn: { copy: linkedInCopy, visual: { ...linkedInVisual, imageUrl } },
+            meta: { copy: metaCopy, visual: { ...metaVisual, imageUrl } },
+            instagram: { copy: instagramCopy, visual: { ...instagramVisual, imageUrl } }
+          }, imageUrl, imageId);
+
+          alert('Ads generated successfully with AI!');
+        } else {
+          throw new Error(result.error || 'Failed to generate ads');
         }
       } else {
-        throw new Error('Failed to save business information');
+        throw new Error('Failed to generate ads');
       }
     } catch (error) {
-      console.error('Error saving business info:', error);
-      alert('Failed to save business information. Please try again.');
+      console.error('Error generating ads:', error);
+      alert('Failed to generate ads. Please try again.');
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const saveAdsData = async (adsData, imageUrl, imageId) => {
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/api/projects/${projectId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ads_data: JSON.stringify(adsData),
+          ads_generated_at: new Date().toISOString(),
+          ads_image_url: imageUrl,
+          ads_image_id: imageId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save ads data');
+      }
+
+      console.log('Ads data saved successfully');
+    } catch (error) {
+      console.error('Error saving ads data:', error);
     }
   };
 
@@ -139,76 +232,23 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
     onNavigateToChat(projectId);
   };
 
-  const handleInputChange = (field, value) => {
-    setAdData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  // Update image URLs with fallbacks
+  const linkedInVisualWithFallback = {
+    ...linkedInVisual,
+    imageUrl: linkedInVisual.imageUrl || fallbackImages.linkedIn,
+    logoUrl: linkedInVisual.logoUrl || fallbackImages.logo
   };
 
-  const generateAdCopy = async () => {
-    try {
-      setIsGenerating(true);
-      
-      // Use AI to generate ad copy based on business data
-      const response = await fetch(`${getApiBaseUrl()}/api/generate-ad-copy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          businessName: adData.businessName,
-          businessDescription: adData.businessDescription,
-          targetAudience: adData.targetAudience,
-          projectId: projectId
-        })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        setAdData(prev => ({
-          ...prev,
-          mainHeadline: result.mainHeadline || '',
-          punchline: result.punchline || '',
-          callToAction: result.callToAction || ''
-        }));
-      }
-    } catch (err) {
-      console.error('Error generating ad copy:', err);
-    } finally {
-      setIsGenerating(false);
-    }
+  const metaVisualWithFallback = {
+    ...metaVisual,
+    imageUrl: metaVisual.imageUrl || fallbackImages.meta,
+    logoUrl: metaVisual.logoUrl || fallbackImages.logo
   };
 
-  const generateAds = async () => {
-    if (!adData.businessName || !adData.mainHeadline || !adData.punchline || !adData.callToAction) {
-      alert('Please fill in all required fields');
-      return;
-    }
-
-    try {
-      setIsGenerating(true);
-      
-      const response = await fetch(`${getApiBaseUrl()}/api/generate-ads`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          projectId: projectId,
-          adData: adData,
-          size: creativeSizes[adData.selectedSize]
-        })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        setGeneratedAds(result.ads || []);
-      } else {
-        throw new Error('Failed to generate ads');
-      }
-    } catch (err) {
-      console.error('Error generating ads:', err);
-      alert('Failed to generate ads. Please try again.');
-    } finally {
-      setIsGenerating(false);
-    }
+  const instagramVisualWithFallback = {
+    ...instagramVisual,
+    imageUrl: instagramVisual.imageUrl || fallbackImages.instagram,
+    logoUrl: instagramVisual.logoUrl || fallbackImages.logo
   };
 
   if (loading) {
@@ -280,249 +320,125 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
           <p className="text-gray-600">Generate high-converting ad creatives for your business</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left Column - Form */}
-          <div className="space-y-6">
-            {/* Business Information */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Business Information</h2>
-                <button
-                  onClick={autoFillBusinessInfo}
-                  disabled={isGenerating}
-                  className="bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                >
-                  {isGenerating ? 'Filling...' : 'Auto-fill with AI'}
-                </button>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Business Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={adData.businessName}
-                    onChange={(e) => handleInputChange('businessName', e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter your business name"
-                    maxLength={50}
-                  />
-                  <div className="text-xs text-gray-500 text-right mt-1">
-                    {adData.businessName.length}/50 characters
-                  </div>
-                </div>
+        {/* AI Generation Button */}
+        <div className="mb-8">
+          <button
+            onClick={generateAdsWithAI}
+            disabled={isGenerating}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-8 rounded-xl font-semibold text-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          >
+            {isGenerating ? 'Generating Ads with AI...' : '🎨 Generate Ad with AI'}
+          </button>
+          <p className="text-sm text-gray-500 mt-2">
+            AI will analyze your business and generate compelling ad copy and images for all platforms
+          </p>
+        </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Business Description *
-                  </label>
-                  <textarea
-                    value={adData.businessDescription}
-                    onChange={(e) => handleInputChange('businessDescription', e.target.value)}
-                    rows={3}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Describe what your business does"
-                    maxLength={200}
-                  />
-                  <div className="text-xs text-gray-500 text-right mt-1">
-                    {adData.businessDescription.length}/200 characters
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Target Audience *
-                  </label>
-                  <input
-                    type="text"
-                    value={adData.targetAudience}
-                    onChange={(e) => handleInputChange('targetAudience', e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Who is your target audience?"
-                    maxLength={100}
-                  />
-                  <div className="text-xs text-gray-500 text-right mt-1">
-                    {adData.targetAudience.length}/100 characters
-                  </div>
-                </div>
-
-                {/* Save Button */}
-                <div className="flex justify-end pt-2">
-                  <button
-                    onClick={saveBusinessInfo}
-                    disabled={isGenerating || !adData.businessName || !adData.businessDescription || !adData.targetAudience}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm"
-                  >
-                    {isGenerating ? 'Saving...' : 'Save Business Info'}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Ad Copy Generation */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Ad Copy</h2>
-                <button
-                  onClick={generateAdCopy}
-                  disabled={isGenerating || !adData.businessName || !adData.businessDescription}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                >
-                  {isGenerating ? 'Generating...' : 'Generate with AI'}
-                </button>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Main Headline * <span className="text-xs text-gray-500">(40 chars max)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={adData.mainHeadline}
-                    onChange={(e) => handleInputChange('mainHeadline', e.target.value.slice(0, 40))}
-                    maxLength={40}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Want to start a business?"
-                  />
-                  <div className="text-xs text-gray-500 mt-1">{adData.mainHeadline.length}/40 characters</div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Punchline * <span className="text-xs text-gray-500">(40 chars max)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={adData.punchline}
-                    onChange={(e) => handleInputChange('punchline', e.target.value.slice(0, 40))}
-                    maxLength={40}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Will people pay money for it?"
-                  />
-                  <div className="text-xs text-gray-500 mt-1">{adData.punchline.length}/40 characters</div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Call to Action * <span className="text-xs text-gray-500">(25 chars max)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={adData.callToAction}
-                    onChange={(e) => handleInputChange('callToAction', e.target.value.slice(0, 25))}
-                    maxLength={25}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Find out with Jetsy"
-                  />
-                  <div className="text-xs text-gray-500 mt-1">{adData.callToAction.length}/25 characters</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Creative Size Selection */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Creative Size</h2>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {Object.entries(creativeSizes).map(([key, size]) => (
-                  <button
-                    key={key}
-                    onClick={() => handleInputChange('selectedSize', key)}
-                    className={`p-4 border-2 rounded-lg text-center transition-all ${
-                      adData.selectedSize === key
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="font-medium">{size.name}</div>
-                    <div className="text-sm text-gray-500">{size.dimensions}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Generate Button */}
+        {/* Platform Toggle */}
+        <div className="bg-white border-b border-gray-200 px-6 py-4 mb-6">
+          <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
             <button
-              onClick={generateAds}
-              disabled={isGenerating || !adData.businessName || !adData.mainHeadline || !adData.punchline || !adData.callToAction}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-xl font-semibold text-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              onClick={() => setActivePlatform('linkedin')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
+                activePlatform === 'linkedin'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
             >
-              {isGenerating ? 'Generating Ads...' : 'Generate Ad Creatives'}
+              <SiLinkedin className="w-4 h-4 text-blue-600" />
+              <span>LinkedIn Ads</span>
+            </button>
+            <button
+              onClick={() => setActivePlatform('meta')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
+                activePlatform === 'meta'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <SiFacebook className="w-4 h-4 text-blue-600" />
+              <span>Meta Ads</span>
+            </button>
+            <button
+              onClick={() => setActivePlatform('instagram')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
+                activePlatform === 'instagram'
+                  ? 'bg-white text-pink-500 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <SiInstagram className="w-4 h-4 text-pink-500" />
+              <span>Instagram Ads</span>
             </button>
           </div>
+        </div>
 
-          {/* Right Column - Preview & Results */}
-          <div className="space-y-6">
-            {/* Preview */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Preview</h2>
-              
-              {adData.mainHeadline || adData.punchline || adData.callToAction ? (
-                <div className="bg-gray-100 rounded-lg p-6 text-center">
-                  <div className="bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg p-8 text-white relative overflow-hidden">
-                    <div className="relative z-10">
-                      {adData.mainHeadline && (
-                        <h3 className="text-xl font-bold mb-2">{adData.mainHeadline}</h3>
-                      )}
-                      {adData.punchline && (
-                        <p className="text-lg mb-4">{adData.punchline}</p>
-                      )}
-                      {adData.callToAction && (
-                        <button className="bg-white text-purple-600 px-6 py-2 rounded-full font-semibold">
-                          {adData.callToAction}
-                        </button>
-                      )}
-                    </div>
-                    <div className="absolute inset-0 bg-black bg-opacity-10"></div>
-                  </div>
-                  <div className="text-xs text-gray-500 mt-2">
-                    Size: {creativeSizes[adData.selectedSize].dimensions}
-                  </div>
+        {/* Main Content */}
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Left Column - Controls */}
+          <div className="lg:w-1/3">
+            {activePlatform === 'linkedin' ? (
+              <AdControls
+                copy={linkedInCopy}
+                visual={linkedInVisual}
+                aspectRatio={linkedInAspectRatio}
+                platform="linkedin"
+                onCopyChange={setLinkedInCopy}
+                onVisualChange={setLinkedInVisual}
+                onAspectRatioChange={setLinkedInAspectRatio}
+              />
+            ) : activePlatform === 'meta' ? (
+              <AdControls
+                copy={metaCopy}
+                visual={metaVisual}
+                aspectRatio={metaAspectRatio}
+                platform="meta"
+                onCopyChange={setMetaCopy}
+                onVisualChange={setMetaVisual}
+                onAspectRatioChange={setMetaAspectRatio}
+              />
+            ) : (
+              <AdControls
+                copy={instagramCopy}
+                visual={instagramVisual}
+                aspectRatio={instagramAspectRatio}
+                platform="instagram"
+                onCopyChange={setInstagramCopy}
+                onVisualChange={setInstagramVisual}
+                onAspectRatioChange={setInstagramAspectRatio}
+              />
+            )}
+          </div>
+
+          {/* Right Column - Preview */}
+          <div className="lg:w-2/3">
+            <div className="space-y-6">
+              {activePlatform === 'linkedin' ? (
+                <div className="flex justify-center">
+                  <LinkedInSingleImageAdPreview
+                    copy={linkedInCopy}
+                    visual={linkedInVisualWithFallback}
+                    aspectRatio={linkedInAspectRatio}
+                  />
+                </div>
+              ) : activePlatform === 'meta' ? (
+                <div className="flex justify-center">
+                  <MetaFeedSingleImageAdPreview
+                    copy={metaCopy}
+                    visual={metaVisualWithFallback}
+                    aspectRatio={metaAspectRatio}
+                  />
                 </div>
               ) : (
-                <div className="bg-gray-100 rounded-lg p-8 text-center text-gray-500">
-                  Fill in the ad copy to see preview
+                <div className="flex justify-center">
+                  <InstagramSingleImageAdPreview
+                    copy={instagramCopy}
+                    visual={instagramVisualWithFallback}
+                    aspectRatio={instagramAspectRatio}
+                  />
                 </div>
               )}
             </div>
-
-            {/* Generated Ads Results */}
-            {generatedAds.length > 0 && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Generated Ads</h2>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {generatedAds.map((ad, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg overflow-hidden">
-                      <img 
-                        src={ad.imageUrl} 
-                        alt={`Generated Ad ${index + 1}`}
-                        className="w-full h-48 object-cover"
-                      />
-                      <div className="p-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600">Conversion Score: {ad.conversionScore}/100</span>
-                          <button
-                            onClick={() => {
-                              const link = document.createElement('a');
-                              link.href = ad.downloadUrl;
-                              link.download = `ad-creative-${index + 1}.png`;
-                              link.click();
-                            }}
-                            className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-                          >
-                            Download
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>

@@ -228,6 +228,14 @@ export default {
         return new Response(null, { status: 200, headers: corsHeaders });
       }
 
+      // --- AI Ads Generation API ---
+      if (path === '/api/generate-ads-with-ai' && request.method === 'POST') {
+        return await handleGenerateAdsWithAI(request, env, corsHeaders);
+      }
+      if (path === '/api/generate-ads-with-ai' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
       // --- Business Info Auto-fill API ---
       if (path === '/api/auto-fill-business-info' && request.method === 'POST') {
         return await handleAutoFillBusinessInfo(request, env, corsHeaders);
@@ -1188,6 +1196,9 @@ async function getProjectById(id, env, corsHeaders) {
 async function createProject(request, env, corsHeaders) {
   const db = env.DB;
   try {
+    // Ensure ads columns exist
+    await ensureAdsColumns(env);
+    
     const { project_name, files, user_id = 1, template_data } = await request.json();
     if (!project_name || !files) {
       return new Response(JSON.stringify({ error: 'project_name and files are required' }), { status: 400, headers: corsHeaders });
@@ -1217,35 +1228,53 @@ async function createProject(request, env, corsHeaders) {
 async function updateProjectFiles(id, request, env, corsHeaders) {
   const db = env.DB;
   try {
-    const { files, project_name, template_data } = await request.json();
-    if (!files && !project_name && !template_data) {
-      return new Response(JSON.stringify({ error: 'files, project_name, or template_data are required' }), { status: 400, headers: corsHeaders });
+    // Ensure ads columns exist
+    await ensureAdsColumns(env);
+    
+    const { files, project_name, template_data, ads_data, ads_generated_at, ads_image_url, ads_image_id } = await request.json();
+    if (!files && !project_name && !template_data && !ads_data && !ads_generated_at && !ads_image_url && !ads_image_id) {
+      return new Response(JSON.stringify({ error: 'At least one field is required' }), { status: 400, headers: corsHeaders });
     }
     const now = new Date().toISOString();
     
-    let query, params;
-    if (files && project_name && template_data) {
-      query = 'UPDATE projects SET files = ?, project_name = ?, template_data = ?, updated_at = ? WHERE id = ?';
-      params = [JSON.stringify(files), project_name, JSON.stringify(template_data), now, id];
-    } else if (files && project_name) {
-      query = 'UPDATE projects SET files = ?, project_name = ?, updated_at = ? WHERE id = ?';
-      params = [JSON.stringify(files), project_name, now, id];
-    } else if (files && template_data) {
-      query = 'UPDATE projects SET files = ?, template_data = ?, updated_at = ? WHERE id = ?';
-      params = [JSON.stringify(files), JSON.stringify(template_data), now, id];
-    } else if (project_name && template_data) {
-      query = 'UPDATE projects SET project_name = ?, template_data = ?, updated_at = ? WHERE id = ?';
-      params = [project_name, JSON.stringify(template_data), now, id];
-    } else if (files) {
-      query = 'UPDATE projects SET files = ?, updated_at = ? WHERE id = ?';
-      params = [JSON.stringify(files), now, id];
-    } else if (project_name) {
-      query = 'UPDATE projects SET project_name = ?, updated_at = ? WHERE id = ?';
-      params = [project_name, now, id];
-    } else if (template_data) {
-      query = 'UPDATE projects SET template_data = ?, updated_at = ? WHERE id = ?';
-      params = [JSON.stringify(template_data), now, id];
+    // Build dynamic query based on provided fields
+    const updates = [];
+    const params = [];
+    
+    if (files) {
+      updates.push('files = ?');
+      params.push(JSON.stringify(files));
     }
+    if (project_name) {
+      updates.push('project_name = ?');
+      params.push(project_name);
+    }
+    if (template_data) {
+      updates.push('template_data = ?');
+      params.push(JSON.stringify(template_data));
+    }
+    if (ads_data) {
+      updates.push('ads_data = ?');
+      params.push(ads_data);
+    }
+    if (ads_generated_at) {
+      updates.push('ads_generated_at = ?');
+      params.push(ads_generated_at);
+    }
+    if (ads_image_url) {
+      updates.push('ads_image_url = ?');
+      params.push(ads_image_url);
+    }
+    if (ads_image_id) {
+      updates.push('ads_image_id = ?');
+      params.push(ads_image_id);
+    }
+    
+    updates.push('updated_at = ?');
+    params.push(now);
+    params.push(id);
+    
+    const query = `UPDATE projects SET ${updates.join(', ')} WHERE id = ?`;
     
     const result = await db.prepare(query).bind(...params).run();
     if (!result.success) {
@@ -1772,6 +1801,42 @@ async function getVercelDomainStatus(projectId, env, corsHeaders) {
       status: 500, 
       headers: { 'Content-Type': 'application/json', ...corsHeaders } 
     });
+  }
+}
+
+// Helper function to ensure ads columns exist in projects table
+async function ensureAdsColumns(env) {
+  const db = env.DB;
+  
+  // Check if database is available
+  if (!db) {
+    console.error('Database not available in ensureAdsColumns');
+    throw new Error('Database not available');
+  }
+  
+  // Add ads columns to projects table if they don't exist
+  try {
+    await db.prepare(`ALTER TABLE projects ADD COLUMN ads_data TEXT`).run();
+  } catch (e) {
+    // Column probably already exists
+  }
+  
+  try {
+    await db.prepare(`ALTER TABLE projects ADD COLUMN ads_generated_at TEXT`).run();
+  } catch (e) {
+    // Column probably already exists
+  }
+  
+  try {
+    await db.prepare(`ALTER TABLE projects ADD COLUMN ads_image_url TEXT`).run();
+  } catch (e) {
+    // Column probably already exists
+  }
+  
+  try {
+    await db.prepare(`ALTER TABLE projects ADD COLUMN ads_image_id TEXT`).run();
+  } catch (e) {
+    // Column probably already exists
   }
 }
 
@@ -8896,6 +8961,308 @@ Return ONLY the image generation prompt, no additional text.`;
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });
   }
+}
+
+// --- AI Ads Generation Handler ---
+async function handleGenerateAdsWithAI(request, env, corsHeaders) {
+  try {
+    const { projectId, projectData } = await request.json();
+    
+    if (!projectId || !projectData) {
+      return new Response(JSON.stringify({ error: 'projectId and projectData are required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    if (!env.OPENAI_API_KEY || !env.GEMINI_API_KEY) {
+      throw new Error('OpenAI and Gemini API keys are required');
+    }
+
+    console.log('🎨 Starting AI ads generation for project:', projectId);
+
+    // Ensure ads columns exist in database
+    await ensureAdsColumns(env);
+
+    // Extract business information from project data
+    const businessName = projectData.businessName || 'Your Business';
+    const templateData = projectData.templateData || {};
+    const files = projectData.files || {};
+
+    // Analyze business type and generate context-aware ads
+    const businessType = await detectBusinessType(businessName, env);
+    console.log('🏢 Detected business type:', businessType);
+
+    // Generate ads content using OpenAI GPT-4o-mini
+    const adsContent = await generateAdsContent(businessName, templateData, businessType, env);
+    console.log('📝 Generated ads content:', adsContent);
+
+    // Generate background image using Gemini Imagen 3
+    const imagePrompt = await generateImagePromptForAds(businessName, templateData, businessType, env);
+    console.log('🎨 Generated image prompt:', imagePrompt);
+
+    const imageResult = await generateImageWithGemini(imagePrompt, '1:1', env);
+    if (!imageResult.success) {
+      throw new Error('Failed to generate background image');
+    }
+
+    // Upload image to Cloudflare R2
+    const uploadResult = await uploadImageToR2(imageResult.imageData, env, request);
+    if (!uploadResult.success) {
+      throw new Error('Failed to upload image to R2');
+    }
+
+    // Save image to database
+    let imageId = uploadResult.imageId;
+    try {
+      const dbResult = await saveImageToDatabase({
+        project_id: projectId,
+        prompt: imagePrompt,
+        aspect_ratio: '1:1',
+        filename: uploadResult.filename,
+        r2_url: uploadResult.url,
+        file_size: imageResult.fileSize,
+        width: imageResult.width,
+        height: imageResult.height,
+        mime_type: 'image/jpeg',
+        imageId: uploadResult.imageId
+      }, env);
+      
+      if (dbResult.success) {
+        imageId = dbResult.image_id;
+      }
+    } catch (dbError) {
+      console.log('⚠️ Database save failed, continuing without database storage:', dbError.message);
+    }
+
+    // Prepare ads data for all platforms
+    const adsData = {
+      linkedIn: {
+        copy: {
+          primaryText: adsContent.linkedIn.primaryText,
+          headline: adsContent.linkedIn.headline,
+          description: adsContent.linkedIn.description,
+          cta: adsContent.linkedIn.cta,
+          linkUrl: templateData.websiteUrl || 'https://yourwebsite.com'
+        },
+        visual: {
+          imageUrl: uploadResult.url,
+          logoUrl: templateData.businessLogoUrl || null,
+          brandName: businessName,
+          verified: true
+        }
+      },
+      meta: {
+        copy: {
+          primaryText: adsContent.meta.primaryText,
+          headline: adsContent.meta.headline,
+          description: adsContent.meta.description,
+          cta: adsContent.meta.cta,
+          linkUrl: templateData.websiteUrl || 'https://yourwebsite.com'
+        },
+        visual: {
+          imageUrl: uploadResult.url,
+          logoUrl: templateData.businessLogoUrl || null,
+          brandName: businessName
+        }
+      },
+      instagram: {
+        copy: {
+          primaryText: adsContent.instagram.primaryText,
+          headline: adsContent.instagram.headline,
+          description: adsContent.instagram.description,
+          cta: adsContent.instagram.cta,
+          linkUrl: templateData.websiteUrl || 'https://yourwebsite.com'
+        },
+        visual: {
+          imageUrl: uploadResult.url,
+          logoUrl: templateData.businessLogoUrl || null,
+          brandName: businessName
+        }
+      },
+      imageUrl: uploadResult.url,
+      imageId: imageId
+    };
+
+    console.log('✅ AI ads generation completed successfully');
+
+    return new Response(JSON.stringify({
+      success: true,
+      adsData: adsData,
+      message: 'Ads generated successfully with AI'
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+
+  } catch (error) {
+    console.error('AI ads generation error:', error);
+    return new Response(JSON.stringify({ 
+      success: false,
+      error: error.message || 'Failed to generate ads with AI'
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+}
+
+// Helper function to generate ads content using OpenAI
+async function generateAdsContent(businessName, templateData, businessType, env) {
+  const prompt = `Generate high-converting ad copy for ${businessName}, a ${businessType} business.
+
+Business Context:
+- Name: ${businessName}
+- Type: ${businessType}
+- Description: ${templateData.businessDescription || templateData.aboutContent || 'Innovative business solution'}
+- Target Audience: ${templateData.targetAudience || 'Professionals and businesses'}
+- Value Proposition: ${templateData.tagline || 'Transform your business'}
+
+Generate ad copy for three platforms:
+
+1. LinkedIn Ads (Professional/B2B):
+- Primary Text: 150-200 characters, professional tone, business-focused
+- Headline: 40 characters max, compelling and professional
+- Description: 60 characters max, business value proposition
+- CTA: "LEARN_MORE", "GET_DEMO", "CONTACT_US", or similar
+
+2. Meta Ads (Facebook/Instagram):
+- Primary Text: 125 characters max, engaging and conversational
+- Headline: 40 characters max, attention-grabbing
+- Description: 30 characters max, benefit-focused
+- CTA: "SIGN_UP", "GET_STARTED", "LEARN_MORE", or similar
+
+3. Instagram Ads:
+- Description: 125 characters max, visually appealing and engaging
+- Headline: 40 characters max, trendy and modern
+- CTA: "GET_STARTED", "SHOP_NOW", "LEARN_MORE", or similar
+
+Return ONLY a JSON object with this exact structure:
+{
+  "linkedIn": {
+    "primaryText": "text here",
+    "headline": "text here",
+    "description": "text here",
+    "cta": "LEARN_MORE"
+  },
+  "meta": {
+    "primaryText": "text here",
+    "headline": "text here",
+    "description": "text here",
+    "cta": "SIGN_UP"
+  },
+  "instagram": {
+    "description": "text here",
+    "headline": "text here",
+    "cta": "GET_STARTED"
+  }
+}`;
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'developer', content: 'You are an expert ad copywriter specialized in high-converting ad creatives for all social media platforms.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 500
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI API error: ${response.status}`);
+  }
+
+  const result = await response.json();
+  const aiResponse = result.choices[0].message.content.trim();
+  
+  // Parse the JSON response
+  try {
+    return JSON.parse(aiResponse);
+  } catch (parseError) {
+    console.error('Failed to parse AI response:', parseError);
+    // Fallback content
+    return {
+      linkedIn: {
+        primaryText: `Transform your business with ${businessName}. Professional solutions for modern companies.`,
+        headline: 'Transform Your Business',
+        description: 'Professional solutions',
+        cta: 'LEARN_MORE'
+      },
+      meta: {
+        primaryText: `Discover how ${businessName} can revolutionize your business. Get started today!`,
+        headline: 'Revolutionize Your Business',
+        description: 'Get started today',
+        cta: 'SIGN_UP'
+      },
+      instagram: {
+        description: `Transform your business with ${businessName}. Professional solutions that deliver results.`,
+        headline: 'Transform Your Business',
+        cta: 'GET_STARTED'
+      }
+    };
+  }
+}
+
+// Helper function to generate image prompt for ads
+async function generateImagePromptForAds(businessName, templateData, businessType, env) {
+  const prompt = `Generate an optimal image generation prompt for ${businessName}, a ${businessType} business.
+
+Business Context:
+- Name: ${businessName}
+- Type: ${businessType}
+- Description: ${templateData.businessDescription || templateData.aboutContent || 'Innovative business solution'}
+- Industry: ${businessType}
+
+Create a professional, high-converting ad background image prompt that:
+- Represents the business type and industry
+- Has good contrast for text overlay
+- Looks modern and trustworthy
+- Appeals to the target audience
+- Follows current advertising design trends
+- Is suitable for all social media platforms (LinkedIn, Meta, Instagram)
+
+The image should be:
+- High quality and professional
+- Relevant to the business
+- Visually appealing
+- Suitable for text overlay
+- Modern and contemporary
+
+Return ONLY the image generation prompt, no additional text or formatting.`;
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'developer', content: 'You are an expert in advertising design and image generation prompts.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 200
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI API error: ${response.status}`);
+  }
+
+  const result = await response.json();
+  const aiResponse = result.choices[0].message.content.trim();
+  
+  // Clean up the response and ensure it's a good prompt
+  return aiResponse.replace(/^["']|["']$/g, '').trim();
 }
 
 // --- Business Info Auto-fill Handler ---
