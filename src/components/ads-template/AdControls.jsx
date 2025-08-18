@@ -1,4 +1,5 @@
 import React from 'react';
+import { getApiBaseUrl } from '../../config/environment';
 
 /**
  * Ad Controls Component for live-editing ad content and settings
@@ -10,6 +11,7 @@ import React from 'react';
  * @param {Function} props.onCopyChange - Callback for copy changes
  * @param {Function} props.onVisualChange - Callback for visual changes
  * @param {Function} props.onAspectRatioChange - Callback for aspect ratio changes
+ * @param {string|number} props.projectId - Current project id for image uploads
  */
 const AdControls = ({
   copy,
@@ -18,7 +20,8 @@ const AdControls = ({
   platform,
   onCopyChange,
   onVisualChange,
-  onAspectRatioChange
+  onAspectRatioChange,
+  projectId
 }) => {
   const ctaOptions = [
     'LEARN_MORE',
@@ -54,6 +57,24 @@ const AdControls = ({
       [field]: value
     });
     console.log('Visual changed:', field, value);
+  };
+
+  const handleUpload = async (file, targetField) => {
+    if (!file || !projectId) return;
+    try {
+      const formData = new FormData();
+      formData.append('project_id', projectId);
+      formData.append('file', file);
+      const res = await fetch(`${getApiBaseUrl()}/api/upload-image`, { method: 'POST', body: formData });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.url) {
+          handleVisualChange(targetField, data.url);
+        }
+      }
+    } catch (err) {
+      console.error('Image upload failed', err);
+    }
   };
 
   const isLinkedIn = platform === 'linkedin';
@@ -271,55 +292,35 @@ const AdControls = ({
               />
             </div>
 
+            {/* Business Logo Upload */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Logo URL
-              </label>
-              <div className="space-y-2">
-                <input
-                  type="url"
-                  value={visual.logoUrl}
-                  onChange={(e) => handleVisualChange('logoUrl', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter logo URL..."
-                />
-                {visual.logoUrl && (
-                  <div className="flex items-center space-x-2">
-                    <img 
-                      src={visual.logoUrl} 
-                      alt="Business Logo" 
-                      className="w-12 h-12 object-cover rounded-lg border border-gray-200"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        console.log('Logo image failed to load');
-                      }}
-                    />
-                    <span className="text-xs text-gray-500">Logo Preview</span>
-                  </div>
-                )}
-              </div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Business Logo</label>
+              {visual.logoUrl ? (
+                <div className="flex items-center space-x-3 mb-2">
+                  <img src={visual.logoUrl} alt="Business Logo" className="w-12 h-12 object-cover rounded border" />
+                  <span className="text-xs text-gray-500">Read-only</span>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500">No logo available</p>
+              )}
             </div>
 
-            {/* Ad Image is automatically generated and managed by AI - not editable by user */}
-            {visual.imageUrl && (
-              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="flex items-center space-x-2">
-                  <img 
-                    src={visual.imageUrl} 
-                    alt="Generated Ad Image" 
-                    className="w-24 h-24 object-cover rounded-lg border border-gray-200"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      console.log('Ad image failed to load');
-                    }}
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">AI-Generated Ad Image</p>
-                    <p className="text-xs text-gray-500">Automatically generated and managed</p>
-                  </div>
+            {/* Ad Image Upload */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Ad Image</label>
+              {visual.imageUrl ? (
+                <div className="flex items-center space-x-3 mb-2">
+                  <img src={visual.imageUrl} alt="Ad Image" className="w-24 h-24 object-cover rounded border" />
+                  <span className="text-xs text-gray-500">Current ad image</span>
                 </div>
-              </div>
-            )}
+              ) : null}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleUpload(e.target.files?.[0], 'imageUrl')}
+                className="w-full"
+              />
+            </div>
 
 
           </div>

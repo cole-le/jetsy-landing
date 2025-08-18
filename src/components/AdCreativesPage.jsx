@@ -430,6 +430,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
                 onCopyChange={setLinkedInCopy}
                 onVisualChange={setLinkedInVisual}
                 onAspectRatioChange={setLinkedInAspectRatio}
+                projectId={projectId}
               />
             ) : activePlatform === 'meta' ? (
               <AdControls
@@ -440,6 +441,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
                 onCopyChange={setMetaCopy}
                 onVisualChange={setMetaVisual}
                 onAspectRatioChange={setMetaAspectRatio}
+                projectId={projectId}
               />
             ) : (
               <AdControls
@@ -450,6 +452,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
                 onCopyChange={setInstagramCopy}
                 onVisualChange={setInstagramVisual}
                 onAspectRatioChange={setInstagramAspectRatio}
+                projectId={projectId}
               />
             )}
           </div>
