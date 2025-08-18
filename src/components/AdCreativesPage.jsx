@@ -192,11 +192,11 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
             setInstagramVisual(prev => ({ ...prev, ...instagram.visual, imageUrl }));
           }
 
-          // Save ads data to database
+          // Save ads data to database with the newly generated content
           await saveAdsData({
-            linkedIn: { copy: linkedInCopy, visual: { ...linkedInVisual, imageUrl } },
-            meta: { copy: metaCopy, visual: { ...metaVisual, imageUrl } },
-            instagram: { copy: instagramCopy, visual: { ...instagramVisual, imageUrl } }
+            linkedIn: { copy: linkedIn.copy, visual: linkedIn.visual },
+            meta: { copy: meta.copy, visual: meta.visual },
+            instagram: { copy: instagram.copy, visual: instagram.visual }
           }, imageUrl, imageId);
 
           alert('Ads generated successfully with AI!');
@@ -234,6 +234,36 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
       console.log('Ads data saved successfully');
     } catch (error) {
       console.error('Error saving ads data:', error);
+    }
+  };
+
+  // Function to save user edits to ads copy
+  const saveAdsEdits = async () => {
+    try {
+      const currentAdsData = {
+        linkedIn: { copy: linkedInCopy, visual: linkedInVisual },
+        meta: { copy: metaCopy, visual: metaVisual },
+        instagram: { copy: instagramCopy, visual: instagramVisual }
+      };
+
+      const response = await fetch(`${getApiBaseUrl()}/api/projects/${projectId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ads_data: JSON.stringify(currentAdsData),
+          ads_generated_at: new Date().toISOString()
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save ads edits');
+      }
+
+      alert('Ads edits saved successfully!');
+      console.log('Ads edits saved successfully');
+    } catch (error) {
+      console.error('Error saving ads edits:', error);
+      alert('Failed to save ads edits. Please try again.');
     }
   };
 
@@ -329,8 +359,8 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
           <p className="text-gray-600">Generate high-converting ad creatives for your business</p>
         </div>
 
-        {/* AI Generation Button */}
-        <div className="mb-8">
+        {/* AI Generation and Save Buttons */}
+        <div className="mb-8 flex flex-wrap gap-4 items-center">
           <button
             onClick={generateAdsWithAI}
             disabled={isGenerating}
@@ -338,8 +368,16 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
           >
             {isGenerating ? 'Generating Ads with AI...' : '🎨 Generate Ad with AI'}
           </button>
-          <p className="text-sm text-gray-500 mt-2">
-            AI will analyze your business and generate compelling ad copy and images for all platforms
+          
+          <button
+            onClick={saveAdsEdits}
+            className="bg-green-600 text-white py-4 px-8 rounded-xl font-semibold text-lg hover:bg-green-700 transition-all"
+          >
+            💾 Save All Changes
+          </button>
+          
+          <p className="text-sm text-gray-500 mt-2 w-full">
+            AI will analyze your business and generate compelling ad copy and images for all platforms. Use the Save button to persist your edits.
           </p>
         </div>
 

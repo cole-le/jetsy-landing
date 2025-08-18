@@ -300,36 +300,42 @@ const AdControls = ({
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ad Image URL *
-              </label>
-              <div className="space-y-2">
-                <input
-                  type="url"
-                  value={visual.imageUrl}
-                  onChange={(e) => handleVisualChange('imageUrl', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter ad image URL..."
-                />
-                {visual.imageUrl && (
-                  <div className="flex items-center space-x-2">
-                    <img 
-                      src={visual.imageUrl} 
-                      alt="Ad Image" 
-                      className="w-24 h-24 object-cover rounded-lg border border-gray-200"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        console.log('Ad image failed to load');
-                      }}
-                    />
-                    <span className="text-xs text-gray-500">Image Preview</span>
+            {/* Ad Image is automatically generated and managed by AI - not editable by user */}
+            {visual.imageUrl && (
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center space-x-2">
+                  <img 
+                    src={visual.imageUrl} 
+                    alt="Generated Ad Image" 
+                    className="w-24 h-24 object-cover rounded-lg border border-gray-200"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      console.log('Ad image failed to load');
+                    }}
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">AI-Generated Ad Image</p>
+                    <p className="text-xs text-gray-500">Automatically generated and managed</p>
                   </div>
-                )}
+                </div>
               </div>
+            )}
+
+            {/* Save Button for this platform */}
+            <div className="pt-4">
+              <button
+                onClick={() => {
+                  // This will be handled by the parent component's saveAdsEdits function
+                  alert('Use the "Save All Changes" button at the top to save your edits');
+                }}
+                className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              >
+                💾 Save {platform === 'linkedin' ? 'LinkedIn' : platform === 'meta' ? 'Meta' : 'Instagram'} Changes
+              </button>
+              <p className="text-xs text-gray-500 mt-2 text-center">
+                Changes are saved automatically when you use the main "Save All Changes" button
+              </p>
             </div>
-
-
           </div>
         </div>
       </div>
