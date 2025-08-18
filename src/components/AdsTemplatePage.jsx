@@ -7,66 +7,66 @@ import InstagramSingleImageAdPreview from './ads-template/InstagramSingleImageAd
 import AdControls from './ads-template/AdControls';
 
 const AdsTemplatePage = ({ onBackToHome }) => {
-  // Demo data as specified in requirements
-  const demoLinkedIn = {
+  // Placeholder data for ads template
+  const placeholderLinkedIn = {
     copy: {
-      primaryText: "Experience the thrill of luxury performance with our exclusive Ferrari collection.",
-      headline: "Luxury Redefined",
-      description: "Premium automotive excellence",
+      primaryText: "Introductory text - Describe your product or service here",
+      headline: "Headline text - Your main message",
+      description: "Description text - Additional details about your offering",
       cta: "LEARN_MORE",
-      linkUrl: "https://www.ferrari.com",
+      linkUrl: "https://example.com",
     },
     visual: {
-      imageUrl: "/ferrari.jpg",
-      logoUrl: "/ferrari_logo.jpg",
-      brandName: "Ferrari",
-      verified: true,
+      imageUrl: null, // Will be replaced with placeholder image component
+      logoUrl: null, // Will be replaced with placeholder logo
+      brandName: "Your Business Name",
+      verified: false,
     },
   };
 
-  const demoMeta = {
+  const placeholderMeta = {
     copy: {
-      primaryText: "Discover the perfect blend of power and elegance in our latest Ferrari models.",
-      headline: "Power Meets Elegance",
-      description: "Unmatched performance",
+      primaryText: "Introductory text - Describe your product or service here",
+      headline: "Headline text - Your main message",
+      description: "Description text - Additional details about your offering",
       cta: "SIGN_UP",
-      linkUrl: "https://www.ferrari.com",
+      linkUrl: "https://example.com",
     },
     visual: {
-      imageUrl: "/ferrari.jpg",
-      logoUrl: "/ferrari_logo.jpg",
-      brandName: "Ferrari",
+      imageUrl: null, // Will be replaced with placeholder image component
+      logoUrl: null, // Will be replaced with placeholder logo
+      brandName: "Your Business Name",
     },
   };
 
-  const demoInstagram = {
+  const placeholderInstagram = {
     copy: {
-      primaryText: "Feel the adrenaline rush with our stunning Ferrari sports cars.",
-      headline: "Adrenaline Rush",
-      description: "Pure driving pleasure",
+      primaryText: "Introductory text - Describe your product or service here",
+      headline: "Headline text - Your main message",
+      description: "Description text - Additional details about your offering",
       cta: "GET_STARTED",
-      linkUrl: "https://www.ferrari.com",
+      linkUrl: "https://example.com",
     },
     visual: {
-      imageUrl: "/ferrari.jpg",
-      logoUrl: "/ferrari_logo.jpg",
-      brandName: "Ferrari",
+      imageUrl: null, // Will be replaced with placeholder image component
+      logoUrl: null, // Will be replaced with placeholder logo
+      brandName: "Your Business Name",
     },
   };
 
   // State management
   const [activePlatform, setActivePlatform] = useState('linkedin'); // 'linkedin', 'meta', or 'instagram'
-  const [linkedInCopy, setLinkedInCopy] = useState(demoLinkedIn.copy);
-  const [linkedInVisual, setLinkedInVisual] = useState(demoLinkedIn.visual);
-  const [metaCopy, setMetaCopy] = useState(demoMeta.copy);
-  const [metaVisual, setMetaVisual] = useState(demoMeta.visual);
-  const [instagramCopy, setInstagramCopy] = useState(demoInstagram.copy);
-  const [instagramVisual, setInstagramVisual] = useState(demoInstagram.visual);
+  const [linkedInCopy, setLinkedInCopy] = useState(placeholderLinkedIn.copy);
+  const [linkedInVisual, setLinkedInVisual] = useState(placeholderLinkedIn.visual);
+  const [metaCopy, setMetaCopy] = useState(placeholderMeta.copy);
+  const [metaVisual, setMetaVisual] = useState(placeholderMeta.visual);
+  const [instagramCopy, setInstagramCopy] = useState(placeholderInstagram.copy);
+  const [instagramVisual, setInstagramVisual] = useState(placeholderInstagram.visual);
   const [linkedInAspectRatio, setLinkedInAspectRatio] = useState('1200×628');
-  const [metaAspectRatio, setMetaAspectRatio] = useState('1:1'); // Meta square format
-  const [instagramAspectRatio, setInstagramAspectRatio] = useState('1080×1080'); // Instagram square format
+  const [metaAspectRatio, setMetaAspectRatio] = useState('1:1');
+  const [instagramAspectRatio, setInstagramAspectRatio] = useState('1080×1080');
 
-  // Fallback image URLs for demo purposes - using Ferrari image as backup
+  // Fallback image URLs for demo purposes - only used if project has existing ads data
   const fallbackImages = {
     linkedIn: '/ferrari.jpg',
     meta: '/ferrari.jpg',
@@ -74,23 +74,23 @@ const AdsTemplatePage = ({ onBackToHome }) => {
     logo: '/ferrari_logo.jpg'
   };
 
-  // Update image URLs with fallbacks
+  // Update image URLs with fallbacks - use null to trigger placeholder components
   const linkedInVisualWithFallback = {
     ...linkedInVisual,
-    imageUrl: linkedInVisual.imageUrl || fallbackImages.linkedIn,
-    logoUrl: linkedInVisual.logoUrl || fallbackImages.logo
+    imageUrl: linkedInVisual.imageUrl || null,
+    logoUrl: linkedInVisual.logoUrl || null
   };
 
   const metaVisualWithFallback = {
     ...metaVisual,
-    imageUrl: metaVisual.imageUrl || fallbackImages.meta,
-    logoUrl: metaVisual.logoUrl || fallbackImages.logo
+    imageUrl: metaVisual.imageUrl || null,
+    logoUrl: metaVisual.logoUrl || null
   };
 
   const instagramVisualWithFallback = {
     ...instagramVisual,
-    imageUrl: instagramVisual.imageUrl || fallbackImages.instagram,
-    logoUrl: instagramVisual.logoUrl || fallbackImages.logo
+    imageUrl: instagramVisual.imageUrl || null,
+    logoUrl: instagramVisual.logoUrl || null
   };
 
   // Debug logging for image URLs

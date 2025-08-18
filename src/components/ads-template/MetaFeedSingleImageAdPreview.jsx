@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import PlaceholderImage from './PlaceholderImage';
+import PlaceholderLogo from './PlaceholderLogo';
 
 /**
  * Meta Feed Single Image Ad Preview Component
@@ -119,14 +121,18 @@ const MetaFeedSingleImageAdPreview = ({
       <div className="flex items-center justify-between p-3">
         <div className="flex items-center space-x-2">
           <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
-            <img 
-              src={visual.logoUrl} 
-              alt={`${visual.brandName} logo`}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                e.currentTarget.src = '/ferrari_logo.jpg';
-              }}
-            />
+            {visual.logoUrl ? (
+              <img 
+                src={visual.logoUrl} 
+                alt={`${visual.brandName} logo`}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.src = '/ferrari_logo.jpg';
+                }}
+              />
+            ) : (
+              <PlaceholderLogo />
+            )}
           </div>
           <div className="flex flex-col">
             <span className="font-bold text-gray-900 text-sm">{visual.brandName}</span>
@@ -148,43 +154,25 @@ const MetaFeedSingleImageAdPreview = ({
 
       {/* Primary Text */}
       <div className="px-3 pb-2">
-        <div className="text-sm text-gray-900 leading-relaxed">
-          {isExpanded ? (
-            formatTextWithLinks(copy.primaryText)
-          ) : (
-            <>
-              {formatTextWithLinks(truncateText(copy.primaryText, 93))}
-              {copy.primaryText.length > 93 && (
-                <span 
-                  className="text-gray-500 font-medium cursor-pointer hover:text-gray-700"
-                  onClick={() => setIsExpanded(true)}
-                >
-                  ...See more
-                </span>
-              )}
-            </>
-          )}
-          {isExpanded && (
-            <span 
-              className="text-gray-500 font-medium cursor-pointer hover:text-gray-700 ml-1"
-              onClick={() => setIsExpanded(false)}
-            >
-              See less
-            </span>
-          )}
-        </div>
+        <p className="text-gray-900 text-sm leading-relaxed">
+          {formatTextWithLinks(copy.primaryText)}
+        </p>
       </div>
 
       {/* Image */}
       <div className={`${imageHeight} w-full bg-gray-100 overflow-hidden`}>
-        <img 
-          src={visual.imageUrl} 
-          alt={`${visual.brandName} ad image`}
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            e.currentTarget.src = '/ferrari.jpg';
-          }}
-        />
+        {visual.imageUrl ? (
+          <img 
+            src={visual.imageUrl} 
+            alt={`${visual.brandName} ad image`}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              e.currentTarget.src = '/ferrari.jpg';
+            }}
+          />
+        ) : (
+          <PlaceholderImage aspectRatio={aspectRatio} />
+        )}
       </div>
 
       {/* Link Preview Section - Light Grey Background */}

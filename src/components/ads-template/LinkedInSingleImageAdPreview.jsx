@@ -1,4 +1,6 @@
 import React from 'react';
+import PlaceholderImage from './PlaceholderImage';
+import PlaceholderLogo from './PlaceholderLogo';
 
 /**
  * LinkedIn Single Image Ad Preview Component
@@ -87,14 +89,18 @@ const LinkedInSingleImageAdPreview = ({
       <div className="flex items-center justify-between p-3 border-b border-gray-100">
         <div className="flex items-center space-x-2">
           <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden">
-            <img 
-              src={visual.logoUrl} 
-              alt={`${visual.brandName} logo`}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                e.currentTarget.src = '/ferrari_logo.jpg';
-              }}
-            />
+            {visual.logoUrl ? (
+              <img 
+                src={visual.logoUrl} 
+                alt={`${visual.brandName} logo`}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.src = '/ferrari_logo.jpg';
+                }}
+              />
+            ) : (
+              <PlaceholderLogo />
+            )}
           </div>
           <div className="flex flex-col">
             <div className="flex items-center space-x-1">
@@ -115,32 +121,25 @@ const LinkedInSingleImageAdPreview = ({
 
       {/* Intro Text - LinkedIn displays this above the image */}
       <div className="px-3 py-2">
-        <p className="text-sm text-gray-900 leading-relaxed">
-          {isExpanded 
-            ? formatTextWithLinks(copy.primaryText)
-            : formatTextWithLinks(truncateText(copy.primaryText, 211))
-          }
-          {copy.primaryText.length > 211 && (
-            <span 
-              className="text-gray-500 font-medium cursor-pointer hover:text-gray-700 transition-colors"
-              onClick={() => setIsExpanded(!isExpanded)}
-            >
-              {isExpanded ? ' See less' : ' ...see more'}
-            </span>
-          )}
+        <p className="text-gray-900 text-sm leading-relaxed">
+          {formatTextWithLinks(copy.primaryText)}
         </p>
       </div>
 
       {/* Image */}
       <div className={`${imageHeight} w-full bg-gray-100 overflow-hidden`}>
-        <img 
-          src={visual.imageUrl} 
-          alt={`${visual.brandName} ad image`}
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            e.currentTarget.src = '/ferrari.jpg';
-          }}
-        />
+        {visual.imageUrl ? (
+          <img 
+            src={visual.imageUrl} 
+            alt={`${visual.brandName} ad image`}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              e.currentTarget.src = '/ferrari.jpg';
+            }}
+          />
+        ) : (
+          <PlaceholderImage aspectRatio={aspectRatio} />
+        )}
       </div>
 
       {/* Headline, Domain, and CTA Section - LinkedIn style with light blue background */}

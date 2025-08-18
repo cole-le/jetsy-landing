@@ -14,66 +14,66 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
   const [error, setError] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Default Ferrari ads template data for first load
-  const defaultAdsData = {
+  // Placeholder ads template data for projects with blank ads data
+  const placeholderAdsData = {
     linkedIn: {
       copy: {
-        primaryText: "Experience the thrill of luxury performance with our exclusive Ferrari collection.",
-        headline: "Luxury Redefined",
-        description: "Premium automotive excellence",
+        primaryText: "Introductory text - Describe your product or service here",
+        headline: "Headline text - Your main message",
+        description: "Description text - Additional details about your offering",
         cta: "LEARN_MORE",
-        linkUrl: "https://www.ferrari.com",
+        linkUrl: "https://example.com",
       },
       visual: {
-        imageUrl: "/ferrari.jpg",
-        logoUrl: "/ferrari_logo.jpg",
-        brandName: "Ferrari",
-        verified: true,
+        imageUrl: null, // Will be replaced with placeholder image component
+        logoUrl: null, // Will be replaced with placeholder logo
+        brandName: "Your Business Name",
+        verified: false,
       },
     },
     meta: {
       copy: {
-        primaryText: "Discover the perfect blend of power and elegance in our latest Ferrari models.",
-        headline: "Power Meets Elegance",
-        description: "Unmatched performance",
+        primaryText: "Introductory text - Describe your product or service here",
+        headline: "Headline text - Your main message",
+        description: "Description text - Additional details about your offering",
         cta: "SIGN_UP",
-        linkUrl: "https://www.ferrari.com",
+        linkUrl: "https://example.com",
       },
       visual: {
-        imageUrl: "/ferrari.jpg",
-        logoUrl: "/ferrari_logo.jpg",
-        brandName: "Ferrari",
+        imageUrl: null, // Will be replaced with placeholder image component
+        logoUrl: null, // Will be replaced with placeholder logo
+        brandName: "Your Business Name",
       },
     },
     instagram: {
       copy: {
-        primaryText: "Feel the adrenaline rush with our stunning Ferrari sports cars.",
-        headline: "Adrenaline Rush",
-        description: "Pure driving pleasure",
+        primaryText: "Introductory text - Describe your product or service here",
+        headline: "Headline text - Your main message",
+        description: "Description text - Additional details about your offering",
         cta: "GET_STARTED",
-        linkUrl: "https://www.ferrari.com",
+        linkUrl: "https://example.com",
       },
       visual: {
-        imageUrl: "/ferrari.jpg",
-        logoUrl: "/ferrari_logo.jpg",
-        brandName: "Ferrari",
+        imageUrl: null, // Will be replaced with placeholder image component
+        logoUrl: null, // Will be replaced with placeholder logo
+        brandName: "Your Business Name",
       },
     },
   };
 
   // State management for ads
   const [activePlatform, setActivePlatform] = useState('linkedin');
-  const [linkedInCopy, setLinkedInCopy] = useState(defaultAdsData.linkedIn.copy);
-  const [linkedInVisual, setLinkedInVisual] = useState(defaultAdsData.linkedIn.visual);
-  const [metaCopy, setMetaCopy] = useState(defaultAdsData.meta.copy);
-  const [metaVisual, setMetaVisual] = useState(defaultAdsData.meta.visual);
-  const [instagramCopy, setInstagramCopy] = useState(defaultAdsData.instagram.copy);
-  const [instagramVisual, setInstagramVisual] = useState(defaultAdsData.instagram.visual);
+  const [linkedInCopy, setLinkedInCopy] = useState(placeholderAdsData.linkedIn.copy);
+  const [linkedInVisual, setLinkedInVisual] = useState(placeholderAdsData.linkedIn.visual);
+  const [metaCopy, setMetaCopy] = useState(placeholderAdsData.meta.copy);
+  const [metaVisual, setMetaVisual] = useState(placeholderAdsData.meta.visual);
+  const [instagramCopy, setInstagramCopy] = useState(placeholderAdsData.instagram.copy);
+  const [instagramVisual, setInstagramVisual] = useState(placeholderAdsData.instagram.visual);
   const [linkedInAspectRatio, setLinkedInAspectRatio] = useState('1200×628');
   const [metaAspectRatio, setMetaAspectRatio] = useState('1:1');
   const [instagramAspectRatio, setInstagramAspectRatio] = useState('1080×1080');
 
-  // Fallback image URLs for demo purposes
+  // Fallback image URLs for demo purposes - only used if project has existing ads data
   const fallbackImages = {
     linkedIn: '/ferrari.jpg',
     meta: '/ferrari.jpg',
@@ -113,16 +113,16 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
         try {
           const adsData = JSON.parse(projectData.ads_data);
           if (adsData.linkedIn) {
-            setLinkedInCopy(adsData.linkedIn.copy || defaultAdsData.linkedIn.copy);
-            setLinkedInVisual(adsData.linkedIn.visual || defaultAdsData.linkedIn.visual);
+            setLinkedInCopy(adsData.linkedIn.copy || placeholderAdsData.linkedIn.copy);
+            setLinkedInVisual(adsData.linkedIn.visual || placeholderAdsData.linkedIn.visual);
           }
           if (adsData.meta) {
-            setMetaCopy(adsData.meta.copy || defaultAdsData.meta.copy);
-            setMetaVisual(adsData.meta.visual || defaultAdsData.meta.visual);
+            setMetaCopy(adsData.meta.copy || placeholderAdsData.meta.copy);
+            setMetaVisual(adsData.meta.visual || placeholderAdsData.meta.visual);
           }
           if (adsData.instagram) {
-            setInstagramCopy(adsData.instagram.copy || defaultAdsData.instagram.copy);
-            setInstagramVisual(adsData.instagram.visual || defaultAdsData.instagram.visual);
+            setInstagramCopy(adsData.instagram.copy || placeholderAdsData.instagram.copy);
+            setInstagramVisual(adsData.instagram.visual || placeholderAdsData.instagram.visual);
           }
         } catch (error) {
           console.error('Error parsing ads data:', error);
@@ -296,23 +296,23 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
     onNavigateToChat(projectId);
   };
 
-  // Update image URLs with fallbacks
+  // Update image URLs with fallbacks - only use fallbacks if project has existing ads data
   const linkedInVisualWithFallback = {
     ...linkedInVisual,
-    imageUrl: linkedInVisual.imageUrl || fallbackImages.linkedIn,
-    logoUrl: linkedInVisual.logoUrl || fallbackImages.logo
+    imageUrl: linkedInVisual.imageUrl || (project?.ads_data ? fallbackImages.linkedIn : null),
+    logoUrl: linkedInVisual.logoUrl || (project?.ads_data ? fallbackImages.logo : null)
   };
 
   const metaVisualWithFallback = {
     ...metaVisual,
-    imageUrl: metaVisual.imageUrl || fallbackImages.meta,
-    logoUrl: metaVisual.logoUrl || fallbackImages.logo
+    imageUrl: metaVisual.imageUrl || (project?.ads_data ? fallbackImages.meta : null),
+    logoUrl: metaVisual.logoUrl || (project?.ads_data ? fallbackImages.logo : null)
   };
 
   const instagramVisualWithFallback = {
     ...instagramVisual,
-    imageUrl: instagramVisual.imageUrl || fallbackImages.instagram,
-    logoUrl: instagramVisual.logoUrl || fallbackImages.logo
+    imageUrl: instagramVisual.imageUrl || (project?.ads_data ? fallbackImages.instagram : null),
+    logoUrl: instagramVisual.logoUrl || (project?.ads_data ? fallbackImages.logo : null)
   };
 
   if (loading) {

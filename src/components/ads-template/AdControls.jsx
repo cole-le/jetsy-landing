@@ -423,11 +423,22 @@ const AdControls = ({
                   >
                     Download
                   </button>
-                  <span className="text-xs text-gray-500">Read-only</span>
+                  <span className="text-xs text-gray-500">Current logo</span>
                 </div>
               ) : (
-                <p className="text-xs text-gray-500">No logo available</p>
+                <div className="mb-2">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 border-2 border-dashed border-blue-300 rounded-full flex items-center justify-center mb-2">
+                    <span className="text-blue-500 text-xs font-medium">Logo</span>
+                  </div>
+                  <span className="text-xs text-gray-500">No logo uploaded</span>
+                </div>
               )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleUpload(e.target.files?.[0], 'logoUrl')}
+                className="w-full"
+              />
             </div>
 
             {/* Ad Image Upload */}
@@ -446,7 +457,17 @@ const AdControls = ({
                   </button>
                   <span className="text-xs text-gray-500">Current ad image</span>
                 </div>
-              ) : null}
+              ) : (
+                <div className="mb-2">
+                  <div className="w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 border-2 border-dashed border-gray-300 rounded flex items-center justify-center mb-2">
+                    <div className="text-center">
+                      <div className="text-gray-500 text-sm font-medium">Ads image</div>
+                      <div className="text-gray-400 text-xs">Upload your image here</div>
+                    </div>
+                  </div>
+                  <span className="text-xs text-gray-500">No ad image uploaded</span>
+                </div>
+              )}
               <input
                 type="file"
                 accept="image/*"

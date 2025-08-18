@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import PlaceholderImage from './PlaceholderImage';
+import PlaceholderLogo from './PlaceholderLogo';
 
 /**
  * Instagram Single Image Ad Preview Component
@@ -98,14 +100,18 @@ const InstagramSingleImageAdPreview = ({
       <div className="flex items-center justify-between p-3 border-b border-gray-100">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden">
-            <img 
-              src={visual.logoUrl} 
-              alt={`${visual.brandName} logo`}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                e.currentTarget.src = '/ferrari_logo.jpg';
-              }}
-            />
+            {visual.logoUrl ? (
+              <img 
+                src={visual.logoUrl} 
+                alt={`${visual.brandName} logo`}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.src = '/ferrari_logo.jpg';
+                }}
+              />
+            ) : (
+              <PlaceholderLogo />
+            )}
           </div>
           <div className="flex flex-col">
             <span className="font-semibold text-gray-900 text-sm">{visual.brandName}</span>
@@ -121,14 +127,18 @@ const InstagramSingleImageAdPreview = ({
 
       {/* Image - Instagram is very visual-focused */}
       <div className={`${imageHeight} w-full bg-gray-100 overflow-hidden`}>
-        <img 
-          src={visual.imageUrl} 
-          alt={`${visual.brandName} ad image`}
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            e.currentTarget.src = '/ferrari.jpg';
-          }}
-        />
+        {visual.imageUrl ? (
+          <img 
+            src={visual.imageUrl} 
+            alt={`${visual.brandName} ad image`}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              e.currentTarget.src = '/ferrari.jpg';
+            }}
+          />
+        ) : (
+          <PlaceholderImage aspectRatio={aspectRatio} />
+        )}
       </div>
 
       {/* CTA Banner - Instagram style */}
