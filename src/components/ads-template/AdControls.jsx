@@ -154,54 +154,59 @@ const AdControls = ({
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                {isLinkedIn ? 'Introductory Text' : 'Primary Text'} *
+                {isLinkedIn ? 'Introductory Text' : isMeta ? 'Primary Text' : 'Description'} *
                 <span className="text-xs text-gray-500 ml-2">
                   {isLinkedIn 
                     ? `${copy.primaryText.length}/3000 chars (LinkedIn)`
-                    : `${copy.primaryText.length}/125 chars (${isMeta ? 'Meta' : 'Instagram'})`
+                    : isMeta
+                    ? `${copy.primaryText.length}/125 chars (Meta)`
+                    : `${copy.description?.length || 0}/2200 chars (Instagram) - Recommend 125 chars or less`
                   }
                 </span>
               </label>
               <textarea
-                value={copy.primaryText}
-                onChange={(e) => handleCopyChange('primaryText', e.target.value)}
+                value={isInstagram ? (copy.description || '') : copy.primaryText}
+                onChange={(e) => handleCopyChange(isInstagram ? 'description' : 'primaryText', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 rows={3}
-                placeholder={`Enter your ${isLinkedIn ? 'introductory' : 'primary'} ad text...`}
-                maxLength={isLinkedIn ? 3000 : 125}
+                placeholder={`Enter your ${isLinkedIn ? 'introductory' : isMeta ? 'primary' : 'description'} ad text...`}
+                maxLength={isLinkedIn ? 3000 : isMeta ? 125 : 2200}
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {isLinkedIn ? 'Headline *' : 'Headline (Optional)'}
-                <span className="text-xs text-gray-500 ml-2">
-                  {isLinkedIn 
-                    ? `${copy.headline?.length || 0}/200 chars (LinkedIn)`
-                    : `${copy.headline?.length || 0}/40 chars (${isMeta ? 'Meta' : 'Instagram'})`
-                  }
-                </span>
-              </label>
-              <input
-                type="text"
-                value={copy.headline || ''}
-                onChange={(e) => handleCopyChange('headline', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  isLinkedIn && !copy.headline ? 'border-red-300' : 'border-gray-300'
-                }`}
-                placeholder={isLinkedIn ? "Enter headline (required)..." : "Enter headline..."}
-                maxLength={isLinkedIn ? 200 : 40}
-                required={isLinkedIn}
-              />
-            </div>
+            {/* Headline field - only for LinkedIn and Meta */}
+            {!isInstagram && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {isLinkedIn ? 'Headline *' : 'Headline (Optional)'}
+                  <span className="text-xs text-gray-500 ml-2">
+                    {isLinkedIn 
+                      ? `${copy.headline?.length || 0}/200 chars (LinkedIn)`
+                      : `${copy.headline?.length || 0}/40 chars (Meta)`
+                    }
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  value={copy.headline || ''}
+                  onChange={(e) => handleCopyChange('headline', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    isLinkedIn && !copy.headline ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder={isLinkedIn ? "Enter your headline (required)..." : "Enter your headline (optional)..."}
+                  maxLength={isLinkedIn ? 200 : 40}
+                  required={isLinkedIn}
+                />
+              </div>
+            )}
 
-            {/* Description field for Meta and Instagram */}
-            {(isMeta || isInstagram) && (
+            {/* Description field - only for Meta */}
+            {isMeta && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Description (Optional)
                   <span className="text-xs text-gray-500 ml-2">
-                    {copy.description?.length || 0}/25 chars ({isMeta ? 'Meta' : 'Instagram'})
+                    {copy.description?.length || 0}/25 chars (Meta)
                   </span>
                 </label>
                 <input
@@ -209,7 +214,7 @@ const AdControls = ({
                   value={copy.description || ''}
                   onChange={(e) => handleCopyChange('description', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter description..."
+                  placeholder="Enter your description (optional)..."
                   maxLength={25}
                 />
               </div>

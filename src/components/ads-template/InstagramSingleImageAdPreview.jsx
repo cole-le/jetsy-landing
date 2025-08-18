@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 /**
  * Instagram Single Image Ad Preview Component
@@ -12,6 +12,8 @@ const InstagramSingleImageAdPreview = ({
   visual,
   aspectRatio
 }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
   const isSquare = aspectRatio === '1080×1080';
   const cardWidth = 'w-80';
   const imageHeight = isSquare ? 'h-80' : 'h-96';
@@ -19,6 +21,50 @@ const InstagramSingleImageAdPreview = ({
   const truncateText = (text, maxLength) => {
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + '...';
+  };
+
+  // Format text with blue links and preserve paragraph spacing
+  const formatTextWithLinks = (text) => {
+    if (!text) return '';
+    
+    // Split text by newlines to preserve paragraph spacing
+    const paragraphs = text.split('\n');
+    
+    return paragraphs.map((paragraph, index) => {
+      if (paragraph.trim() === '') {
+        // Empty paragraph - add spacing
+        return <div key={index} className="h-3"></div>;
+      }
+      
+      // Replace URLs with blue links
+      const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
+      const parts = paragraph.split(urlRegex);
+      
+      const formattedParts = parts.map((part, partIndex) => {
+        if (urlRegex.test(part)) {
+          // This is a URL - make it blue and clickable
+          const url = part.startsWith('www.') ? `https://${part}` : part;
+          return (
+            <a
+              key={partIndex}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline"
+            >
+              {part}
+            </a>
+          );
+        }
+        return part;
+      });
+      
+      return (
+        <div key={index} className="mb-2 last:mb-0">
+          {formattedParts}
+        </div>
+      );
+    });
   };
 
   const getCTALabel = (cta) => {
@@ -63,7 +109,7 @@ const InstagramSingleImageAdPreview = ({
           </div>
           <div className="flex flex-col">
             <span className="font-semibold text-gray-900 text-sm">{visual.brandName}</span>
-            <span className="text-xs text-gray-500">Sponsored</span>
+            <span className="text-xs text-gray-500">Ad</span>
           </div>
         </div>
         <button className="p-1 hover:bg-gray-100 rounded">
@@ -83,6 +129,16 @@ const InstagramSingleImageAdPreview = ({
             e.currentTarget.src = '/ferrari.jpg';
           }}
         />
+      </div>
+
+      {/* CTA Banner - Instagram style */}
+      <div className="px-3 py-3 border-t border-gray-100 border-l border-r border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-gray-900">{getCTALabel(copy.cta)}</span>
+          <svg className="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+          </svg>
+        </div>
       </div>
 
       {/* Action Buttons - Instagram style */}
@@ -110,43 +166,40 @@ const InstagramSingleImageAdPreview = ({
         </button>
       </div>
 
-      {/* Caption Section - Instagram style */}
+      {/* Caption Section - Instagram style with only Description */}
       <div className="px-3 pb-3">
-        {/* Primary Text */}
-        <div className="mb-2">
-          <p className="text-sm text-gray-900 leading-relaxed">
-            <span className="font-semibold text-gray-900">{visual.brandName}</span>{' '}
-            {truncateText(copy.primaryText, 125)}
-            {copy.primaryText.length > 125 && (
-              <span className="text-blue-600 font-medium cursor-pointer"> more</span>
-            )}
-          </p>
-        </div>
-
-        {/* Headline - Instagram displays this prominently */}
-        {copy.headline && (
-          <div className="mb-2">
-            <p className="text-sm font-semibold text-gray-900">
-              {copy.headline}
-            </p>
-          </div>
-        )}
-
-        {/* Description - Instagram specific field */}
+        {/* Description only - with expandable functionality */}
         {copy.description && (
           <div className="mb-2">
-            <p className="text-sm text-gray-600">
-              {copy.description}
-            </p>
+            <div className="text-sm text-gray-900 leading-relaxed flex flex-wrap">
+              {/* Username in bold black on same line */}
+              <span className="font-bold text-black mr-1">{visual.brandName.toLowerCase()}</span>
+              {isExpanded ? (
+                formatTextWithLinks(copy.description)
+              ) : (
+                <>
+                  {formatTextWithLinks(truncateText(copy.description, 132))}
+                  {copy.description.length > 132 && (
+                    <span 
+                      className="text-gray-500 font-medium cursor-pointer hover:text-gray-700"
+                      onClick={() => setIsExpanded(true)}
+                    >
+                      ...more
+                    </span>
+                  )}
+                </>
+              )}
+              {isExpanded && (
+                <span 
+                  className="text-gray-500 font-medium cursor-pointer hover:text-gray-700 ml-1"
+                  onClick={() => setIsExpanded(false)}
+                >
+                  less
+                </span>
+              )}
+            </div>
           </div>
         )}
-
-        {/* CTA Button - Instagram style */}
-        <div className="mt-3">
-          <button className="bg-blue-600 text-white px-6 py-2 rounded-full font-medium hover:bg-blue-700 transition-colors text-sm">
-            {getCTALabel(copy.cta)}
-          </button>
-        </div>
       </div>
     </div>
   );
