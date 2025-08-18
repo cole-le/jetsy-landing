@@ -350,13 +350,27 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
             }}
           />
           
-          {/* Save Changes Button */}
-          <button
-            onClick={saveAdsEdits}
-            className="bg-black text-white px-6 py-2 rounded-lg hover:bg-gray-800 transition-colors font-medium"
-          >
-            Save Changes
-          </button>
+          {/* Header Actions: Generate + Save */}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={generateAdsWithAI}
+              disabled={isGenerating}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {isGenerating ? (
+                <span className="flex items-center space-x-2">
+                  <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+                  <span>Generating Ads...</span>
+                </span>
+              ) : '✨ Generate Ad with AI'}
+            </button>
+            <button
+              onClick={saveAdsEdits}
+              className="bg-black text-white px-6 py-2 rounded-lg hover:bg-gray-800 transition-colors font-medium"
+            >
+              Save Changes
+            </button>
+          </div>
         </div>
       </header>
 
@@ -365,17 +379,6 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">AI-Powered Ads Creation</h1>
           <p className="text-gray-600">Generate high-converting ad creatives for your business</p>
-        </div>
-
-        {/* AI Generation Button */}
-        <div className="mb-8">
-          <button
-            onClick={generateAdsWithAI}
-            disabled={isGenerating}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-8 rounded-xl font-semibold text-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          >
-            {isGenerating ? 'Generating Ads with AI...' : '🎨 Generate Ad with AI'}
-          </button>
         </div>
 
         {/* Platform Toggle */}
