@@ -304,6 +304,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const [templateData, setTemplateData] = useState(DEFAULT_TEMPLATE_DATA);
   const [isRegeneratingBusinessName, setIsRegeneratingBusinessName] = useState(false);
   const skipAutoSaveRef = useRef(false);
+  const [isRegeneratingLogo, setIsRegeneratingLogo] = useState(false);
 
 
 
@@ -990,17 +991,11 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                             className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded"
                           >Remove</button>
                           <button
+                            type="button"
                             onClick={async () => {
-                              if (!currentProject?.id) return;
-                              
+                              if (!currentProject?.id || isRegeneratingLogo) return;
                               try {
-                                // Show loading state
-                                const logoSection = document.querySelector('[data-logo-section]');
-                                if (logoSection) {
-                                  logoSection.innerHTML = '<div class="flex items-center space-x-2"><div class="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div><span class="text-sm text-purple-600">Generating new logo...</span></div>';
-                                }
-                                
-                                // Call AI image generation API for logo
+                                setIsRegeneratingLogo(true);
                                 const response = await fetch(`${getApiBaseUrl()}/api/generate-image`, {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
@@ -1011,69 +1006,31 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                                     number_of_images: 1
                                   })
                                 });
-                                
-                                if (response.ok) {
-                                  const result = await response.json();
-                                  if (result.success && result.images && result.images.length > 0) {
-                                    const newLogoUrl = result.images[0].url;
-                                    
-                                    // Update template data with new logo
-                                    setTemplateData(prev => ({ ...prev, businessLogoUrl: newLogoUrl }));
-                                    
-                                    // Save the updated template data to database
-                                    try {
-                                      const saveResponse = await fetch(`${getApiBaseUrl()}/api/projects/${currentProject.id}`, {
-                                        method: 'PUT',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                          template_data: {
-                                            ...templateData,
-                                            businessLogoUrl: newLogoUrl
-                                          }
-                                        })
-                                      });
-                                      
-                                      if (saveResponse.ok) {
-                                        console.log('New logo saved successfully');
-                                      } else {
-                                        console.error('Failed to save new logo');
-                                      }
-                                    } catch (error) {
-                                      console.error('Error saving new logo:', error);
-                                    }
-                                    
-                                    // Show success message
-                                    if (logoSection) {
-                                      logoSection.innerHTML = '<div class="text-sm text-green-600">✅ Logo regenerated successfully!</div>';
-                                      setTimeout(() => {
-                                        // Reset to normal view after 2 seconds
-                                        window.location.reload();
-                                      }, 2000);
-                                    }
-                                  } else {
-                                    throw new Error('No images generated');
-                                  }
-                                } else {
-                                  throw new Error(`HTTP ${response.status}`);
+                                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                                const result = await response.json();
+                                if (!(result.success && result.images && result.images.length > 0)) {
+                                  throw new Error('No images generated');
                                 }
+                                const newLogoUrl = result.images[0].url;
+                                setTemplateData(prev => ({ ...prev, businessLogoUrl: newLogoUrl }));
+                                // Rely on auto-save mechanism; no page reload
                               } catch (error) {
                                 console.error('Logo regeneration failed:', error);
-                                
-                                // Show error message
-                                const logoSection = document.querySelector('[data-logo-section]');
-                                if (logoSection) {
-                                  logoSection.innerHTML = '<div class="text-sm text-red-600">❌ Failed to regenerate logo. Please try again.</div>';
-                                  setTimeout(() => {
-                                    // Reset to normal view after 3 seconds
-                                    window.location.reload();
-                                  }, 3000);
-                                }
+                                alert('Failed to regenerate logo. Please try again.');
+                              } finally {
+                                setIsRegeneratingLogo(false);
                               }
                             }}
-                            className="px-3 py-2 text-sm bg-purple-100 hover:bg-purple-200 text-purple-700 rounded transition-colors"
-                            title="Generate new AI logo using current business name"
+                            disabled={isRegeneratingLogo}
+                            className={`px-3 py-1.5 text-xs rounded-md bg-black text-white hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed`}
+                            title="Regenerate business logo with AI (not saved until auto-save or manual save)"
                           >
-                            🎨 Regenerate Logo
+                            {isRegeneratingLogo ? (
+                              <span className="flex items-center space-x-2">
+                                <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></span>
+                                <span>Regenerating ...</span>
+                              </span>
+                            ) : '✨ Regenerate Logo with AI'}
                           </button>
                         </div>
                       </div>
