@@ -145,6 +145,27 @@ const AdControls = ({
     }
   };
 
+  const sanitize = (text) => (text || '').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'file';
+
+  const handleDownload = async (url, filename) => {
+    try {
+      const res = await fetch(url, { mode: 'cors' });
+      if (!res.ok) throw new Error('download failed');
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (e) {
+      // Fallback: open in new tab if direct download fails
+      window.open(url, '_blank');
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
 
@@ -394,6 +415,14 @@ const AdControls = ({
               {visual.logoUrl ? (
                 <div className="flex items-center space-x-3 mb-2">
                   <img src={visual.logoUrl} alt="Business Logo" className="w-12 h-12 object-cover rounded border" />
+                  <button
+                    type="button"
+                    onClick={() => handleDownload(visual.logoUrl, `${sanitize(visual.brandName)}-logo.jpg`)}
+                    className="px-2 py-1 text-xs rounded-md bg-white border border-gray-200 hover:bg-gray-50"
+                    title="Download business logo"
+                  >
+                    Download
+                  </button>
                   <span className="text-xs text-gray-500">Read-only</span>
                 </div>
               ) : (
@@ -407,6 +436,14 @@ const AdControls = ({
               {visual.imageUrl ? (
                 <div className="flex items-center space-x-3 mb-2">
                   <img src={visual.imageUrl} alt="Ad Image" className="w-24 h-24 object-cover rounded border" />
+                  <button
+                    type="button"
+                    onClick={() => handleDownload(visual.imageUrl, `${sanitize(visual.brandName)}-ad-image.jpg`) }
+                    className="px-2 py-1 text-xs rounded-md bg-white border border-gray-200 hover:bg-gray-50"
+                    title="Download ad image"
+                  >
+                    Download
+                  </button>
                   <span className="text-xs text-gray-500">Current ad image</span>
                 </div>
               ) : null}
