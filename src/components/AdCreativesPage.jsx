@@ -83,6 +83,15 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
 
   useEffect(() => {
     loadProjectData();
+    // Wire up global navbar actions for generate/save
+    const onGenerate = () => generateAdsWithAI();
+    const onSave = () => saveAdsEdits();
+    window.addEventListener('ad-creatives:generate', onGenerate);
+    window.addEventListener('ad-creatives:save', onSave);
+    return () => {
+      window.removeEventListener('ad-creatives:generate', onGenerate);
+      window.removeEventListener('ad-creatives:save', onSave);
+    };
   }, [projectId]);
 
   const loadProjectData = async () => {
@@ -157,6 +166,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
 
     try {
       setIsGenerating(true);
+      try { window.dispatchEvent(new CustomEvent('ad-creatives:loading', { detail: { isGenerating: true } })); } catch {}
       
       // Call AI to generate ads content and image
       const response = await fetch(`${getApiBaseUrl()}/api/generate-ads-with-ai`, {
@@ -211,6 +221,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
       alert('Failed to generate ads. Please try again.');
     } finally {
       setIsGenerating(false);
+      try { window.dispatchEvent(new CustomEvent('ad-creatives:loading', { detail: { isGenerating: false } })); } catch {}
     }
   };
 
@@ -325,58 +336,10 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header with Jetsy branding and workflow progress */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          {/* Logo */}
-          <div className="flex items-center space-x-4">
-            <img 
-              src="/jetsy_logo2.png" 
-              alt="Jetsy" 
-              className="h-8 w-auto"
-            />
-            <div className="text-sm text-gray-600">
-              <span className="font-medium">{project?.project_name}</span>
-            </div>
-          </div>
-          
-          {/* Workflow Progress Bar */}
-          <WorkflowProgressBar 
-            currentStage={2} 
-            projectId={projectId}
-            onStageClick={(stageId) => {
-              if (stageId === 1) {
-                handleNavigateToWebsiteCreation();
-              }
-            }}
-          />
-          
-          {/* Header Actions: Generate + Save */}
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={generateAdsWithAI}
-              disabled={isGenerating}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              {isGenerating ? (
-                <span className="flex items-center space-x-2">
-                  <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
-                  <span>Generating Ads...</span>
-                </span>
-              ) : '✨ Generate Ad with AI'}
-            </button>
-            <button
-              onClick={saveAdsEdits}
-              className="bg-black text-white px-6 py-2 rounded-lg hover:bg-gray-800 transition-colors font-medium"
-            >
-              Save Changes
-            </button>
-          </div>
-        </div>
-      </header>
+      {/* Header removed; actions now in main Navbar via isAdCreativesMode */}
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-6 py-6">
         
         {/* AI Copywriting Note (Sabri Suby) */}
         <div className="mb-3 flex items-center text-sm text-gray-600">

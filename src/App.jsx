@@ -510,6 +510,7 @@ function App() {
           onChatClick={handleChatClick}
           onSaveChanges={handleSaveChanges}
           isChatMode={currentStep === 'chat'}
+          isAdCreativesMode={currentStep === 'ad-creatives'}
           previewMode={previewMode}
           onPreviewModeChange={handlePreviewModeChange}
         />

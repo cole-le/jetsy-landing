@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import DeploymentButton from './DeploymentButton';
 import WorkflowProgressBar from './WorkflowProgressBar';
 
-const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, onChatClick, onSaveChanges, isChatMode = false, previewMode = 'desktop', onPreviewModeChange }) => {
+const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, onChatClick, onSaveChanges, isChatMode = false, isAdCreativesMode = false, previewMode = 'desktop', onPreviewModeChange }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [showPublishModal, setShowPublishModal] = useState(false);
+  const [isAdGenerating, setIsAdGenerating] = useState(false);
 
   // Get current project ID from localStorage
   React.useEffect(() => {
@@ -50,6 +51,18 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
     };
   }, [showPublishModal]);
 
+  // Sync ad-creatives loading state from page
+  React.useEffect(() => {
+    const onLoading = (e) => {
+      try {
+        setIsAdGenerating(!!e.detail?.isGenerating);
+      } catch {
+        setIsAdGenerating(false);
+      }
+    };
+    window.addEventListener('ad-creatives:loading', onLoading);
+    return () => window.removeEventListener('ad-creatives:loading', onLoading);
+  }, []);
 
 
   const handlePricingClick = (e) => {
@@ -133,7 +146,7 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
               </div>
 
               {/* Desktop Navigation and Account Actions */}
-              {!isChatMode && (
+              {!isChatMode && !isAdCreativesMode && (
                 <div className="hidden md:flex items-center space-x-8">
                   <button
                     onClick={onFAQClick}
@@ -161,7 +174,7 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
                 </div>
               )}
 
-              {/* Save Changes button (chat mode) or Mobile menu button */}
+              {/* Chat mode header content */}
               {isChatMode ? (
                 <div className="flex items-center space-x-3">
 
@@ -271,6 +284,36 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
                     </div>
                   )}
                 </div>
+              ) : isAdCreativesMode ? (
+                // Ad Creatives mode header content
+                <div className="flex items-center space-x-3">
+                  {/* Workflow Progress Bar with extra right spacing before Generate button */}
+                  <div className="mr-4 md:mr-6 lg:mr-8">
+                    <WorkflowProgressBar 
+                      currentStage={2} 
+                      projectId={currentProjectId || undefined}
+                    />
+                  </div>
+
+                  {/* Generate + Save */}
+                  <button
+                    onClick={() => window.dispatchEvent(new CustomEvent('ad-creatives:generate'))}
+                    disabled={isAdGenerating}
+                    className={`bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all disabled:opacity-60 disabled:cursor-not-allowed`}
+                  >
+                    {isAdGenerating ? (
+                      <span className="flex items-center gap-2">
+                        <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+                        <span>Generating Ads...</span>
+                      </span>
+                    ) : '🎨 Generate Ad with AI'}
+                  </button>
+                  <button 
+                    onClick={() => window.dispatchEvent(new CustomEvent('ad-creatives:save'))}
+                    className="px-6 py-2 bg-black hover:bg-gray-800 text-white rounded-lg transition-colors duration-200 font-semibold">
+                    Save Changes
+                  </button>
+                </div>
               ) : (
                 <div className="md:hidden">
                   <button
@@ -293,7 +336,7 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
       </div>
 
       {/* Mobile menu */}
-      {isMobileMenuOpen && (
+      {isMobileMenuOpen && !isAdCreativesMode && !isChatMode && (
         <div className="md:hidden bg-white/95 backdrop-blur-lg border-t border-gray-200/50">
           <div className="px-2 pt-2 pb-3 space-y-1">
             <button 
