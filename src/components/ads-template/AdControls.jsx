@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { getApiBaseUrl } from '../../config/environment';
 
 /**
@@ -23,6 +23,7 @@ const AdControls = ({
   onAspectRatioChange,
   projectId
 }) => {
+  const [isRegenerating, setIsRegenerating] = useState(false);
   const ctaOptions = [
     'LEARN_MORE',
     'SIGN_UP',
@@ -80,6 +81,43 @@ const AdControls = ({
   const isLinkedIn = platform === 'linkedin';
   const isMeta = platform === 'meta';
   const isInstagram = platform === 'instagram';
+
+  const handleRegenerateCopy = async () => {
+    try {
+      setIsRegenerating(true);
+      const resp = await fetch(`${getApiBaseUrl()}/api/generate-platform-ad-copy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, platform })
+      });
+      if (!resp.ok) throw new Error('Failed to regenerate copy');
+      const data = await resp.json();
+      if (data.success && data.copy) {
+        // Normalize payload to current copy shape
+        if (platform === 'instagram') {
+          onCopyChange({
+            ...copy,
+            description: data.copy.description || copy.description,
+            headline: data.copy.headline || copy.headline,
+            cta: data.copy.cta || copy.cta
+          });
+        } else {
+          onCopyChange({
+            ...copy,
+            primaryText: data.copy.primaryText || copy.primaryText,
+            headline: data.copy.headline || copy.headline,
+            description: data.copy.description || copy.description,
+            cta: data.copy.cta || copy.cta
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Regenerate copy failed:', e);
+      alert('Failed to regenerate copy. Please try again.');
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -173,6 +211,22 @@ const AdControls = ({
         <div>
           <h3 className="text-lg font-medium text-gray-900 mb-3">Ad Copy</h3>
           <div className="space-y-4">
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleRegenerateCopy}
+                className={`px-3 py-1.5 text-xs rounded-md bg-black text-white hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed`}
+                disabled={isRegenerating}
+                title="Regenerate this platform's copy with AI (not saved)"
+              >
+                {isRegenerating ? (
+                  <span className="flex items-center space-x-2">
+                    <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></span>
+                    <span>Regenerating ...</span>
+                  </span>
+                ) : '✨ Regenerate Copy with AI'}
+              </button>
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 {isLinkedIn ? 'Introductory Text' : isMeta ? 'Primary Text' : 'Description'} *

@@ -236,6 +236,14 @@ export default {
         return new Response(null, { status: 200, headers: corsHeaders });
       }
 
+      // --- Generate platform-specific ad copy only (no image, no DB save) ---
+      if (path === '/api/generate-platform-ad-copy' && request.method === 'POST') {
+        return await handleGeneratePlatformAdCopy(request, env, corsHeaders);
+      }
+      if (path === '/api/generate-platform-ad-copy' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
       // --- Business Info Auto-fill API ---
       if (path === '/api/auto-fill-business-info' && request.method === 'POST') {
         return await handleAutoFillBusinessInfo(request, env, corsHeaders);
@@ -630,7 +638,6 @@ async function handleLeadSubmissionV2(request, env, corsHeaders) {
     });
   }
 }
-
 // Handle onboarding submission
 async function handleOnboardingSubmission(request, env, corsHeaders) {
   try {
@@ -1224,7 +1231,6 @@ async function createProject(request, env, corsHeaders) {
     return new Response(JSON.stringify({ error: 'Failed to create project', details: error.message, stack: error.stack }), { status: 500, headers: corsHeaders });
   }
 }
-
 async function updateProjectFiles(id, request, env, corsHeaders) {
   const db = env.DB;
   try {
@@ -1840,6 +1846,61 @@ async function ensureAdsColumns(env) {
   }
 }
 
+async function handleGeneratePlatformAdCopy(request, env, corsHeaders) {
+  try {
+    const { projectId, platform } = await request.json();
+    if (!projectId || !platform) {
+      return new Response(JSON.stringify({ success: false, error: 'projectId and platform are required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    // Load project + template data for context
+    const db = env.DB;
+    const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+    if (!project) {
+      return new Response(JSON.stringify({ success: false, error: 'Project not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    let templateData = {};
+    try {
+      templateData = project.template_data
+        ? (typeof project.template_data === 'string' ? JSON.parse(project.template_data) : project.template_data)
+        : {};
+    } catch {}
+
+    const businessName = templateData.businessName || project.project_name || 'Your Business';
+    const businessType = await detectBusinessType(businessName, env);
+
+    const adsContent = await generateAdsContent(businessName, templateData, businessType, env);
+
+    let copy = null;
+    if (platform === 'linkedin') copy = adsContent.linkedIn;
+    else if (platform === 'meta') copy = adsContent.meta;
+    else if (platform === 'instagram') copy = adsContent.instagram;
+
+    if (!copy) {
+      return new Response(JSON.stringify({ success: false, error: 'Unsupported platform' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    return new Response(JSON.stringify({ success: true, platform, copy }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  } catch (err) {
+    return new Response(JSON.stringify({ success: false, error: err.message || 'Failed to generate copy' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+}
 // Helper function to ensure Vercel tables exist
 async function ensureVercelTables(env) {
   const db = env.DB;
@@ -2205,7 +2266,6 @@ function getExceptionalTemplateComponentCode() {
         img.src = imageUrl;
       });
     };
-
     // ExceptionalTemplate component (same as in ExceptionalTemplate.jsx)
     const ExceptionalTemplate = ({ 
       businessName = 'Your Amazing Startup',
@@ -4176,7 +4236,6 @@ async function addChatMessage(request, env, corsHeaders) {
     return new Response(JSON.stringify({ error: 'Failed to add chat message', details: error.message }), { status: 500, headers: corsHeaders });
   }
 }
-
 // --- LLM Orchestration Handler ---
 async function handleLLMOrchestration(request, env, corsHeaders) {
   try {
@@ -4668,11 +4727,9 @@ OUTPUT FORMAT (JSON ONLY):
   ],
   "processed_prompt": "cleaned_and_structured_prompt_for_stage_2"
 }
-
 Examples:
 - "add image to About section" → {"is_multi_step": false, "total_tasks": 1, "tasks": [{"id": 1, "type": "add_image", "section": "about", "details": "add image to About section", "priority": 1}], "processed_prompt": "add image to About section"}
 - "add image to About section, then change text in Hero section" → {"is_multi_step": true, "total_tasks": 2, "tasks": [{"id": 1, "type": "add_image", "section": "about", "details": "add image to About section", "priority": 1}, {"id": 2, "type": "change_text", "section": "hero", "details": "change text in Hero section", "priority": 2}], "processed_prompt": "add image to About section, then change text in Hero section"}
-
 Parse this request and return ONLY the JSON object.`;
 
   try {
@@ -5280,7 +5337,6 @@ AUTOMATIC PLACEHOLDER GENERATION:
 - When user says "add new section called Team" → Automatically create {GENERATED_IMAGE_URL_TEAM} and generate complete Team section code
 - NO MANUAL PLACEHOLDER SPECIFICATION NEEDED - The system automatically detects and includes the correct placeholders
 - CUSTOM SECTIONS: For any new section name, automatically create placeholder in format {GENERATED_IMAGE_URL_SECTIONNAME}
-
 TARGETED EDITING REQUIREMENTS:
 - When user requests changes to a specific section (e.g., "add image to About Us section"), ONLY modify that section
 - Preserve ALL existing images and sections that are not being modified
@@ -5289,7 +5345,6 @@ TARGETED EDITING REQUIREMENTS:
 - If a section already has an image placeholder, replace it with the new image URL
 - If a section doesn't have an image, add the appropriate placeholder
 - NEVER regenerate the entire file unless explicitly requested
-
 MULTI-STEP TASK HANDLING:
 - When user requests multiple changes (e.g., "add image to About section, then change text in Hero section, then delete Contact section"), execute ALL tasks in sequence
 - Parse complex requests into individual tasks and execute them one by one
@@ -5877,7 +5932,6 @@ async function uploadImageToR2(imageBytes, env, request, mimeType = 'image/jpeg'
     };
   }
 }
-
 // Save image metadata to database
 async function saveImageToDatabase(imageData, env) {
   try {
@@ -6469,7 +6523,6 @@ async function handleAnalyzeCode(request, env, corsHeaders) {
     });
   }
 }
-
 // Handle smart placeholder generation
 async function handleGeneratePlaceholders(request, env, corsHeaders) {
   try {
@@ -7084,7 +7137,6 @@ function generateIntelligentQuestions(userMessage) {
   
   return questions;
 }
-
 // Generate business info based on detected type
 function generateBusinessInfo(userMessage, detectedType) {
   const colorScheme = COLOR_SCHEMES[detectedType];
@@ -7714,12 +7766,10 @@ REQUIRED SECTIONS (ALL MUST BE INCLUDED):
 6. About - app benefits and description
 7. Contact - contact form and information
 8. Navigation - smooth scrolling header
-
 REQUIRED FORM FIELDS:
 - Email (required) for beta signup
 - Name, Email, Message for contact form
 - Submit button: "Join Beta" for signup, "Send" for contact
-
 REQUIRED FEATURES:
 - App store badges (Apple App Store and Google Play Store)
 - Mobile mockup/screenshot section
@@ -8353,14 +8403,12 @@ async function generateWebSearchedBackgroundPrompts(businessIdeaText, businessTy
     const instruction = `You are an expert prompt engineer for background image generation.
 Conduct a brief web search to understand visual themes relevant to the business idea and type.
 Then return STRICT JSON with two fields only: hero_background_prompt and about_background_prompt.
-
 Constraints for both prompts:
 - Ultra-relevant to the business idea and audience
 - 16:9 cinematic background, photographic or high-quality illustration
 - Darker tones or strong contrast to support overlay text readability
 - No text of any kind: no words, no lettering, no logos, no watermarks
 - Avoid brand names and copyrighted content
-
 Context:
 - Business type: ${businessType}
 - Business name: ${businessName}
@@ -8999,7 +9047,6 @@ Return ONLY the image generation prompt, no additional text.`;
     });
   }
 }
-
 // --- AI Ads Generation Handler ---
 async function handleGenerateAdsWithAI(request, env, corsHeaders) {
   try {
