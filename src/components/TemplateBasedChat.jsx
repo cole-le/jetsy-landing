@@ -302,6 +302,8 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const [showProjectPanel, setShowProjectPanel] = useState(false);
   const [isEditorMode, setIsEditorMode] = useState(false);
   const [templateData, setTemplateData] = useState(DEFAULT_TEMPLATE_DATA);
+  const [isRegeneratingBusinessName, setIsRegeneratingBusinessName] = useState(false);
+  const skipAutoSaveRef = useRef(false);
 
 
 
@@ -360,6 +362,11 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   // Auto-save template data when it changes
   useEffect(() => {
     if (currentProject?.id && isEditorMode) {
+      if (skipAutoSaveRef.current) {
+        // Skip this auto-save cycle (used after AI regeneration where user must click Save)
+        skipAutoSaveRef.current = false;
+        return;
+      }
       const saveTemplateData = async () => {
         try {
           const response = await fetch(`${getApiBaseUrl()}/api/projects/${currentProject.id}`, {
@@ -385,6 +392,32 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       return () => clearTimeout(timeoutId);
     }
   }, [templateData, currentProject?.id, isEditorMode]);
+
+  const handleRegenerateBusinessName = async () => {
+    if (!currentProject?.id || isRegeneratingBusinessName) return;
+    try {
+      setIsRegeneratingBusinessName(true);
+      const resp = await fetch(`${getApiBaseUrl()}/api/generate-business-name`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: currentProject.id, currentName: (templateData.businessName || '').trim() })
+      });
+      if (!resp.ok) throw new Error('Failed to generate business name');
+      const data = await resp.json();
+      if (data.success && data.businessName) {
+        // Suppress the next auto-save so user must click Save
+        skipAutoSaveRef.current = true;
+        setTemplateData(prev => ({ ...prev, businessName: data.businessName }));
+      } else {
+        throw new Error(data.error || 'No name returned');
+      }
+    } catch (e) {
+      console.error('Regenerate business name failed:', e);
+      alert('Failed to regenerate business name. Please try again.');
+    } finally {
+      setIsRegeneratingBusinessName(false);
+    }
+  };
 
   const getStoredProjectId = () => {
     return localStorage.getItem('jetsy_current_project_id');
@@ -894,6 +927,22 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                             maxLength={30}
                           />
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              onClick={handleRegenerateBusinessName}
+                              disabled={isRegeneratingBusinessName}
+                              className={`px-3 py-1.5 text-xs rounded-md bg-black text-white hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed`}
+                              title="Regenerate business name with AI (not saved)"
+                            >
+                              {isRegeneratingBusinessName ? (
+                                <span className="flex items-center space-x-2">
+                                  <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></span>
+                                  <span>Regenerating ...</span>
+                                </span>
+                              ) : '✨ Regenerate Business Name with AI'}
+                            </button>
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <label className="block text-xs font-medium text-gray-600">(appears in browser tab & search results)</label>

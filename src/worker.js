@@ -228,6 +228,14 @@ export default {
         return new Response(null, { status: 200, headers: corsHeaders });
       }
 
+      // --- Generate a business name only (no DB save) ---
+      if (path === '/api/generate-business-name' && request.method === 'POST') {
+        return await handleGenerateBusinessName(request, env, corsHeaders);
+      }
+      if (path === '/api/generate-business-name' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
       // --- AI Ads Generation API ---
       if (path === '/api/generate-ads-with-ai' && request.method === 'POST') {
         return await handleGenerateAdsWithAI(request, env, corsHeaders);
@@ -1962,6 +1970,118 @@ async function handleGeneratePlatformAdCopy(request, env, corsHeaders) {
     });
   } catch (err) {
     return new Response(JSON.stringify({ success: false, error: err.message || 'Failed to generate copy' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+}
+
+// --- Generate Business Name (no DB save) ---
+async function handleGenerateBusinessName(request, env, corsHeaders) {
+  try {
+    const { projectId, currentName } = await request.json();
+    if (!projectId) {
+      return new Response(JSON.stringify({ success: false, error: 'projectId is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    const db = env.DB;
+    if (!db) {
+      return new Response(JSON.stringify({ success: false, error: 'Database not available' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    // Try to find the explicitly flagged initial user message
+    let initial = await db
+      .prepare('SELECT message FROM chat_messages WHERE project_id = ? AND role = ? AND is_initial_message = 1 ORDER BY timestamp ASC LIMIT 1')
+      .bind(projectId, 'user')
+      .first();
+
+    // Fallback to earliest user message
+    if (!initial) {
+      initial = await db
+        .prepare('SELECT message FROM chat_messages WHERE project_id = ? AND role = ? ORDER BY timestamp ASC LIMIT 1')
+        .bind(projectId, 'user')
+        .first();
+    }
+
+    const initialIdea = initial?.message || 'An AI-powered landing page builder that creates high-converting pages for small businesses.';
+
+    if (!env.OPENAI_API_KEY) {
+      throw new Error('OpenAI API key is required but not found');
+    }
+
+    const systemPrompt = `You are a brand naming expert. Generate ONE distinctive, brandable business name based on the user's startup idea.\n\nConstraints:\n- 1 or 2 words only\n- Easy to pronounce and remember\n- Avoid hyphens, numbers, trademarks, and generic terms\n- Evoke the core feeling/benefit of the idea\n- If a current/previous name is provided, the new name MUST be different from it.\n\nReturn ONLY the name string with no quotes or extra text.`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Startup idea: ${initialIdea}\nCurrent/previous name: ${currentName || '(none provided)'}` }
+        ],
+        temperature: 0.8,
+        max_tokens: 32
+      })
+    });
+
+    if (!response.ok) {
+      const errTxt = await response.text();
+      throw new Error(`OpenAI error: ${response.status} ${errTxt}`);
+    }
+
+    const data = await response.json();
+    let name = (data.choices?.[0]?.message?.content || '').trim();
+    // Strip surrounding quotes if present
+    name = name.replace(/^"|"$/g, '').replace(/^'|'$/g, '').trim();
+
+    if (!name) {
+      throw new Error('Model did not return a business name');
+    }
+
+    // If the generated name equals current name, attempt one more time with higher creativity
+    if (currentName && name.toLowerCase() === String(currentName).toLowerCase()) {
+      const second = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `Startup idea: ${initialIdea}\nCurrent/previous name (avoid duplicates): ${currentName}` }
+          ],
+          temperature: 0.95,
+          max_tokens: 32
+        })
+      });
+      if (second.ok) {
+        const secondData = await second.json();
+        let alt = (secondData.choices?.[0]?.message?.content || '').trim();
+        alt = alt.replace(/^\"|\"$/g, '').replace(/^'|'$/g, '').trim();
+        if (alt && alt.toLowerCase() !== String(currentName).toLowerCase()) {
+          name = alt;
+        }
+      }
+    }
+
+    return new Response(JSON.stringify({ success: true, businessName: name }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  } catch (err) {
+    return new Response(JSON.stringify({ success: false, error: err.message || 'Failed to generate business name' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });
