@@ -307,6 +307,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const [isRegeneratingLogo, setIsRegeneratingLogo] = useState(false);
   const [isRegeneratingHeroBg, setIsRegeneratingHeroBg] = useState(false);
   const [isRegeneratingAboutBg, setIsRegeneratingAboutBg] = useState(false);
+  const isInitialLoadRef = useRef(true);
 
 
 
@@ -362,7 +363,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   // When we have a project, load any existing custom domain mapping
 
 
-  // Auto-save template data when it changes
+    // Auto-save template data when it changes
   useEffect(() => {
     if (currentProject?.id && isEditorMode) {
       if (skipAutoSaveRef.current) {
@@ -370,6 +371,25 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         skipAutoSaveRef.current = false;
         return;
       }
+      
+      // Skip auto-save on initial load to prevent unnecessary API calls
+      if (isInitialLoadRef.current) {
+        isInitialLoadRef.current = false;
+        return;
+      }
+      
+      // Only auto-save if we have meaningful changes and not just initial load
+      if (!templateData || Object.keys(templateData).length === 0) {
+        return;
+      }
+      
+      // Prevent auto-save if templateData is the same as DEFAULT_TEMPLATE_DATA (no real changes)
+      if (JSON.stringify(templateData) === JSON.stringify(DEFAULT_TEMPLATE_DATA)) {
+        return;
+      }
+      
+      console.log('🔄 Auto-save triggered for project:', currentProject.id, 'in', 10000, 'ms');
+      
       const saveTemplateData = async () => {
         try {
           const response = await fetch(`${getApiBaseUrl()}/api/projects/${currentProject.id}`, {
@@ -386,12 +406,18 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             console.error('Failed to auto-save template data');
           }
         } catch (error) {
-          console.error('Error auto-saving template data:', error);
+            console.error('Error auto-saving template data:', error);
         }
       };
 
-      // Debounce the save to avoid too many API calls
-      const timeoutId = setTimeout(saveTemplateData, 1000);
+      // Increased debounce time and added better conditions to prevent excessive API calls
+      const timeoutId = setTimeout(() => {
+        // Only save if we're still in editor mode and have a valid project
+        if (currentProject?.id && isEditorMode && templateData) {
+          saveTemplateData();
+        }
+      }, 10000); // Increased to 10 seconds for even better debouncing
+      
       return () => clearTimeout(timeoutId);
     }
   }, [templateData, currentProject?.id, isEditorMode]);

@@ -62,9 +62,13 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
       }
     };
     loadAdsState();
-    // refresh when project changes and also every 10s
-    const interval = setInterval(loadAdsState, 10000);
-    return () => { controller.abort(); clearInterval(interval); };
+    
+    // No need for periodic polling - data only changes when user makes changes
+    // The useEffect will re-run when currentProjectId changes, which is sufficient
+    
+    return () => { 
+      controller.abort(); 
+    };
   }, [currentProjectId]);
 
   // Close publish modal when clicking outside
