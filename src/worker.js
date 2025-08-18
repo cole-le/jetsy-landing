@@ -7446,6 +7446,38 @@ function generateBusinessInfo(userMessage, detectedType) {
   };
 }
 
+// Generate a short, descriptive project name from user message
+function generateDescriptiveProjectName(userMessage) {
+  // Remove common words and extract key business terms
+  const commonWords = ['i want to', 'create', 'build', 'make', 'start', 'launch', 'website', 'landing page', 'for', 'my', 'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'of', 'with', 'by'];
+  
+  let cleanMessage = userMessage.toLowerCase();
+  commonWords.forEach(word => {
+    cleanMessage = cleanMessage.replace(new RegExp(`\\b${word}\\b`, 'gi'), ' ');
+  });
+  
+  // Extract meaningful words (3+ characters, not just numbers)
+  const words = cleanMessage.split(/\s+/)
+    .filter(word => word.length >= 3 && /[a-zA-Z]/.test(word))
+    .slice(0, 3); // Take up to 3 most relevant words
+  
+  if (words.length === 0) {
+    return 'New Project';
+  }
+  
+  // Capitalize first letter of each word and join
+  const projectName = words.map(word => 
+    word.charAt(0).toUpperCase() + word.slice(1)
+  ).join(' ');
+  
+  // Ensure it's not too long
+  if (projectName.length > 40) {
+    return projectName.substring(0, 37) + '...';
+  }
+  
+  return projectName;
+}
+
 // Analyze user request for section targeting
 async function analyzeUserRequest(userMessage, projectFiles, env, projectId = null) {
   const messageLower = userMessage.toLowerCase();
@@ -8860,10 +8892,26 @@ async function handleTemplateGeneration(request, env, corsHeaders) {
     if (aboutBg) templateWithAssets.aboutBackgroundImage = aboutBg;
     if (logoUrl) templateWithAssets.businessLogoUrl = logoUrl;
 
+    // Generate a short, descriptive project name based on the business idea
+    let suggestedProjectName = null;
+    if (updatedTemplateData && updatedTemplateData.businessName) {
+      // Use the AI-generated business name as the project name
+      suggestedProjectName = updatedTemplateData.businessName;
+    } else {
+      // Fallback: generate a descriptive name from the user message
+      suggestedProjectName = generateDescriptiveProjectName(user_message);
+    }
+
+    // Ensure the project name is within character limits (max 40 characters)
+    if (suggestedProjectName && suggestedProjectName.length > 40) {
+      suggestedProjectName = suggestedProjectName.substring(0, 37) + '...';
+    }
+
     return new Response(JSON.stringify({
       success: true,
       template_data: templateWithAssets,
       generated_images: generatedImages,
+      suggested_project_name: suggestedProjectName,
       assistant_message: 'I\'ve generated a responsive landing page tailored to your business idea with custom background images! The template automatically adapts to all screen sizes.'
     }), {
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
@@ -8897,7 +8945,7 @@ RESPONSIVE DESIGN REQUIREMENTS:
 User Message: ${userMessage}
 
 Generate content for the following sections:
-1. businessName - Generate ONE distinctive, brandable business name if not clearly provided. Rules: 1-2 words, easy to pronounce and remember, avoid hyphens or numbers, avoid generic terms and trademarks, evoke the idea's core feeling/benefit. Return just the name string.
+1. businessName - Generate ONE distinctive, brandable business name if not clearly provided. Rules: 1-3 words max, easy to pronounce and remember, avoid hyphens or numbers, avoid generic terms and trademarks, evoke the idea's core feeling/benefit, keep it under 25 characters for optimal project naming. Return just the name string.
 2. seoTitle - Generate just the headline part of the SEO title (30-40 characters). The business name will be automatically added to create the full title. This should be a compelling value proposition or description that appears after "Business Name - " in browser tabs and search results. Examples: "Premium Coffee & Pastries", "AI-Powered Design Platform", "Luxury Real Estate Solutions"
 3. tagline - A powerful tagline that captures the value proposition
 4. heroDescription - A brief description for the hero section

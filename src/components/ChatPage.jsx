@@ -79,7 +79,7 @@ const ChatPage = ({ onBackToHome }) => {
   const createDefaultProject = async () => {
     try {
       const projectData = {
-        project_name: "AI Landing Page Builder",
+        project_name: "New Project",
         user_id: 1,
         files: {
           "src/App.jsx": `import React from 'react';\nimport './index.css';\nfunction App() {\n  return (\n    <div className=\"min-h-screen bg-gray-50\">\n      <div className=\"container mx-auto px-4 py-8\">\n        <h1 className=\"text-4xl font-bold text-center text-gray-900 mb-8\">Welcome to Your Landing Page</h1>\n        <p className=\"text-center text-gray-600 mb-8\">This is a placeholder. Start chatting to customize your landing page!</p>\n      </div>\n    </div>\n  );\n}\nexport default App;`,

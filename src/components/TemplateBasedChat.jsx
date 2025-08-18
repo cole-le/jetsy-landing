@@ -626,7 +626,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const createDefaultProject = async () => {
     try {
       const projectData = {
-        project_name: "AI Landing Page Builder",
+        project_name: "New Project",
         user_id: 1,
         files: {
           "src/App.jsx": `import React from 'react';\nimport './index.css';\nfunction App() {\n  return (\n    <div className=\"min-h-screen bg-gray-50\">\n      <div className=\"container mx-auto px-4 py-8\">\n        <h1 className=\"text-4xl font-bold text-center text-gray-900 mb-8\">Welcome to Your Landing Page</h1>\n        <p className=\"text-center text-gray-600 mb-8\">This is a placeholder. Start chatting to customize your landing page!</p>\n      </div>\n    </div>\n  );\n}\nexport default App;`,
@@ -734,6 +734,41 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             }
           } catch (error) {
             console.error('Error saving AI-generated template data:', error);
+          }
+        }
+
+        // Update project name if AI suggests a better one
+        if (result.suggested_project_name && result.suggested_project_name !== currentProject.project_name) {
+          try {
+            const updateNameResponse = await fetch(`${getApiBaseUrl()}/api/projects/${currentProject.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                project_name: result.suggested_project_name
+              })
+            });
+            
+            if (updateNameResponse.ok) {
+              console.log('Project name updated successfully:', result.suggested_project_name);
+              // Update the current project state with the new name
+              setCurrentProject(prev => ({
+                ...prev,
+                project_name: result.suggested_project_name
+              }));
+              
+              // Add a notification message about the name update
+              const nameUpdateMessage = {
+                id: Date.now() + 2,
+                role: 'assistant',
+                message: `✨ I've updated your project name to "${result.suggested_project_name}" to better reflect your business idea!`,
+                timestamp: new Date().toISOString()
+              };
+              setMessages(prev => [...prev, nameUpdateMessage]);
+            } else {
+              console.error('Failed to update project name');
+            }
+          } catch (error) {
+            console.error('Error updating project name:', error);
           }
         }
 

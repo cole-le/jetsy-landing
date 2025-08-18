@@ -48,6 +48,10 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
   // Create new project
   const createProject = async () => {
     if (!newProjectName.trim()) return;
+    if (newProjectName.trim().length > 40) {
+      setError('Project name must be 40 characters or less');
+      return;
+    }
 
     try {
       const projectData = {
@@ -85,6 +89,10 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
   // Rename project
   const renameProject = async () => {
     if (!editingProject || !newProjectName.trim()) return;
+    if (newProjectName.trim().length > 40) {
+      setError('Project name must be 40 characters or less');
+      return;
+    }
 
     try {
       const response = await fetch(`${getApiBaseUrl()}/api/projects/${editingProject.id}`, {
@@ -187,6 +195,9 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
             + New
           </button>
         </div>
+        <div className="text-xs text-gray-500 mt-2">
+          💡 Project names are automatically updated by AI to reflect your business idea. Keep them short and descriptive!
+        </div>
       </div>
 
       {/* Project List */}
@@ -283,9 +294,13 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
               value={newProjectName}
               onChange={(e) => setNewProjectName(e.target.value)}
               placeholder="Enter project name..."
+              maxLength={40}
               className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               onKeyPress={(e) => e.key === 'Enter' && createProject()}
             />
+            <div className="text-xs text-gray-500 mt-1 mb-3">
+              {newProjectName.length}/40 characters - Keep it short and descriptive
+            </div>
             <div className="flex justify-end space-x-3 mt-4">
               <button
                 onClick={() => {
@@ -318,9 +333,13 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
               value={newProjectName}
               onChange={(e) => setNewProjectName(e.target.value)}
               placeholder="Enter new project name..."
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              maxLength={40}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500"
               onKeyPress={(e) => e.key === 'Enter' && renameProject()}
             />
+            <div className="text-xs text-gray-500 mt-1 mb-3">
+              {newProjectName.length}/40 characters - Keep it short and descriptive
+            </div>
             <div className="flex justify-end space-x-3 mt-4">
               <button
                 onClick={() => {
