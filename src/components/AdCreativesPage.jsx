@@ -83,15 +83,6 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
 
   useEffect(() => {
     loadProjectData();
-    // Wire up global navbar actions for generate/save
-    const onGenerate = () => generateAdsWithAI();
-    const onSave = () => saveAdsEdits();
-    window.addEventListener('ad-creatives:generate', onGenerate);
-    window.addEventListener('ad-creatives:save', onSave);
-    return () => {
-      window.removeEventListener('ad-creatives:generate', onGenerate);
-      window.removeEventListener('ad-creatives:save', onSave);
-    };
   }, [projectId]);
 
   const loadProjectData = async () => {
@@ -161,7 +152,30 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
     }
   };
 
-  const generateAdsWithAI = async () => {
+  const saveAdsData = useCallback(async (adsData, imageUrl, imageId) => {
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/api/projects/${projectId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ads_data: JSON.stringify(adsData),
+          ads_generated_at: new Date().toISOString(),
+          ads_image_url: imageUrl,
+          ads_image_id: imageId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save ads data');
+      }
+
+      console.log('Ads data saved successfully');
+    } catch (error) {
+      console.error('Error saving ads data:', error);
+    }
+  }, [projectId]);
+
+  const generateAdsWithAI = useCallback(async () => {
     if (!project) return;
 
     try {
@@ -223,33 +237,10 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
       setIsGenerating(false);
       try { window.dispatchEvent(new CustomEvent('ad-creatives:loading', { detail: { isGenerating: false } })); } catch {}
     }
-  };
-
-  const saveAdsData = async (adsData, imageUrl, imageId) => {
-    try {
-      const response = await fetch(`${getApiBaseUrl()}/api/projects/${projectId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ads_data: JSON.stringify(adsData),
-          ads_generated_at: new Date().toISOString(),
-          ads_image_url: imageUrl,
-          ads_image_id: imageId
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save ads data');
-      }
-
-      console.log('Ads data saved successfully');
-    } catch (error) {
-      console.error('Error saving ads data:', error);
-    }
-  };
+  }, [project, projectId, saveAdsData]);
 
   // Function to save user edits to ads copy
-  const saveAdsEdits = async () => {
+  const saveAdsEdits = useCallback(async () => {
     try {
       const currentAdsData = {
         linkedIn: { copy: linkedInCopy, visual: linkedInVisual },
@@ -276,7 +267,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
       console.error('Error saving ads edits:', error);
       alert('Failed to save ads edits. Please try again.');
     }
-  };
+  }, [linkedInCopy, linkedInVisual, metaCopy, metaVisual, instagramCopy, instagramVisual, projectId]);
 
   // Prevent page scroll when hovering controls: only scroll the inner controls container
   const handleControlsWheel = useCallback((e) => {
@@ -295,6 +286,18 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
   const handleNavigateToWebsiteCreation = () => {
     onNavigateToChat(projectId);
   };
+
+  // Wire up global navbar actions for generate/save
+  useEffect(() => {
+    const onGenerate = () => generateAdsWithAI();
+    const onSave = () => saveAdsEdits();
+    window.addEventListener('ad-creatives:generate', onGenerate);
+    window.addEventListener('ad-creatives:save', onSave);
+    return () => {
+      window.removeEventListener('ad-creatives:generate', onGenerate);
+      window.removeEventListener('ad-creatives:save', onSave);
+    };
+  }, [generateAdsWithAI, saveAdsEdits]);
 
   // Update image URLs with fallbacks - only use fallbacks if project has existing ads data
   const linkedInVisualWithFallback = {
