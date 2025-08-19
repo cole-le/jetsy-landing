@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getApiBaseUrl } from '../config/environment';
-import { FaFacebook, FaLinkedin, FaInstagram, FaFacebookF } from 'react-icons/fa';
 import { SiLinkedin, SiFacebook, SiInstagram, SiYoutube } from 'react-icons/si';
 import LinkedInSingleImageAdPreview from './ads-template/LinkedInSingleImageAdPreview';
 import MetaFeedSingleImageAdPreview from './ads-template/MetaFeedSingleImageAdPreview';
@@ -267,6 +266,11 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
           }, imageUrl, imageId);
 
           alert('Ads generated successfully with AI!');
+          
+          // Auto-switch to Preview page on mobile after successful generation
+          if (isMobile) {
+            setMobileView('preview');
+          }
         } else {
           throw new Error(result.error || 'Failed to generate ads');
         }
@@ -460,18 +464,20 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
       {/* Main Content */}
       <div className={`max-w-7xl mx-auto px-6 py-6 ${isMobile ? 'pt-24' : ''} ${isMobile ? 'w-full overflow-x-hidden' : ''}`}>
         
-        {/* AI Copywriting Note (Sabri Suby) */}
-        <div className="mb-3 flex items-center text-sm text-gray-600">
-          <img
-            src="/sabri_suby.jpg"
-            alt="Sabri Suby"
-            className="w-5 h-5 rounded-full mr-2 border border-gray-200 object-cover"
-            onError={(e) => { e.target.style.display = 'none'; }}
-          />
-          <span>
-            Our AI follows <a href="https://www.youtube.com/@SabriSubyOfficial" target="_blank" rel="noopener noreferrer" className="underline font-medium inline-flex items-center"><SiYoutube className="w-3 h-3 mr-1 text-red-600" />Sabri Suby</a>'s direct‑response principles ("irresistible offers"). He's a $100M+ entrepreneur and marketing strategist (author of "Sell Like Crazy") known for engineering high‑converting, offer‑driven campaigns—so your ads are crafted to win attention and drive action.
-          </span>
-        </div>
+        {/* AI Copywriting Note (Sabri Suby) - Hidden on mobile when in Preview mode */}
+        {(!isMobile || mobileView === 'ads-copy') && (
+          <div className="mb-3 flex items-center text-sm text-gray-600">
+            <img
+              src="/sabri_suby.jpg"
+              alt="Sabri Suby"
+              className="w-5 h-5 rounded-full mr-2 border border-gray-200 object-cover"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+            <span>
+              Our AI follows <a href="https://www.youtube.com/@SabriSubyOfficial" target="_blank" rel="noopener noreferrer" className="underline font-medium inline-flex items-center"><SiYoutube className="w-3 h-3 mr-1 text-red-600" />Sabri Suby</a>'s direct‑response principles ("irresistible offers"). He's a $100M+ entrepreneur and marketing strategist (author of "Sell Like Crazy") known for engineering high‑converting, offer‑driven campaigns—so your ads are crafted to win attention and drive action.
+            </span>
+          </div>
+        )}
 
         {/* Platform Toggle - Only show in Ads Copy view */}
         {(!isMobile || mobileView === 'ads-copy') && (
