@@ -431,32 +431,10 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
 
             {/* Right side buttons */}
             <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
-              <button
-                onClick={generateAdsWithAI}
-                disabled={isGenerating}
-                className={`px-2 sm:px-3 py-2 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
-                  isGenerating 
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                    : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700'
-                }`}
-              >
-                {isGenerating ? (
-                  <span className="flex items-center space-x-1">
-                    <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></span>
-                    <span className="hidden sm:inline">Generating...</span>
-                    <span className="sm:hidden">Gen...</span>
-                  </span>
-                ) : (
-                  <>
-                    <span className="hidden sm:inline">✨ Generate Ad with AI</span>
-                    <span className="sm:hidden">✨ Generate</span>
-                  </>
-                )}
-              </button>
               <button 
                 onClick={saveAdsEdits}
                 className="px-2 sm:px-3 py-2 text-xs font-medium bg-black hover:bg-gray-800 text-white rounded-lg transition-colors whitespace-nowrap">
-                Saves
+                Save
               </button>
             </div>
           </div>
@@ -466,6 +444,30 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
       {/* Main Content */}
       <div className={`max-w-7xl mx-auto px-6 py-6 ${isMobile ? 'pt-24' : ''} ${isMobile ? 'w-full overflow-x-hidden' : ''}`}>
         
+        {/* Generate Button - Only show on mobile */}
+        {isMobile && (
+          <div className="mb-4">
+            <button
+              onClick={generateAdsWithAI}
+              disabled={isGenerating}
+              className={`w-full px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                isGenerating 
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                  : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700'
+              }`}
+            >
+              {isGenerating ? (
+                <span className="flex items-center justify-center space-x-2">
+                  <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+                  <span>Generating...</span>
+                </span>
+              ) : (
+                '✨ Generate Ad with AI'
+              )}
+            </button>
+          </div>
+        )}
+
         {/* AI Copywriting Note (Sabri Suby) - Hidden on mobile when in Preview mode */}
         {(!isMobile || mobileView === 'ads-copy') && (
           <div className="mb-3 flex items-center text-sm text-gray-600">
