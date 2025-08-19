@@ -22,6 +22,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run deploy:staging` - Deploy to staging environment
 - `npm run deploy:production` - Deploy to production environment
 
+### Production Deployment Commands
+```bash
+# 1. Build the main website
+cd jetsy-pages && npm run build
+
+# 2. Deploy main website to production
+npx wrangler pages deploy dist --project-name=jetsy-pages --branch=main
+
+# 3. Deploy worker to production
+npx wrangler deploy --config wrangler.worker.toml
+```
+
 ### Testing & Utilities
 - `npm run test:image` - Test image generation functionality
 - `npm run test:option2` - Test hybrid option functionality
