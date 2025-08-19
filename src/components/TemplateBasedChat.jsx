@@ -1186,7 +1186,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       {/* Inject mobile viewport styles */}
       <style dangerouslySetInnerHTML={{ __html: getMobileViewportStyles(effectivePreviewMode) }} />
       {/* Left Side - Chat/Editor Panel */}
-      <div className={`${mobileView === 'chat' ? 'flex' : 'hidden'} lg:flex lg:w-1/3 bg-white border-r border-gray-200 flex-col`}>
+      <div className={`${mobileView === 'chat' ? 'flex' : 'hidden'} lg:flex lg:w-1/4 bg-white border-r border-gray-200 flex-col`}>
         {/* Header */}
         {!isMobile && (
           <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-3 lg:py-4">
@@ -2490,7 +2490,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       </div>
 
       {/* Right Side - Live Preview */}
-      <div className={`${mobileView === 'preview' ? 'flex' : 'hidden'} lg:flex lg:w-2/3 bg-white flex flex-col`}>
+      <div className={`${mobileView === 'preview' ? 'flex' : 'hidden'} lg:flex lg:w-3/4 bg-white flex flex-col`}>
         {/* Preview Header - Hidden on mobile */}
         {!isMobile && (
           <div className="bg-gray-50 border-b border-gray-200 px-6 py-3">
