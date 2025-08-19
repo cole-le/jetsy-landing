@@ -420,7 +420,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
                 onClick={() => setShowWorkflowPanel(true)}
                 className="flex items-center space-x-2 text-center hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors min-w-0 relative max-w-full"
               >
-                <span className="text-sm font-medium text-gray-900 truncate max-w-[80px] sm:max-w-[100px]">
+                <span className="text-sm font-medium text-gray-900 truncate max-w-[120px] sm:max-w-[160px]">
                   {project?.project_name || 'Loading...'}
                 </span>
                 <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
