@@ -1194,7 +1194,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             // Chat Mode
             <>
                               {/* Messages */}
-                <div className={`h-[calc(100vh-400px)] overflow-y-auto p-6 space-y-4 ${isMobile ? 'pt-20' : ''}`}>
+                <div className={`h-[calc(100vh-400px)] overflow-y-auto p-6 space-y-4 ${isMobile ? 'pt-4' : ''}`}>
                 {messages.map((message) => (
                   <div
                     key={message.id}
@@ -1327,7 +1327,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             </>
           ) : (
             // Editor Mode
-            <div className={`flex-1 p-6 overflow-y-auto ${isMobile ? 'pt-20' : ''}`}>
+            <div className={`flex-1 p-6 overflow-y-auto ${isMobile ? 'pt-4' : ''}`}>
               <div className="space-y-6">
                 <div>
                   {initialUserIdea ? (
