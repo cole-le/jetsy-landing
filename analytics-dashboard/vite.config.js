@@ -18,7 +18,7 @@ export default defineConfig({
     port: 3001,
     proxy: {
       '/api': {
-        target: 'https://jetsy-analytics-dashboard.letrungkien208.workers.dev',
+        target: 'https://jetsy-analytics-dashboard.jetsydev.workers.dev',
         changeOrigin: true,
         secure: true
       }

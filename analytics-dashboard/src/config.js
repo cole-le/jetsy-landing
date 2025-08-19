@@ -1,5 +1,5 @@
 // API Configuration
-export const API_BASE_URL = 'https://jetsy-analytics-dashboard.letrungkien208.workers.dev'
+export const API_BASE_URL = 'https://jetsy-analytics-dashboard.jetsydev.workers.dev'
 
 // Environment-based configuration
 export const config = {
