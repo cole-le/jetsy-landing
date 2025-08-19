@@ -653,10 +653,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
 
       {/* Mobile Toggle Bar - Only visible on mobile */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-transparent z-30">
-        <div className="flex items-center justify-between px-3 py-2 w-full max-w-full overflow-hidden">
-          {/* Spacer to balance the right globe button and keep center group truly centered */}
-          <div className="w-11 flex-shrink-0" />
-
+        <div className="flex items-center justify-center px-3 py-2 w-full max-w-full overflow-hidden">
           {/* Centered compact toggle buttons */}
           <div className="flex items-center gap-2 mx-auto flex-shrink-0">
             <button
@@ -679,21 +676,6 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
               }`}
             >
               <span className="text-xs sm:text-sm">Preview</span>
-            </button>
-          </div>
-
-          {/* Globe secondary action button */}
-          <div className="w-11 flex-shrink-0">
-            <button
-              onClick={() => setShowWorkflowPanel(true)}
-              aria-label="Globe"
-              className="w-11 h-11 flex items-center justify-center rounded-md bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-                <circle cx="12" cy="12" r="10"></circle>
-                <path d="M2 12h20"></path>
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-              </svg>
             </button>
           </div>
         </div>
