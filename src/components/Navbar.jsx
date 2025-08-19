@@ -305,16 +305,18 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
                     </div>
                   )}
                   
-                  {/* Projects Button - Show on mobile in chat mode */}
-                  <button
-                    onClick={() => {
-                      // This will trigger the project panel in TemplateBasedChat
-                      window.dispatchEvent(new CustomEvent('toggle-project-panel'));
-                    }}
-                    className="px-2 sm:px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                  >
-                    {isMobile ? 'Proj' : 'Projects'}
-                  </button>
+                  {/* Projects Button - Show on mobile in chat mode, hidden on desktop */}
+                  {isMobile && (
+                    <button
+                      onClick={() => {
+                        // This will trigger the project panel in TemplateBasedChat
+                        window.dispatchEvent(new CustomEvent('toggle-project-panel'));
+                      }}
+                      className="px-2 sm:px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                    >
+                      {isMobile ? 'Proj' : 'Projects'}
+                    </button>
+                  )}
                   
                   <button 
                     onClick={onSaveChanges}
