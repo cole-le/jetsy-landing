@@ -500,8 +500,8 @@ function App() {
 
   return (
     <div className="min-h-screen">
-      {/* Navbar (hidden on public full-screen route) */}
-      {currentStep !== 'public-route' && (
+      {/* Navbar (hidden on public full-screen route and ad-creatives mode) */}
+      {currentStep !== 'public-route' && currentStep !== 'ad-creatives' && (
         <Navbar 
           onPricingClick={handleNavbarPricingClick} 
           onFAQClick={handleFAQClick} 

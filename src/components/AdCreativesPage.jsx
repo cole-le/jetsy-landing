@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getApiBaseUrl } from '../config/environment';
-import WorkflowProgressBar from './WorkflowProgressBar';
 import { FaFacebook, FaLinkedin, FaInstagram, FaFacebookF } from 'react-icons/fa';
 import { SiLinkedin, SiFacebook, SiInstagram, SiYoutube } from 'react-icons/si';
 import LinkedInSingleImageAdPreview from './ads-template/LinkedInSingleImageAdPreview';
@@ -13,6 +12,11 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // Mobile responsiveness state
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileView, setMobileView] = useState('ads-copy'); // 'ads-copy' or 'preview'
+  const [showWorkflowPanel, setShowWorkflowPanel] = useState(false);
 
   // Placeholder ads template data for projects with blank ads data
   const placeholderAdsData = {
@@ -80,6 +84,45 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
     instagram: '/ferrari.jpg',
     logo: '/ferrari_logo.jpg'
   };
+
+  // Effect to detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      if (mobile) {
+        setMobileView('ads-copy'); // default to Ads Copy on mobile
+      }
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Effect to handle mobile view transitions smoothly
+  useEffect(() => {
+    if (isMobile && mobileView === 'preview') {
+      // Add a small delay to prevent layout shifts during view transitions
+      const timer = setTimeout(() => {
+        // Ensure smooth transition
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isMobile, mobileView]);
+
+  // Close workflow panel when clicking outside on mobile
+  useEffect(() => {
+    if (!showWorkflowPanel || !isMobile) return;
+    
+    const handleClickOutside = (event) => {
+      if (showWorkflowPanel && !event.target.closest('.workflow-panel-container')) {
+        setShowWorkflowPanel(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showWorkflowPanel, isMobile]);
 
   useEffect(() => {
     loadProjectData();
@@ -284,6 +327,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
   }, []);
 
   const handleNavigateToWebsiteCreation = () => {
+    setShowWorkflowPanel(false);
     onNavigateToChat(projectId);
   };
 
@@ -353,10 +397,68 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header removed; actions now in main Navbar via isAdCreativesMode */}
+      {/* Mobile Header - Similar to ChatPage */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
+        <div className="flex items-center h-16 px-4 w-full max-w-full overflow-hidden">
+          {/* Logo - positioned at far left */}
+          <div className="flex items-center flex-shrink-0">
+            <img 
+              src="/jetsy_colorful_transparent_horizontal.png" 
+              alt="Jetsy" 
+              className="h-8 w-auto max-w-[80px]"
+            />
+          </div>
+
+          {/* Centered Project Name Button */}
+          <div className="flex-1 flex justify-center min-w-0 px-2">
+            <button
+              onClick={() => setShowWorkflowPanel(true)}
+              className="flex items-center space-x-2 text-center hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors min-w-0 relative max-w-full"
+            >
+              <span className="text-sm font-medium text-gray-900 truncate max-w-[80px] sm:max-w-[100px]">
+                {project?.project_name || 'Loading...'}
+              </span>
+              <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Right side buttons */}
+          <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+            <button
+              onClick={generateAdsWithAI}
+              disabled={isGenerating}
+              className={`px-2 sm:px-3 py-2 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
+                isGenerating 
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                  : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700'
+              }`}
+            >
+              {isGenerating ? (
+                <span className="flex items-center space-x-1">
+                  <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></span>
+                  <span className="hidden sm:inline">Generating...</span>
+                  <span className="sm:hidden">Gen...</span>
+                </span>
+              ) : (
+                <>
+                  <span className="hidden sm:inline">✨ Generate Ad with AI</span>
+                  <span className="sm:hidden">✨ Generate</span>
+                </>
+              )}
+            </button>
+            <button 
+              onClick={saveAdsEdits}
+              className="px-2 sm:px-3 py-2 text-xs font-medium bg-black hover:bg-gray-800 text-white rounded-lg transition-colors whitespace-nowrap">
+              Saves
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className={`max-w-7xl mx-auto px-6 py-6 ${isMobile ? 'pt-24' : ''} ${isMobile ? 'w-full overflow-x-hidden' : ''}`}>
         
         {/* AI Copywriting Note (Sabri Suby) */}
         <div className="mb-3 flex items-center text-sm text-gray-600">
@@ -367,126 +469,263 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
             onError={(e) => { e.target.style.display = 'none'; }}
           />
           <span>
-            Our AI follows <a href="https://www.youtube.com/@SabriSubyOfficial" target="_blank" rel="noopener noreferrer" className="underline font-medium inline-flex items-center"><SiYoutube className="w-3 h-3 mr-1 text-red-600" />Sabri Suby</a>’s direct‑response principles ("irresistible offers"). He’s a $100M+ entrepreneur and marketing strategist (author of “Sell Like Crazy”) known for engineering high‑converting, offer‑driven campaigns—so your ads are crafted to win attention and drive action.
+            Our AI follows <a href="https://www.youtube.com/@SabriSubyOfficial" target="_blank" rel="noopener noreferrer" className="underline font-medium inline-flex items-center"><SiYoutube className="w-3 h-3 mr-1 text-red-600" />Sabri Suby</a>'s direct‑response principles ("irresistible offers"). He's a $100M+ entrepreneur and marketing strategist (author of "Sell Like Crazy") known for engineering high‑converting, offer‑driven campaigns—so your ads are crafted to win attention and drive action.
           </span>
         </div>
 
-        {/* Platform Toggle */}
-        <div className="mb-0">
-          <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
-            <button
-              onClick={() => setActivePlatform('linkedin')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
-                activePlatform === 'linkedin'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <SiLinkedin className="w-4 h-4 text-blue-600" />
-              <span>LinkedIn Ads</span>
-            </button>
-            <button
-              onClick={() => setActivePlatform('meta')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
-                activePlatform === 'meta'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <SiFacebook className="w-4 h-4 text-blue-600" />
-              <span>Meta Ads</span>
-            </button>
-            <button
-              onClick={() => setActivePlatform('instagram')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
-                activePlatform === 'instagram'
-                  ? 'bg-white text-pink-500 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <SiInstagram className="w-4 h-4 text-pink-500" />
-              <span>Instagram Ads</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Left Column - Controls (independent scroll) */}
-          <div className="lg:w-1/3">
-            <div
-              className="max-h-[calc(100vh-112px)] overflow-y-auto pr-2"
-              onWheel={handleControlsWheel}
-            >
-              {activePlatform === 'linkedin' ? (
-                <AdControls
-                  copy={linkedInCopy}
-                  visual={linkedInVisual}
-                  aspectRatio={linkedInAspectRatio}
-                  platform="linkedin"
-                  onCopyChange={setLinkedInCopy}
-                  onVisualChange={setLinkedInVisual}
-                  onAspectRatioChange={setLinkedInAspectRatio}
-                  projectId={projectId}
-                />
-              ) : activePlatform === 'meta' ? (
-                <AdControls
-                  copy={metaCopy}
-                  visual={metaVisual}
-                  aspectRatio={metaAspectRatio}
-                  platform="meta"
-                  onCopyChange={setMetaCopy}
-                  onVisualChange={setMetaVisual}
-                  onAspectRatioChange={setMetaAspectRatio}
-                  projectId={projectId}
-                />
-              ) : (
-                <AdControls
-                  copy={instagramCopy}
-                  visual={instagramVisual}
-                  aspectRatio={instagramAspectRatio}
-                  platform="instagram"
-                  onCopyChange={setInstagramCopy}
-                  onVisualChange={setInstagramVisual}
-                  onAspectRatioChange={setInstagramAspectRatio}
-                  projectId={projectId}
-                />
-              )}
+        {/* Platform Toggle - Only show in Ads Copy view */}
+        {(!isMobile || mobileView === 'ads-copy') && (
+          <div className="mb-0 w-full overflow-x-hidden">
+            <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit max-w-full">
+              <button
+                onClick={() => setActivePlatform('linkedin')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
+                  activePlatform === 'linkedin'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <SiLinkedin className="w-4 h-4 text-blue-600" />
+                <span>LinkedIn Ads</span>
+              </button>
+              <button
+                onClick={() => setActivePlatform('meta')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
+                  activePlatform === 'meta'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <SiFacebook className="w-4 h-4 text-blue-600" />
+                <span>Meta Ads</span>
+              </button>
+              <button
+                onClick={() => setActivePlatform('instagram')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
+                  activePlatform === 'instagram'
+                    ? 'bg-white text-pink-500 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <SiInstagram className="w-4 h-4 text-pink-500" />
+                <span>Instagram Ads</span>
+              </button>
             </div>
           </div>
+        )}
+
+        {/* Main Content - Responsive Layout */}
+        <div className={`${isMobile ? 'block w-full overflow-x-hidden' : 'flex flex-col lg:flex-row'} gap-6`}>
+          {/* Left Column - Controls (Ads Copy view) */}
+          {(!isMobile || mobileView === 'ads-copy') && (
+            <div className={`${isMobile ? 'w-full' : 'lg:w-1/3'}`}>
+              <div
+                className={`${isMobile ? 'max-h-[calc(100vh-200px)]' : 'max-h-[calc(100vh-112px)]'} overflow-y-auto pr-2`}
+                onWheel={handleControlsWheel}
+              >
+                {activePlatform === 'linkedin' ? (
+                  <AdControls
+                    copy={linkedInCopy}
+                    visual={linkedInVisual}
+                    aspectRatio={linkedInAspectRatio}
+                    platform="linkedin"
+                    onCopyChange={setLinkedInCopy}
+                    onVisualChange={setLinkedInVisual}
+                    onAspectRatioChange={setLinkedInAspectRatio}
+                    projectId={projectId}
+                  />
+                ) : activePlatform === 'meta' ? (
+                  <AdControls
+                    copy={metaCopy}
+                    visual={metaVisual}
+                    aspectRatio={metaAspectRatio}
+                    platform="meta"
+                    onCopyChange={setMetaCopy}
+                    onVisualChange={setMetaVisual}
+                    onAspectRatioChange={setMetaAspectRatio}
+                    projectId={projectId}
+                  />
+                ) : (
+                  <AdControls
+                    copy={instagramCopy}
+                    visual={instagramVisual}
+                    aspectRatio={instagramAspectRatio}
+                    platform="instagram"
+                    onCopyChange={setInstagramCopy}
+                    onVisualChange={setInstagramVisual}
+                    onAspectRatioChange={setInstagramAspectRatio}
+                    projectId={projectId}
+                  />
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Right Column - Preview */}
-          <div className="lg:w-2/3">
-            <div className="space-y-6">
-              {activePlatform === 'linkedin' ? (
-                <div className="flex justify-center">
-                  <LinkedInSingleImageAdPreview
-                    copy={linkedInCopy}
-                    visual={linkedInVisualWithFallback}
-                    aspectRatio={linkedInAspectRatio}
-                  />
-                </div>
-              ) : activePlatform === 'meta' ? (
-                <div className="flex justify-center">
-                  <MetaFeedSingleImageAdPreview
-                    copy={metaCopy}
-                    visual={metaVisualWithFallback}
-                    aspectRatio={metaAspectRatio}
-                  />
-                </div>
-              ) : (
-                <div className="flex justify-center">
-                  <InstagramSingleImageAdPreview
-                    copy={instagramCopy}
-                    visual={instagramVisualWithFallback}
-                    aspectRatio={instagramAspectRatio}
-                  />
-                </div>
-              )}
+          {(!isMobile || mobileView === 'preview') && (
+            <div className={`${isMobile ? 'w-full' : 'lg:w-2/3'}`}>
+              <div className="space-y-6">
+                {activePlatform === 'linkedin' ? (
+                  <div className="flex justify-center">
+                    <LinkedInSingleImageAdPreview
+                      copy={linkedInCopy}
+                      visual={linkedInVisualWithFallback}
+                      aspectRatio={linkedInAspectRatio}
+                    />
+                  </div>
+                ) : activePlatform === 'meta' ? (
+                  <div className="flex justify-center">
+                    <MetaFeedSingleImageAdPreview
+                      copy={metaCopy}
+                      visual={metaVisualWithFallback}
+                      aspectRatio={metaAspectRatio}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex justify-center">
+                    <InstagramSingleImageAdPreview
+                      copy={instagramCopy}
+                      visual={instagramVisualWithFallback}
+                      aspectRatio={instagramAspectRatio}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* Mobile Toggle Bar - Only visible on mobile */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-transparent z-30">
+        <div className="flex items-center justify-between px-3 py-2 w-full max-w-full overflow-hidden">
+          {/* Spacer to balance the right globe button and keep center group truly centered */}
+          <div className="w-11 flex-shrink-0" />
+
+          {/* Centered compact toggle buttons */}
+          <div className="flex items-center gap-2 mx-auto flex-shrink-0">
+            <button
+              onClick={() => setMobileView('ads-copy')}
+              className={`w-24 sm:w-28 h-11 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors duration-200 touch-manipulation ${
+                mobileView === 'ads-copy'
+                  ? 'bg-black text-white shadow-md'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <span className="text-xs sm:text-sm">Ads Copy</span>
+            </button>
+
+            <button
+              onClick={() => setMobileView('preview')}
+              className={`w-24 sm:w-28 h-11 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors duration-200 touch-manipulation ${
+                mobileView === 'preview'
+                  ? 'bg-black text-white shadow-md'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <span className="text-xs sm:text-sm">Preview</span>
+            </button>
+          </div>
+
+          {/* Globe secondary action button */}
+          <div className="w-11 flex-shrink-0">
+            <button
+              onClick={() => setShowWorkflowPanel(true)}
+              aria-label="Globe"
+              className="w-11 h-11 flex items-center justify-center rounded-md bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M2 12h20"></path>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+              </svg>
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Workflow Panel */}
+      {showWorkflowPanel && (
+        <div className={`workflow-panel-container ${isMobile ? 'fixed inset-0 bg-black bg-opacity-50 z-50' : 'border-b border-gray-200 bg-gray-50'}`}>
+          <div className={`${isMobile ? 'fixed bottom-0 left-0 right-0 bg-white rounded-t-lg shadow-xl max-h-[80vh] overflow-y-auto' : 'p-4'}`}>
+            <div className="space-y-4">
+              {/* Mobile Header */}
+              {isMobile && (
+                <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900">Project Details</h3>
+                  <button
+                    onClick={() => setShowWorkflowPanel(false)}
+                    className="text-gray-400 hover:text-gray-600 p-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+              
+              <div className={`${isMobile ? 'p-4' : ''}`}>
+                {/* Workflow Progress */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 mb-3">Website Creation Progress</h3>
+                  <div className="space-y-3">
+                    {/* Step 1: Website Creation */}
+                    <div className="flex items-center space-x-3">
+                      <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-700">
+                        <span className="text-lg">🌐</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Navigate back to website creation
+                          handleNavigateToWebsiteCreation();
+                        }}
+                        className="text-sm font-medium px-3 py-1 rounded-lg shadow-sm transition-colors border bg-white text-blue-700 border-blue-200 hover:bg-blue-50"
+                        aria-label="Go to Website creation"
+                      >
+                        Website creation
+                      </button>
+                    </div>
+                    
+                    {/* Step 2: Ads Creation */}
+                    <div className="flex items-center space-x-3">
+                      <div className="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white relative shadow-md shadow-blue-300/50">
+                        <span className="text-lg">📢</span>
+                      </div>
+                      <span className="text-sm font-semibold text-gray-700 px-3 py-1 bg-blue-50 border border-blue-200 rounded-lg">
+                        Ads creation
+                      </span>
+                    </div>
+                    
+                    {/* Step 3: Launch and Monitor */}
+                    <div className="flex items-center space-x-3">
+                      <div className="flex-shrink-0 w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-gray-600">
+                        <span className="text-lg">🚀</span>
+                      </div>
+                      <span className="text-sm font-medium text-gray-500">Launch and monitor</span>
+                    </div>
+                    
+                  </div>
+                </div>
+                
+                {/* Data Analytics Button */}
+                <button
+                  onClick={() => {
+                    // Navigate to data analytics page
+                    window.location.href = `/data_analytics/project_${projectId}`;
+                  }}
+                  className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700 inline-flex items-center gap-2 justify-center mt-4"
+                >
+                  <span>Data Analytics</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-gray-500">
+                    <path d="M5 3a1 1 0 0 1 1 1v14h12a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2V4a1 1 0 0 1 1-1h1Zm4.5 5a1 1 0 0 1 1 1v7h-2v-7a1 1 0 0 1 1-1Zm4 -2a1 1 0 0 1 1 1v9h-2V7a1 1 0 0 1 1-1Zm4 4a1 1 0 0 1 1 1v5h-2v-5a1 1 0 0 1 1-1Z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

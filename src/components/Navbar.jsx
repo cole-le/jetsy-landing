@@ -345,7 +345,7 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
                   <button 
                     onClick={onSaveChanges}
                     className="px-2 sm:px-3 lg:px-6 py-2 bg-black hover:bg-gray-800 text-white rounded-lg transition-colors duration-200 font-semibold text-xs sm:text-sm lg:text-base">
-                    {isChatMode && isMobile ? 'Save' : 'Save Changes'}
+                    {isChatMode && isMobile ? 'Save' : isAdCreativesMode ? 'Saves' : 'Save Changes'}
                   </button>
                   
                   {/* Publish Button - Hidden on mobile in chat mode */}
@@ -391,13 +391,15 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
               ) : isAdCreativesMode ? (
                 // Ad Creatives mode header content
                 <div className="flex items-center space-x-3">
-                  {/* Workflow Progress Bar with extra right spacing before Generate button */}
-                  <div className="mr-4 md:mr-6 lg:mr-8">
-                    <WorkflowProgressBar 
-                      currentStage={2} 
-                      projectId={currentProjectId || undefined}
-                    />
-                  </div>
+                  {/* Workflow Progress Bar - Hidden on mobile to prevent duplicate navbar */}
+                  {!isMobile && (
+                    <div className="mr-4 md:mr-6 lg:mr-8">
+                      <WorkflowProgressBar 
+                        currentStage={2} 
+                        projectId={currentProjectId || undefined}
+                      />
+                    </div>
+                  )}
 
                   {/* Generate + Save */}
                   <button
