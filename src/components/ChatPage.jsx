@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import DeploymentButton from './DeploymentButton';
 import ProjectSelector from './ProjectSelector';
 import { DEFAULT_TEMPLATE_DATA } from './TemplateBasedChat';
 import { getApiBaseUrl } from '../config/environment';
@@ -15,6 +16,7 @@ const ChatPage = ({ onBackToHome }) => {
   const [isIframeLoaded, setIsIframeLoaded] = useState(false);
   const [mobileView, setMobileView] = useState('chat'); // 'chat' or 'preview'
   const iframeRef = useRef(null);
+  const [showPublishPanel, setShowPublishPanel] = useState(false);
 
   // Load existing chat history when component mounts
   useEffect(() => {
@@ -899,7 +901,7 @@ const ChatPage = ({ onBackToHome }) => {
 
           {/* Globe secondary action button */}
           <button
-            onClick={() => { console.log('Globe action'); }}
+            onClick={() => setShowPublishPanel(true)}
             aria-label="Globe"
             className="ml-auto w-11 h-11 flex items-center justify-center rounded-md bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors"
           >
@@ -911,6 +913,40 @@ const ChatPage = ({ onBackToHome }) => {
           </button>
         </div>
       </div>
+      {/* Publish Panel (mobile bottom sheet) */}
+      {showPublishPanel && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[60]">
+          <div className="publish-panel-container fixed bottom-0 left-0 right-0 bg-white rounded-t-lg shadow-xl max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Publish</h3>
+              <button
+                onClick={() => setShowPublishPanel(false)}
+                className="text-gray-400 hover:text-gray-600 p-2"
+                aria-label="Close"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <button
+                onClick={() => { /* placeholder, desktop mirrors via Navbar modal */ }}
+                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 font-semibold"
+              >
+                Publish 🚀
+              </button>
+
+              <div className="border border-gray-200 rounded-lg">
+                <div className="p-4">
+                  <DeploymentButton projectId={currentProject?.id || undefined} showAsModal={true} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
