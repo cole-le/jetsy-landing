@@ -444,8 +444,8 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
       {/* Main Content */}
       <div className={`max-w-7xl mx-auto px-6 py-6 ${isMobile ? 'pt-24' : ''} ${isMobile ? 'w-full overflow-x-hidden' : ''}`}>
         
-        {/* Generate Button - Only show on mobile */}
-        {isMobile && (
+        {/* Generate Button - Only show on mobile in Ads Copy mode */}
+        {isMobile && mobileView === 'ads-copy' && (
           <div className="mb-4">
             <button
               onClick={generateAdsWithAI}
