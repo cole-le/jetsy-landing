@@ -185,6 +185,9 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
   };
 
   const previewInfo = getPreviewModeInfo();
+  
+  // Mobile chat-mode pulse around project name when Ads creation is the next step
+  const shouldPulseProjectName = isChatMode && isMobile && hasTemplateData && !adsExist;
 
   return (
     <nav className={`${hideNavbar ? 'fixed' : 'sticky'} top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 transition-all duration-300 ${hideNavbar ? 'transform -translate-y-full' : 'transform translate-y-0'}`}>
@@ -293,8 +296,11 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
                           // Dispatch event to show workflow panel in TemplateBasedChat
                           window.dispatchEvent(new CustomEvent('toggle-workflow-panel'));
                         }}
-                        className="flex items-center space-x-2 text-center hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors min-w-0"
+                        className="flex items-center space-x-2 text-center hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors min-w-0 relative"
                       >
+                        {shouldPulseProjectName && (
+                          <span className="pointer-events-none absolute inset-0 rounded-lg ring-2 ring-blue-400 ring-inset animate-pulse"></span>
+                        )}
                         <span className="text-sm font-medium text-gray-900 truncate max-w-[120px]">
                           {currentProjectName || 'Loading...'}
                         </span>

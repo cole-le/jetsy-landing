@@ -2704,12 +2704,13 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                     
                     {/* Step 2: Ads Creation */}
                     <div className="flex items-center space-x-3">
-                      <div className="flex-shrink-0 w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 relative">
+                      <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 relative shadow-md shadow-blue-300/50">
                         <span className="text-lg">📢</span>
-                        {/* Pulsing blue border effect */}
-                        <div className="absolute inset-0 rounded-full border-2 border-blue-400 animate-pulse"></div>
+                        {/* Stronger attention effect: inner pulse ring + outer ping glow */}
+                        <div className="pointer-events-none absolute inset-0 rounded-full ring-2 ring-blue-500/90 ring-inset animate-pulse"></div>
+                        <div className="pointer-events-none absolute -inset-2 rounded-full bg-blue-400/25 blur-sm animate-ping"></div>
                       </div>
-                      <span className="text-sm font-medium text-gray-500">Ads creation</span>
+                      <span className="text-sm font-semibold text-blue-700">Ads creation</span>
                     </div>
                     
                     {/* Step 3: Launch and Monitor */}
