@@ -421,6 +421,13 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       completedSteps: [...prev.steps]
     }));
     
+    // Switch to Preview mode on mobile after AI generation completes
+    if (isMobile) {
+      setTimeout(() => {
+        setMobileView('preview');
+      }, 1000); // Small delay to show completion state
+    }
+    
     // Clear progress after a delay
     setTimeout(() => {
       setAiProgress({
