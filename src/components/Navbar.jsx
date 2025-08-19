@@ -314,7 +314,7 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
                       }}
                       className="px-2 sm:px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                     >
-                      {isMobile ? 'Proj' : 'Projects'}
+                      Projects
                     </button>
                   )}
                   
