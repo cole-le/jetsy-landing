@@ -2699,7 +2699,20 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                       <div className="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white">
                         <span className="text-lg">🌐</span>
                       </div>
-                      <span className="text-sm font-medium text-blue-600">Website creation</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Already on website creation; simply close the panel to reveal the editor
+                          setShowWorkflowPanel(false);
+                        }}
+                        className={`text-sm font-medium px-3 py-1 rounded-lg shadow-sm transition-colors border 
+                          ${isEditorMode 
+                            ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700' 
+                            : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'}`}
+                        aria-label="Go to Website creation"
+                      >
+                        Website creation
+                      </button>
                     </div>
                     
                     {/* Step 2: Ads Creation */}
@@ -2710,7 +2723,22 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                         <div className="pointer-events-none absolute inset-0 rounded-full ring-2 ring-blue-500/90 ring-inset animate-pulse"></div>
                         <div className="pointer-events-none absolute -inset-2 rounded-full bg-blue-400/25 blur-sm animate-ping"></div>
                       </div>
-                      <span className="text-sm font-semibold text-blue-700">Ads creation</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          try {
+                            if (currentProject?.id) {
+                              window.location.href = `/ad-creatives/${currentProject.id}`;
+                            }
+                          } catch (_) {
+                            // noop
+                          }
+                        }}
+                        className="text-sm font-semibold text-gray-700 px-3 py-1 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 transition-colors cursor-pointer"
+                        aria-label="Go to Ads creation"
+                      >
+                        Ads creation
+                      </button>
                     </div>
                     
                     {/* Step 3: Launch and Monitor */}
