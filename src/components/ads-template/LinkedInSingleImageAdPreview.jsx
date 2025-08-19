@@ -204,28 +204,28 @@ const LinkedInSingleImageAdPreview = ({
         </div>
 
         {/* Interaction buttons - LinkedIn style */}
-        <div className="px-3 py-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-8">
-              <button className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 rounded transition-colors">
-                <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+        <div className="px-2 py-2">
+          <div className="flex items-center justify-center">
+            <div className="flex items-center justify-between w-full max-w-full">
+              <button className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 hover:bg-gray-100 rounded transition-colors flex-1 justify-center">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M19.46 11l-3.91-3.91a7 7 0 01-1.69-2.74l-.49-1.47A2.76 2.76 0 0010.76 1 2.75 2.75 0 008 3.74v1.12a9.19 9.19 0 00.46 2.85L8.89 9H4.12A2.12 2.12 0 002 11.12a2.16 2.16 0 00.92 1.76A2.11 2.11 0 002 14.62a2.14 2.14 0 001.28 2 2 2 0 00-.28 1 2.12 2.12 0 002 2.12v.14A2.12 2.12 0 007.12 22h7.49a8.08 8.08 0 003.58-.84l.31-.16H21V11zM19 19h-1l-.73.37a6.14 6.14 0 01-2.69.63H7.72a1 1 0 01-1-.72l-.25-.87-.85-.41A1 1 0 015 17l.17-1-.76-.74A1 1 0 014.27 14l.66-1.09-.73-1.1a.49.49 0 01.08-.7.48.48 0 01.34-.11h7.05l-1.31-3.92A7 7 0 0110 4.86V3.75a.77.77 0 01.75-.75.75.75 0 01.71.51L12 5a9 9 0 002.13 3.5l4.5 4.5H19z"></path>
                 </svg>
-                <span className="text-gray-600 font-medium">Like</span>
+                <span className="text-gray-600 font-medium text-sm">Like</span>
               </button>
               
-              <button className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 rounded transition-colors">
-                <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+              <button className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 hover:bg-gray-100 rounded transition-colors flex-1 justify-center">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M7 9h10v1H7V9zm0 4h7v-1H7v1zm16-2c0 2.2-1 4.3-2.8 5.6L12 22v-4H8c-3.9 0-7-3.1-7-7s3.1-7 7-7h8c3.9 0 7 3.1 7 7zm-2 0c0-2.8-2.2-5-5-5H8c-2.8 0-5 2.2-5 5s2.2 5 5 5h6v2.3l5-3.3c1.3-.9 2-2.4 2-4z" fill="currentColor"></path>
                 </svg>
-                <span className="text-gray-600 font-medium">Comment</span>
+                <span className="text-gray-600 font-medium text-sm">Comment</span>
               </button>
               
-              <button className="flex items-center space-x-1 px-4 py-2 hover:bg-gray-100 rounded transition-colors">
-                <svg className="w-4 h-4 text-gray-600" viewBox="0 0 15 14" fill="currentColor">
+              <button className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 hover:bg-gray-100 rounded transition-colors flex-1 justify-center">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" viewBox="0 0 15 14" fill="currentColor">
                   <path d="M14.375 0L0.375 4.67L5.375 7.31L11.045 3.33L7.075 9L9.705 14L14.375 0Z" fill="currentColor" fillOpacity="0.75"></path>
                 </svg>
-                <span className="text-gray-600 font-medium">Share</span>
+                <span className="text-gray-600 font-medium text-sm">Share</span>
               </button>
             </div>
           </div>
