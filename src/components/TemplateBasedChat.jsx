@@ -2598,21 +2598,38 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       </div>
 
       {/* Mobile bottom toggle bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 shadow-lg">
-        <div className="max-w-md mx-auto flex items-center justify-between px-4 py-2">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-transparent z-50">
+        <div className="max-w-sm md:max-w-md mx-auto flex items-center justify-between px-3 py-2">
+          {/* Spacer to balance center group due to right globe */}
+          <div className="w-11" />
+
+          {/* Centered compact toggle buttons */}
+          <div className="flex items-center gap-2 mx-auto">
+            <button
+              onClick={() => setMobileView('chat')}
+              className={`w-28 h-11 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors duration-200 touch-manipulation ${mobileView === 'chat' ? 'bg-black text-white shadow-md' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
+            >
+              <span>Chat</span>
+            </button>
+            <button
+              onClick={() => setMobileView('preview')}
+              className={`w-28 h-11 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors duration-200 touch-manipulation ${mobileView === 'preview' ? 'bg-black text-white shadow-md' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
+            >
+              <span>Preview</span>
+            </button>
+          </div>
+
+          {/* Globe secondary action button */}
           <button
-            onClick={() => setMobileView('chat')}
-            className={`flex-1 mx-2 py-2 px-4 rounded-lg font-medium transition-all duration-200 transform touch-manipulation ${mobileView === 'chat' ? 'bg-black text-white scale-105' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
-            style={{ minHeight: '40px' }}
+            onClick={() => { console.log('Globe action'); }}
+            aria-label="Globe"
+            className="ml-auto w-11 h-11 flex items-center justify-center rounded-md bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors"
           >
-            Chat
-          </button>
-          <button
-            onClick={() => setMobileView('preview')}
-            className={`flex-1 mx-2 py-2 px-4 rounded-lg font-medium transition-all duration-200 transform touch-manipulation ${mobileView === 'preview' ? 'bg-black text-white scale-105' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
-            style={{ minHeight: '40px' }}
-          >
-            Preview
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M2 12h20"></path>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
           </button>
         </div>
       </div>

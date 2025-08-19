@@ -867,43 +867,47 @@ const ChatPage = ({ onBackToHome }) => {
       </div>
 
       {/* Mobile Toggle Bar - Only visible on mobile */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-30 shadow-lg">
-        <div className="flex items-center justify-between px-4 py-3 max-w-md mx-auto">
-          {/* Chat Toggle Button */}
-          <button
-            onClick={() => setMobileView('chat')}
-            className={`flex-1 mx-2 py-3 px-4 rounded-lg font-medium transition-all duration-200 transform touch-manipulation ${
-              mobileView === 'chat'
-                ? 'bg-blue-600 text-white shadow-md scale-105'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-102'
-            }`}
-            style={{ minHeight: '48px' }}
-          >
-            <div className="flex items-center justify-center space-x-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-              <span>Chat</span>
-            </div>
-          </button>
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-transparent z-30">
+        <div className="flex items-center justify-between px-3 py-2 max-w-sm md:max-w-md mx-auto">
+          {/* Spacer to balance the right globe button and keep center group truly centered */}
+          <div className="w-11" />
 
-          {/* Preview Toggle Button */}
-          <button
-            onClick={() => setMobileView('preview')}
-            className={`flex-1 mx-2 py-2 px-4 rounded-lg font-medium transition-all duration-200 transform touch-manipulation ${
-              mobileView === 'preview'
-                ? 'bg-blue-600 text-white shadow-md scale-105'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-102'
-            }`}
-            style={{ minHeight: '48px' }}
-          >
-            <div className="flex items-center justify-center space-x-2">
-              <svg className="w-5 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
+          {/* Centered compact toggle buttons */}
+          <div className="flex items-center gap-2 mx-auto">
+            <button
+              onClick={() => setMobileView('chat')}
+              className={`w-28 h-11 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors duration-200 touch-manipulation ${
+                mobileView === 'chat'
+                  ? 'bg-black text-white shadow-md'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <span>Chat</span>
+            </button>
+
+            <button
+              onClick={() => setMobileView('preview')}
+              className={`w-28 h-11 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors duration-200 touch-manipulation ${
+                mobileView === 'preview'
+                  ? 'bg-black text-white shadow-md'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
               <span>Preview</span>
-            </div>
+            </button>
+          </div>
+
+          {/* Globe secondary action button */}
+          <button
+            onClick={() => { console.log('Globe action'); }}
+            aria-label="Globe"
+            className="ml-auto w-11 h-11 flex items-center justify-center rounded-md bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M2 12h20"></path>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
           </button>
         </div>
       </div>
