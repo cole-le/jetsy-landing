@@ -476,7 +476,11 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
               onError={(e) => { e.target.style.display = 'none'; }}
             />
             <span>
-              Our AI follows <a href="https://www.youtube.com/@SabriSubyOfficial" target="_blank" rel="noopener noreferrer" className="underline font-medium inline-flex items-center"><SiYoutube className="w-3 h-3 mr-1 text-red-600" />Sabri Suby</a>'s direct‑response principles ("irresistible offers"). He's a $100M+ entrepreneur and marketing strategist (author of "Sell Like Crazy") known for engineering high‑converting, offer‑driven campaigns—so your ads are crafted to win attention and drive action.
+              {isMobile ? (
+                <>Our AI uses <a href="https://www.youtube.com/@SabriSubyOfficial" target="_blank" rel="noopener noreferrer" className="underline font-medium inline-flex items-center"><SiYoutube className="w-3 h-3 mr-1 text-red-600" />Sabri Suby</a>'s $100M+ direct‑response strategies to craft ads that convert.</>
+              ) : (
+                <>Our AI follows <a href="https://www.youtube.com/@SabriSubyOfficial" target="_blank" rel="noopener noreferrer" className="underline font-medium inline-flex items-center"><SiYoutube className="w-3 h-3 mr-1 text-red-600" />Sabri Suby</a>'s direct‑response principles ("irresistible offers"). He's a $100M+ entrepreneur and marketing strategist (author of "Sell Like Crazy") known for engineering high‑converting, offer‑driven campaigns—so your ads are crafted to win attention and drive action.</>
+              )}
             </span>
           </div>
         )}
@@ -572,6 +576,47 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
           {/* Right Column - Preview */}
           {(!isMobile || mobileView === 'preview') && (
             <div className={`${isMobile ? 'w-full' : 'lg:w-2/3'}`}>
+              {/* Platform Toggle for Preview mode - Show on mobile when in preview */}
+              {(isMobile && mobileView === 'preview') && (
+                <div className="mb-4 w-full overflow-x-hidden">
+                  <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit max-w-full">
+                    <button
+                      onClick={() => setActivePlatform('linkedin')}
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
+                        activePlatform === 'linkedin'
+                          ? 'bg-white text-blue-600 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <SiLinkedin className="w-4 h-4 text-blue-600" />
+                      <span>LinkedIn Ads</span>
+                    </button>
+                    <button
+                      onClick={() => setActivePlatform('meta')}
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
+                        activePlatform === 'meta'
+                          ? 'bg-white text-blue-600 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <SiFacebook className="w-4 h-4 text-blue-600" />
+                      <span>Meta Ads</span>
+                    </button>
+                    <button
+                      onClick={() => setActivePlatform('instagram')}
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
+                        activePlatform === 'instagram'
+                          ? 'bg-white text-pink-500 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <SiInstagram className="w-4 h-4 text-pink-500" />
+                      <span>Instagram Ads</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-6">
                 {activePlatform === 'linkedin' ? (
                   <div className="flex justify-center">
