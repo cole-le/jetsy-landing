@@ -38,11 +38,22 @@ function App() {
   const [routeUserId, setRouteUserId] = useState(null);
   const [routeProjectId, setRouteProjectId] = useState(null);
   const [adCreativesProjectId, setAdCreativesProjectId] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     // Track page view
     trackEvent('page_view', { page: 'home' })
   }, [])
+
+  // Effect to detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Handle URL-based routing
   useEffect(() => {
@@ -500,8 +511,8 @@ function App() {
 
   return (
     <div className="min-h-screen">
-      {/* Navbar (hidden on public full-screen route) */}
-      {currentStep !== 'public-route' && (
+      {/* Navbar (hidden on public full-screen route and on mobile ad-creatives) */}
+      {currentStep !== 'public-route' && !(currentStep === 'ad-creatives' && isMobile) && (
         <Navbar 
           onPricingClick={handleNavbarPricingClick} 
           onFAQClick={handleFAQClick} 
