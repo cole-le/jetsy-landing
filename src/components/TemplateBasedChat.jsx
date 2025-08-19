@@ -2634,19 +2634,33 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                 {/* Workflow Progress */}
                 <div>
                   <h3 className="text-sm font-medium text-gray-900 mb-3">Website Creation Progress</h3>
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-lg">🌐</span>
-                      <span className="text-xs text-gray-600">Website creation</span>
+                  <div className="space-y-3">
+                    {/* Step 1: Website Creation */}
+                    <div className="flex items-center space-x-3">
+                      <div className="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white">
+                        <span className="text-lg">🌐</span>
+                      </div>
+                      <span className="text-sm font-medium text-blue-600">Website creation</span>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-lg">📢</span>
-                      <span className="text-xs text-gray-500">Ads creation</span>
+                    
+                    {/* Step 2: Ads Creation */}
+                    <div className="flex items-center space-x-3">
+                      <div className="flex-shrink-0 w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 relative">
+                        <span className="text-lg">📢</span>
+                        {/* Pulsing blue border effect */}
+                        <div className="absolute inset-0 rounded-full border-2 border-blue-400 animate-pulse"></div>
+                      </div>
+                      <span className="text-sm font-medium text-gray-500">Ads creation</span>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-lg">🚀</span>
-                      <span className="text-xs text-gray-500">Launch and monitor</span>
+                    
+                    {/* Step 3: Launch and Monitor */}
+                    <div className="flex items-center space-x-3">
+                      <div className="flex-shrink-0 w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-gray-600">
+                        <span className="text-lg">🚀</span>
+                      </div>
+                      <span className="text-sm font-medium text-gray-500">Launch and monitor</span>
                     </div>
+                    
                   </div>
                 </div>
                 
