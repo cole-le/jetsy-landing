@@ -11,6 +11,7 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
   const [adsExist, setAdsExist] = useState(false);
   const [hasTemplateData, setHasTemplateData] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [currentProjectName, setCurrentProjectName] = useState('');
   const [showProjectPanel, setShowProjectPanel] = useState(false);
 
   // Detect mobile screen size
@@ -60,6 +61,7 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
         if (!currentProjectId) {
           setAdsExist(false);
           setHasTemplateData(false);
+          setCurrentProjectName('');
           return;
         }
         const res = await fetch(`${getApiBaseUrl()}/api/projects/${currentProjectId}`, { signal: controller.signal });
@@ -69,6 +71,7 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
         // Treat non-empty ads_data as existence
         setAdsExist(!!project?.ads_data);
         setHasTemplateData(!!project?.template_data);
+        setCurrentProjectName(project?.project_name || 'Project');
       } catch (_) {
         // ignore
       }
@@ -263,6 +266,27 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
                       </svg>
                     </button>
                   )}
+                  
+                  {/* Mobile: Project Name Dropdown in Center */}
+                  {isMobile && (
+                    <div className="flex-1 flex justify-center">
+                      <button
+                        onClick={() => {
+                          // Dispatch event to show workflow panel in TemplateBasedChat
+                          window.dispatchEvent(new CustomEvent('toggle-workflow-panel'));
+                        }}
+                        className="flex items-center space-x-2 text-center hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors min-w-0"
+                      >
+                        <span className="text-sm font-medium text-gray-900 truncate max-w-[120px]">
+                          {currentProjectName || 'Loading...'}
+                        </span>
+                        <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                  
                   {/* Preview Mode Toggle Button - Hidden on mobile in chat mode */}
                   {(!isMobile || !isChatMode) && (
                     <div className="relative group">
@@ -281,7 +305,7 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
                     </div>
                   )}
                   
-                  {/* Projects Button */}
+                  {/* Projects Button - Show on mobile in chat mode */}
                   <button
                     onClick={() => {
                       // This will trigger the project panel in TemplateBasedChat
