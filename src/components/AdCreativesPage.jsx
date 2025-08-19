@@ -401,65 +401,67 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Mobile Header - Similar to ChatPage */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
-        <div className="flex items-center h-16 px-4 w-full max-w-full overflow-hidden">
-          {/* Logo - positioned at far left */}
-          <div className="flex items-center flex-shrink-0">
-            <img 
-              src="/jetsy_colorful_transparent_horizontal.png" 
-              alt="Jetsy" 
-              className="h-8 w-auto max-w-[80px]"
-            />
-          </div>
+      {/* Mobile Header - Only show on mobile screens */}
+      {isMobile && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
+          <div className="flex items-center h-16 px-4 w-full max-w-full overflow-hidden">
+            {/* Logo - positioned at far left */}
+            <div className="flex items-center flex-shrink-0">
+              <img 
+                src="/jetsy_colorful_transparent_horizontal.png" 
+                alt="Jetsy" 
+                className="h-8 w-auto max-w-[80px]"
+              />
+            </div>
 
-          {/* Centered Project Name Button */}
-          <div className="flex-1 flex justify-center min-w-0 px-2">
-            <button
-              onClick={() => setShowWorkflowPanel(true)}
-              className="flex items-center space-x-2 text-center hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors min-w-0 relative max-w-full"
-            >
-              <span className="text-sm font-medium text-gray-900 truncate max-w-[80px] sm:max-w-[100px]">
-                {project?.project_name || 'Loading...'}
-              </span>
-              <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Right side buttons */}
-          <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
-            <button
-              onClick={generateAdsWithAI}
-              disabled={isGenerating}
-              className={`px-2 sm:px-3 py-2 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
-                isGenerating 
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                  : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700'
-              }`}
-            >
-              {isGenerating ? (
-                <span className="flex items-center space-x-1">
-                  <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></span>
-                  <span className="hidden sm:inline">Generating...</span>
-                  <span className="sm:hidden">Gen...</span>
+            {/* Centered Project Name Button */}
+            <div className="flex-1 flex justify-center min-w-0 px-2">
+              <button
+                onClick={() => setShowWorkflowPanel(true)}
+                className="flex items-center space-x-2 text-center hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors min-w-0 relative max-w-full"
+              >
+                <span className="text-sm font-medium text-gray-900 truncate max-w-[80px] sm:max-w-[100px]">
+                  {project?.project_name || 'Loading...'}
                 </span>
-              ) : (
-                <>
-                  <span className="hidden sm:inline">✨ Generate Ad with AI</span>
-                  <span className="sm:hidden">✨ Generate</span>
-                </>
-              )}
-            </button>
-            <button 
-              onClick={saveAdsEdits}
-              className="px-2 sm:px-3 py-2 text-xs font-medium bg-black hover:bg-gray-800 text-white rounded-lg transition-colors whitespace-nowrap">
-              Saves
-            </button>
+                <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Right side buttons */}
+            <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+              <button
+                onClick={generateAdsWithAI}
+                disabled={isGenerating}
+                className={`px-2 sm:px-3 py-2 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
+                  isGenerating 
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                    : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700'
+                }`}
+              >
+                {isGenerating ? (
+                  <span className="flex items-center space-x-1">
+                    <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></span>
+                    <span className="hidden sm:inline">Generating...</span>
+                    <span className="sm:hidden">Gen...</span>
+                  </span>
+                ) : (
+                  <>
+                    <span className="hidden sm:inline">✨ Generate Ad with AI</span>
+                    <span className="sm:hidden">✨ Generate</span>
+                  </>
+                )}
+              </button>
+              <button 
+                onClick={saveAdsEdits}
+                className="px-2 sm:px-3 py-2 text-xs font-medium bg-black hover:bg-gray-800 text-white rounded-lg transition-colors whitespace-nowrap">
+                Saves
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main Content */}
       <div className={`max-w-7xl mx-auto px-6 py-6 ${isMobile ? 'pt-24' : ''} ${isMobile ? 'w-full overflow-x-hidden' : ''}`}>
