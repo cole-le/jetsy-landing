@@ -1333,11 +1333,18 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                   {initialUserIdea ? (
                     <div className="mb-4">
                       <div className="flex justify-end">
-                        <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg bg-blue-600 text-white`}>
-                          <p className="text-sm whitespace-pre-wrap">{initialUserIdea.message}</p>
-                          {initialUserIdea.timestamp ? (
-                            <p className="text-xs opacity-70 mt-1">{new Date(initialUserIdea.timestamp).toLocaleString()}</p>
-                          ) : null}
+                        <div className="relative max-w-xs lg:max-w-md">
+                          {/* Chat bubble with tail */}
+                          <div className="bg-blue-600 text-white px-4 py-2 rounded-2xl rounded-br-sm">
+                            <p className="text-sm whitespace-pre-wrap">{initialUserIdea.message}</p>
+                            {initialUserIdea.timestamp ? (
+                              <p className="text-xs opacity-70 mt-1 text-right">
+                                {new Date(initialUserIdea.timestamp).toLocaleString()}
+                              </p>
+                            ) : null}
+                          </div>
+                          {/* Chat bubble tail pointing to the right */}
+                          <div className="absolute bottom-0 right-0 w-0 h-0 border-l-[8px] border-l-blue-600 border-t-[8px] border-t-transparent"></div>
                         </div>
                       </div>
                     </div>

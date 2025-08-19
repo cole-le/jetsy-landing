@@ -736,7 +736,7 @@ function App() {
       )}
 
       {/* Footer */}
-      {currentStep !== 'template' && currentStep !== 'public-route' && <Footer />}
+      {currentStep !== 'template' && currentStep !== 'public-route' && currentStep !== 'chat' && <Footer />}
 
     </div>
   )
