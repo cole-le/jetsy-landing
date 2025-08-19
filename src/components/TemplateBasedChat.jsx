@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } f
 import ProjectSelector from './ProjectSelector';
 import ExceptionalTemplate from './ExceptionalTemplate';
 import DeploymentButton from './DeploymentButton';
+import { getVercelApiBaseUrl } from '../config/environment';
 
 import { getApiBaseUrl } from '../config/environment';
 
@@ -314,6 +315,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const [isMobile, setIsMobile] = useState(false);
   const [showWorkflowPanel, setShowWorkflowPanel] = useState(false);
   const [showPublishPanel, setShowPublishPanel] = useState(false);
+  const [isPublished, setIsPublished] = useState(false);
 
   // Effect to detect mobile screen size
   useEffect(() => {
@@ -385,6 +387,25 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showPublishPanel, isMobile]);
+
+  // Determine if project has already been published (successful deployment)
+  useEffect(() => {
+    const loadPublishedState = async () => {
+      try {
+        if (!showPublishPanel || !currentProject?.id) return;
+        const res = await fetch(`${getVercelApiBaseUrl()}/api/vercel/status/${currentProject.id}`);
+        const json = await res.json();
+        if (json?.success && json.deployment && json.deployment.status === 'READY') {
+          setIsPublished(true);
+        } else {
+          setIsPublished(false);
+        }
+      } catch (_) {
+        // keep prior state on error
+      }
+    };
+    loadPublishedState();
+  }, [showPublishPanel, currentProject?.id]);
 
   // Progress tracking state
   const [aiProgress, setAiProgress] = useState({
@@ -2739,12 +2760,14 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             </div>
 
             <div className="p-4 space-y-4">
-              <button
-                onClick={() => { /* mirrors desktop publish action; Deployment UI below */ }}
-                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 font-semibold"
-              >
-                Publish 🚀
-              </button>
+              {!isPublished && (
+                <button
+                  onClick={() => { /* mirrors desktop publish action; Deployment UI below */ }}
+                  className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 font-semibold"
+                >
+                  Publish 🚀
+                </button>
+              )}
 
               <div className="border border-gray-200 rounded-lg">
                 <div className="p-4">

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import DeploymentButton from './DeploymentButton';
 import ProjectSelector from './ProjectSelector';
 import { DEFAULT_TEMPLATE_DATA } from './TemplateBasedChat';
-import { getApiBaseUrl } from '../config/environment';
+import { getApiBaseUrl, getVercelApiBaseUrl } from '../config/environment';
 
 const ChatPage = ({ onBackToHome }) => {
   const [messages, setMessages] = useState([]);
@@ -17,6 +17,7 @@ const ChatPage = ({ onBackToHome }) => {
   const [mobileView, setMobileView] = useState('chat'); // 'chat' or 'preview'
   const iframeRef = useRef(null);
   const [showPublishPanel, setShowPublishPanel] = useState(false);
+  const [isPublished, setIsPublished] = useState(false);
 
   // Load existing chat history when component mounts
   useEffect(() => {
@@ -867,6 +868,10 @@ const ChatPage = ({ onBackToHome }) => {
           </div>
         </div>
       </div>
+      {/* Load published state when panel opens */}
+      {showPublishPanel && currentProject?.id && (
+        <PublishStateLoaderInternal projectId={currentProject.id} onChange={setIsPublished} />
+      )}
 
       {/* Mobile Toggle Bar - Only visible on mobile */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-transparent z-30">
@@ -931,12 +936,14 @@ const ChatPage = ({ onBackToHome }) => {
             </div>
 
             <div className="p-4 space-y-4">
-              <button
-                onClick={() => { /* placeholder, desktop mirrors via Navbar modal */ }}
-                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 font-semibold"
-              >
-                Publish 🚀
-              </button>
+              {!isPublished && (
+                <button
+                  onClick={() => { /* placeholder, desktop mirrors via Navbar modal */ }}
+                  className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 font-semibold"
+                >
+                  Publish 🚀
+                </button>
+              )}
 
               <div className="border border-gray-200 rounded-lg">
                 <div className="p-4">
@@ -952,3 +959,24 @@ const ChatPage = ({ onBackToHome }) => {
 };
 
 export default ChatPage; 
+
+// Internal helper to detect published state when opening bottom sheet
+const PublishStateLoaderInternal = ({ projectId, onChange }) => {
+  React.useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const res = await fetch(`${getVercelApiBaseUrl()}/api/vercel/status/${projectId}`);
+        const json = await res.json();
+        if (!cancelled) {
+          onChange(!!(json?.success && json.deployment && json.deployment.status === 'READY'));
+        }
+      } catch (_) {
+        if (!cancelled) onChange(false);
+      }
+    };
+    check();
+    return () => { cancelled = true; };
+  }, [projectId, onChange]);
+  return null;
+};
