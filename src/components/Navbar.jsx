@@ -10,6 +10,18 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
   const [isAdGenerating, setIsAdGenerating] = useState(false);
   const [adsExist, setAdsExist] = useState(false);
   const [hasTemplateData, setHasTemplateData] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [showProjectPanel, setShowProjectPanel] = useState(false);
+
+  // Detect mobile screen size
+  React.useEffect(() => {
+    const updateIsMobile = () => {
+      setIsMobile(window.innerWidth < 1024); // Tailwind lg breakpoint
+    };
+    updateIsMobile();
+    window.addEventListener('resize', updateIsMobile);
+    return () => window.removeEventListener('resize', updateIsMobile);
+  }, []);
 
   // Get current project ID from localStorage
   React.useEffect(() => {
@@ -172,7 +184,7 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
 
         {/* Centered container for other navbar elements */}
         <div className="flex-1 flex justify-center">
-          <div className="max-w-7xl w-full px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl w-full px-2 sm:px-4 lg:px-8">
             <div className="flex justify-between items-center h-16">
               {/* Spacer to balance the layout */}
               <div className="flex items-center">
@@ -210,68 +222,84 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
 
               {/* Chat mode header content */}
               {isChatMode ? (
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-1 sm:space-x-2 lg:space-x-3 overflow-hidden min-w-0">
+                  {/* Workflow Progress Bar - Hidden on mobile to save space */}
+                  {!isMobile && (
+                    <WorkflowProgressBar 
+                      currentStage={adsExist ? 2 : 1} 
+                      pulseStageId={adsExist ? 2 : (hasTemplateData ? 2 : undefined)}
+                      projectId={currentProjectId}
+                      onStageClick={(stageId) => {
+                        if (stageId === 2 && currentProjectId) {
+                          // Navigate to ads creation
+                          window.location.href = `/ad-creatives/${currentProjectId}`;
+                        } else if (stageId === 1) {
+                          // Already on website creation, do nothing
+                          return;
+                        } else if (stageId === 3) {
+                          // Launch and monitor - placeholder for now
+                          alert('Launch and monitor feature coming soon!');
+                        }
+                      }}
+                    />
+                  )}
 
-                            {/* Workflow Progress Bar */}
-          <WorkflowProgressBar 
-            currentStage={adsExist ? 2 : 1} 
-            pulseStageId={adsExist ? 2 : (hasTemplateData ? 2 : undefined)}
-            projectId={currentProjectId}
-            onStageClick={(stageId) => {
-              if (stageId === 2 && currentProjectId) {
-                // Navigate to ads creation
-                window.location.href = `/ad-creatives/${currentProjectId}`;
-              } else if (stageId === 1) {
-                // Already on website creation, do nothing
-                return;
-              } else if (stageId === 3) {
-                // Launch and monitor - placeholder for now
-                alert('Launch and monitor feature coming soon!');
-              }
-            }}
-          />
-
-          {/* Data Analytics button - left of preview toggle */}
+                  {/* Data Analytics button - Hidden on mobile to save space */}
+                  {!isMobile && (
+                    <button
+                      onClick={() => {
+                        try {
+                          const pid = localStorage.getItem('jetsy_current_project_id') || '1';
+                          window.location.href = `/data_analytics/project_${pid}`;
+                        } catch (_) {
+                          window.location.href = `/data_analytics/project_1`;
+                        }
+                      }}
+                      className="px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700 inline-flex items-center gap-2"
+                    >
+                      <span>Data Analytics</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-gray-500">
+                        <path d="M5 3a1 1 0 0 1 1 1v14h12a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2V4a1 1 0 0 1 1-1h1Zm4.5 5a1 1 0 0 1 1 1v7h-2v-7a1 1 0 0 1 1-1Zm4 -2a1 1 0 0 1 1 1v9h-2V7a1 1 0 0 1 1-1Zm4 4a1 1 0 0 1 1 1v5h-2v-5a1 1 0 0 1 1-1Z" />
+                      </svg>
+                    </button>
+                  )}
+                  {/* Preview Mode Toggle Button - Hidden on mobile in chat mode */}
+                  {(!isMobile || !isChatMode) && (
+                    <div className="relative group">
+                      <button 
+                        onClick={handlePreviewModeToggle}
+                        className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all duration-200"
+                        title={previewInfo.tooltip}
+                      >
+                        {previewInfo.icon}
+                      </button>
+                      {/* Tooltip */}
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none">
+                        {previewInfo.tooltip}
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900"></div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Projects Button */}
                   <button
                     onClick={() => {
-                      try {
-                        const pid = localStorage.getItem('jetsy_current_project_id') || '1';
-                        window.location.href = `/data_analytics/project_${pid}`;
-                      } catch (_) {
-                        window.location.href = `/data_analytics/project_1`;
-                      }
+                      // This will trigger the project panel in TemplateBasedChat
+                      window.dispatchEvent(new CustomEvent('toggle-project-panel'));
                     }}
-                    className="px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700 inline-flex items-center gap-2"
+                    className="px-2 sm:px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                   >
-                    <span>Data Analytics</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-gray-500">
-                      <path d="M5 3a1 1 0 0 1 1 1v14h12a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2V4a1 1 0 0 1 1-1h1Zm4.5 5a1 1 0 0 1 1 1v7h-2v-7a1 1 0 0 1 1-1Zm4 -2a1 1 0 0 1 1 1v9h-2V7a1 1 0 0 1 1-1Zm4 4a1 1 0 0 1 1 1v5h-2v-5a1 1 0 0 1 1-1Z" />
-                    </svg>
+                    {isMobile ? 'Proj' : 'Projects'}
                   </button>
-                  {/* Preview Mode Toggle Button */}
-                  <div className="relative group">
-                    <button 
-                      onClick={handlePreviewModeToggle}
-                      className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all duration-200"
-                      title={previewInfo.tooltip}
-                    >
-                      {previewInfo.icon}
-                    </button>
-                    {/* Tooltip */}
-                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none">
-                      {previewInfo.tooltip}
-                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900"></div>
-                    </div>
-                  </div>
                   
                   <button 
                     onClick={onSaveChanges}
-                    className="px-6 py-2 bg-black hover:bg-gray-800 text-white rounded-lg transition-colors duration-200 font-semibold">
-                    Save Changes
+                    className="px-2 sm:px-3 lg:px-6 py-2 bg-black hover:bg-gray-800 text-white rounded-lg transition-colors duration-200 font-semibold text-xs sm:text-sm lg:text-base">
+                    {isChatMode && isMobile ? 'Save' : 'Save Changes'}
                   </button>
                   
-                  {/* Publish Button - right of Save Changes */}
-                  {currentProjectId && (
+                  {/* Publish Button - Hidden on mobile in chat mode */}
+                  {currentProjectId && (!isMobile || !isChatMode) && (
                     <div className="relative group publish-modal-container">
                       <button
                         onClick={() => setShowPublishModal(!showPublishModal)}

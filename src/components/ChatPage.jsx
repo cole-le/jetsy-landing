@@ -13,11 +13,30 @@ const ChatPage = ({ onBackToHome }) => {
   const [showProjectSelector, setShowProjectSelector] = useState(false);
   const [showProjectPanel, setShowProjectPanel] = useState(false);
   const [isIframeLoaded, setIsIframeLoaded] = useState(false);
+  const [mobileView, setMobileView] = useState('chat'); // 'chat' or 'preview'
   const iframeRef = useRef(null);
 
   // Load existing chat history when component mounts
   useEffect(() => {
     loadOrRestoreProject();
+  }, []);
+
+  // Detect mobile screen and set default view
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) { // lg breakpoint
+        setMobileView('chat'); // Default to chat view on mobile
+      }
+    };
+
+    // Set initial view
+    handleResize();
+    
+    // Add event listener
+    window.addEventListener('resize', handleResize);
+    
+    // Cleanup
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   // Session-based project tracking
@@ -46,6 +65,11 @@ const ChatPage = ({ onBackToHome }) => {
             files: JSON.parse(project.files)
           });
           await loadChatMessages(project.id);
+          
+          // On mobile, switch back to chat view when loading a project
+          if (window.innerWidth < 1024) {
+            setMobileView('chat');
+          }
           return;
         }
       }
@@ -63,6 +87,11 @@ const ChatPage = ({ onBackToHome }) => {
           });
           setStoredProjectId(mostRecent.id);
           await loadChatMessages(mostRecent.id);
+          
+          // On mobile, switch back to chat view when loading the most recent project
+          if (window.innerWidth < 1024) {
+            setMobileView('chat');
+          }
           return;
         }
       }
@@ -73,6 +102,11 @@ const ChatPage = ({ onBackToHome }) => {
       console.error('Error loading/restoring project:', error);
       // Fallback to creating a default project
       await createDefaultProject();
+      
+      // On mobile, switch back to chat view when there's an error
+      if (window.innerWidth < 1024) {
+        setMobileView('chat');
+      }
     }
   };
 
@@ -100,9 +134,19 @@ const ChatPage = ({ onBackToHome }) => {
         setCurrentProject(newProject);
         setStoredProjectId(result.project_id);
         await loadChatMessages(result.project_id);
+        
+        // On mobile, switch back to chat view when creating a default project
+        if (window.innerWidth < 1024) {
+          setMobileView('chat');
+        }
       }
     } catch (error) {
       console.error('Error creating default project:', error);
+      
+      // On mobile, switch back to chat view when there's an error creating a default project
+      if (window.innerWidth < 1024) {
+        setMobileView('chat');
+      }
     }
   };
 
@@ -115,6 +159,11 @@ const ChatPage = ({ onBackToHome }) => {
     setStoredProjectId(project.id);
     await loadChatMessages(project.id);
     setShowProjectPanel(false);
+    
+    // On mobile, switch back to chat view when selecting a project
+    if (window.innerWidth < 1024) {
+      setMobileView('chat');
+    }
   };
 
   const handleAllProjectsDeleted = async () => {
@@ -123,6 +172,11 @@ const ChatPage = ({ onBackToHome }) => {
     setStoredProjectId(null);
     // Create a new default project
     await createDefaultProject();
+    
+    // On mobile, switch back to chat view when all projects are deleted
+    if (window.innerWidth < 1024) {
+      setMobileView('chat');
+    }
   };
 
   const loadChatMessages = async (projectId) => {
@@ -134,6 +188,11 @@ const ChatPage = ({ onBackToHome }) => {
       }
     } catch (error) {
       console.error('Error loading chat messages:', error);
+      
+      // On mobile, switch back to chat view when there's an error loading chat messages
+      if (window.innerWidth < 1024) {
+        setMobileView('chat');
+      }
     }
   };
 
@@ -281,6 +340,11 @@ const ChatPage = ({ onBackToHome }) => {
           timestamp: new Date().toISOString()
         };
         setMessages(prev => [...prev, fallbackMessage]);
+        
+        // On mobile, switch back to chat view when there's a fallback response
+        if (window.innerWidth < 1024) {
+          setMobileView('chat');
+        }
       }
     } catch (error) {
       console.error('Error in LLM orchestration:', error);
@@ -292,6 +356,11 @@ const ChatPage = ({ onBackToHome }) => {
         timestamp: new Date().toISOString()
       };
       setMessages(prev => [...prev, errorMessage]);
+      
+      // On mobile, switch back to chat view when there's an error in LLM orchestration
+      if (window.innerWidth < 1024) {
+        setMobileView('chat');
+      }
     } finally {
       setIsLoading(false);
       setPreviewLoading(false);
@@ -335,6 +404,11 @@ const ChatPage = ({ onBackToHome }) => {
         
         // Show success message
         alert('Website restored successfully!');
+        
+        // On mobile, switch back to chat view when restoring a project
+        if (window.innerWidth < 1024) {
+          setMobileView('chat');
+        }
       } else {
         const error = await response.json();
         alert(`Failed to restore website: ${error.error}`);
@@ -342,6 +416,11 @@ const ChatPage = ({ onBackToHome }) => {
     } catch (error) {
       console.error('Error restoring website:', error);
       alert('Failed to restore website. Please try again.');
+      
+      // On mobile, switch back to chat view when there's an error restoring website
+      if (window.innerWidth < 1024) {
+        setMobileView('chat');
+      }
     }
   };
 
@@ -444,7 +523,7 @@ const ChatPage = ({ onBackToHome }) => {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Landing Page Preview</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -498,7 +577,20 @@ const ChatPage = ({ onBackToHome }) => {
     <style>
       ${cssCode}
     </style>
-    <style>body { margin: 0; }</style>
+    <style>
+      body { 
+        margin: 0; 
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+      }
+      /* Mobile-specific improvements */
+      @media (max-width: 768px) {
+        * {
+          -webkit-tap-highlight-color: transparent;
+        }
+      }
+    </style>
 </head>
 <body>
     <div id="root"></div>
@@ -542,7 +634,7 @@ const ChatPage = ({ onBackToHome }) => {
       } catch (err) {
         console.error('Preview error:', err);
         window.parent.postMessage({ type: 'preview-error', error: err.message }, '*');
-        document.body.innerHTML = '<div style="color:red;padding:2rem;font-family:monospace;">Error: '+err.message+'<br><br>Stack: '+err.stack+'</div>';
+        document.body.innerHTML = '<div style="color:red;padding:1rem;font-family:monospace;font-size:14px;word-break:break-word;">Error: '+err.message+'<br><br>Stack: '+err.stack+'</div>';
       }
     </script>
 </body>
@@ -554,22 +646,23 @@ const ChatPage = ({ onBackToHome }) => {
 
       {/* Project Management Panel */}
       {showProjectPanel && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={() => setShowProjectPanel(false)}>
-          <div className="fixed left-0 top-0 h-full w-80 bg-white shadow-xl z-50" onClick={(e) => e.stopPropagation()}>
-            <div className="p-4 border-b border-gray-200">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 backdrop-blur-sm" onClick={() => setShowProjectPanel(false)}>
+          <div className="fixed left-0 top-0 h-full w-full lg:w-80 bg-white shadow-xl z-50 overflow-y-auto max-h-screen lg:max-h-none rounded-r-lg lg:rounded-r-none border-r border-gray-200" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 border-b border-gray-200 bg-gray-50 lg:bg-white">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">Project Management</h2>
+                <h2 className="text-base lg:text-lg font-semibold text-gray-900">Project Management</h2>
                 <button
                   onClick={() => setShowProjectPanel(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 p-2 lg:p-1 touch-manipulation rounded-lg hover:bg-gray-100 transition-colors"
+                  style={{ minHeight: '44px', minWidth: '44px' }}
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 lg:w-6 lg:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
             </div>
-            <div className="p-4">
+            <div className="p-3 lg:p-4 overflow-y-auto bg-white">
               <ProjectSelector 
                 onProjectSelect={handleProjectSelect}
                 currentProjectId={currentProject?.id}
@@ -581,40 +674,44 @@ const ChatPage = ({ onBackToHome }) => {
       )}
 
       {/* Two-pane layout - Chat on left, Preview on right */}
-      <div className="flex h-screen pt-16">
+      <div className="flex flex-col lg:flex-row h-screen pt-16 pb-24 lg:pb-0">
         {/* Left pane - Chat interface */}
-        <div className="w-2/5 bg-white border-r border-gray-200 flex flex-col">
+        <div className={`${mobileView === 'chat' ? 'flex' : 'hidden'} lg:flex lg:w-2/5 bg-white border-r border-gray-200 flex-col transition-all duration-300 ease-in-out`}>
           {/* Project Info Bar */}
           {currentProject && (
-            <div className="px-6 py-3 bg-blue-50 border-b border-blue-200">
+            <div className="px-4 lg:px-6 py-3 bg-blue-50 border-b border-blue-200">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="flex items-center space-x-2 min-w-0">
+                  <svg className="w-4 h-4 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  <span className="text-sm font-medium text-blue-900">{currentProject.project_name}</span>
+                  <span className="text-sm font-medium text-blue-900 truncate">{currentProject.project_name}</span>
+                  {/* Mobile view indicator */}
+                  <span className="lg:hidden text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                    {mobileView === 'chat' ? 'Chat' : 'Preview'}
+                  </span>
                 </div>
                 <button
                   onClick={() => setShowProjectPanel(true)}
-                  className="text-xs text-blue-600 hover:text-blue-800 underline"
+                  className="text-xs text-blue-600 hover:text-blue-800 underline flex-shrink-0 ml-2"
                 >
-                  Switch Project
+                  Switch
                 </button>
               </div>
             </div>
           )}
           
           {/* Chat messages */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-3 lg:space-y-4">
             {messages.length === 0 ? (
-              <div className="text-center text-gray-500 mt-8">
-                <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
-                  <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="text-center text-gray-500 mt-8 px-2">
+                <div className="w-12 h-12 lg:w-16 lg:h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 lg:w-8 lg:h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-medium mb-2">Start building your landing page</h3>
-                <p className="text-sm">Describe your startup idea and I'll help you create a professional landing page.</p>
+                <h3 className="text-base lg:text-lg font-medium mb-2">Start building your landing page</h3>
+                <p className="text-xs lg:text-sm">Describe your startup idea and I'll help you create a professional landing page.</p>
               </div>
             ) : (
               messages.map((message) => (
@@ -623,22 +720,22 @@ const ChatPage = ({ onBackToHome }) => {
                   className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}
                 >
                   <div
-                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                    className={`max-w-[85%] lg:max-w-md px-3 lg:px-4 py-2 rounded-lg ${
                       message.role === 'user'
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-100 text-gray-900'
                     }`}
                   >
-                    <p className="text-sm">{message.message}</p>
+                    <p className="text-sm break-words">{message.message}</p>
                     
                     {/* Display current clarification question if present */}
                     {message.needs_clarification && message.current_question && (
                       <div className="mt-3">
-                        <div className="text-xs text-gray-600 bg-blue-50 p-3 rounded border-l-4 border-blue-400">
+                        <div className="text-xs text-gray-600 bg-blue-50 p-2 lg:p-3 rounded border-l-4 border-blue-400">
                           <div className="font-medium text-blue-700 mb-1">
                             Question {message.current_question_index + 1} of {message.clarification_questions?.length || '?'}
                           </div>
-                          <div>{message.current_question.question}</div>
+                          <div className="break-words">{message.current_question.question}</div>
                         </div>
                       </div>
                     )}
@@ -646,7 +743,11 @@ const ChatPage = ({ onBackToHome }) => {
                     <p className={`text-xs mt-1 ${
                       message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
                     }`}>
-                      {new Date(message.timestamp).toLocaleTimeString()}
+                      {new Date(message.timestamp).toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit',
+                        hour12: true 
+                      })}
                     </p>
                   </div>
                   
@@ -655,13 +756,14 @@ const ChatPage = ({ onBackToHome }) => {
                     <div className="mt-2">
                       <button
                         onClick={() => handleRestoreWeb(message.backup_id)}
-                        className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-800 transition-colors"
+                        className="inline-flex items-center px-2 lg:px-3 py-1 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-800 transition-colors"
                         title="Restore website to this version"
                       >
                         <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
                         </svg>
-                        Restore Web
+                        <span className="hidden sm:inline">Restore Web</span>
+                        <span className="sm:hidden">Restore</span>
                       </button>
                     </div>
                   )}
@@ -670,7 +772,7 @@ const ChatPage = ({ onBackToHome }) => {
             )}
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-gray-100 text-gray-900 px-4 py-2 rounded-lg">
+                <div className="bg-gray-100 text-gray-900 px-3 lg:px-4 py-2 rounded-lg">
                   <div className="flex space-x-1">
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
@@ -682,23 +784,24 @@ const ChatPage = ({ onBackToHome }) => {
           </div>
 
           {/* Chat input */}
-          <div className="border-t border-gray-200 p-4">
+          <div className="border-t border-gray-200 p-3 lg:p-4">
             <div className="flex space-x-2">
               <textarea
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Describe your startup idea or ask me to modify the landing page..."
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                rows={3}
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm lg:text-base min-h-[60px] lg:min-h-[80px]"
+                rows={2}
                 disabled={isLoading}
+                style={{ minHeight: '60px' }}
               />
               <button
                 onClick={handleSendMessage}
                 disabled={!inputMessage.trim() || isLoading}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-blue-600 text-white px-3 lg:px-4 py-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                 </svg>
               </button>
@@ -707,10 +810,10 @@ const ChatPage = ({ onBackToHome }) => {
         </div>
 
         {/* Right pane - Live preview */}
-        <div className="w-3/5 bg-white flex flex-col relative">
+        <div className={`${mobileView === 'chat' ? 'hidden' : 'flex'} lg:flex lg:w-3/5 bg-white flex-col relative transition-all duration-300 ease-in-out`}>
           
           {/* Preview Header */}
-          <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
+          <div className="px-4 lg:px-6 py-3 bg-gray-50 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -719,7 +822,7 @@ const ChatPage = ({ onBackToHome }) => {
                 </svg>
                 <span className="text-sm font-medium text-gray-900">Live Preview</span>
               </div>
-              <div className="text-xs text-gray-500">
+              <div className="hidden lg:block text-xs text-gray-500">
                 Real-time updates as you chat
               </div>
             </div>
@@ -730,16 +833,16 @@ const ChatPage = ({ onBackToHome }) => {
             {previewLoading && (
               <div className="absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center z-10">
                 <div className="flex flex-col items-center">
-                  <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-2"></div>
-                  <span className="text-blue-600 font-medium">Updating preview...</span>
+                  <div className="w-6 h-6 lg:w-8 lg:h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-2"></div>
+                  <span className="text-blue-600 font-medium text-sm lg:text-base">Updating preview...</span>
                 </div>
               </div>
             )}
             {previewError && (
               <div className="absolute inset-0 bg-red-50 bg-opacity-90 flex items-center justify-center z-20">
-                <div className="text-red-700 font-mono text-sm p-4 border border-red-300 rounded-lg bg-white shadow">
+                <div className="text-red-700 font-mono text-xs lg:text-sm p-3 lg:p-4 border border-red-300 rounded-lg bg-white shadow mx-4">
                   <strong>Preview Error:</strong><br />
-                  {previewError}
+                  <span className="break-words">{previewError}</span>
                 </div>
               </div>
             )}
@@ -755,8 +858,53 @@ const ChatPage = ({ onBackToHome }) => {
                 console.log('Iframe loaded successfully');
                 setPreviewLoading(false);
               }}
+              // Mobile-specific attributes
+              scrolling="auto"
+              frameBorder="0"
             />
           </div>
+        </div>
+      </div>
+
+      {/* Mobile Toggle Bar - Only visible on mobile */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-30 shadow-lg">
+        <div className="flex items-center justify-between px-4 py-3 max-w-md mx-auto">
+          {/* Chat Toggle Button */}
+          <button
+            onClick={() => setMobileView('chat')}
+            className={`flex-1 mx-2 py-3 px-4 rounded-lg font-medium transition-all duration-200 transform touch-manipulation ${
+              mobileView === 'chat'
+                ? 'bg-blue-600 text-white shadow-md scale-105'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-102'
+            }`}
+            style={{ minHeight: '48px' }}
+          >
+            <div className="flex items-center justify-center space-x-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              <span>Chat</span>
+            </div>
+          </button>
+
+          {/* Preview Toggle Button */}
+          <button
+            onClick={() => setMobileView('preview')}
+            className={`flex-1 mx-2 py-2 px-4 rounded-lg font-medium transition-all duration-200 transform touch-manipulation ${
+              mobileView === 'preview'
+                ? 'bg-blue-600 text-white shadow-md scale-105'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-102'
+            }`}
+            style={{ minHeight: '48px' }}
+          >
+            <div className="flex items-center justify-center space-x-2">
+              <svg className="w-5 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              <span>Preview</span>
+            </div>
+          </button>
         </div>
       </div>
     </div>

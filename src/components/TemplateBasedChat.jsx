@@ -308,6 +308,34 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const [isRegeneratingHeroBg, setIsRegeneratingHeroBg] = useState(false);
   const [isRegeneratingAboutBg, setIsRegeneratingAboutBg] = useState(false);
   const isInitialLoadRef = useRef(true);
+  // Mobile responsiveness: toggle Chat/Preview panes on small screens
+  const [mobileView, setMobileView] = useState('chat');
+  const [isMobile, setIsMobile] = useState(false);
+  const [showWorkflowPanel, setShowWorkflowPanel] = useState(false);
+
+  // Detect mobile screen size
+  useEffect(() => {
+    const updateIsMobile = () => {
+      const mobile = window.innerWidth < 1024; // Tailwind lg breakpoint
+      setIsMobile(mobile);
+      if (mobile) {
+        setMobileView('chat'); // default to Chat on mobile
+      }
+    };
+    updateIsMobile();
+    window.addEventListener('resize', updateIsMobile);
+    return () => window.removeEventListener('resize', updateIsMobile);
+  }, []);
+
+  // Listen for project panel toggle from Navbar
+  useEffect(() => {
+    const handleToggleProjectPanel = () => {
+      setShowProjectPanel(!showProjectPanel);
+    };
+    
+    window.addEventListener('toggle-project-panel', handleToggleProjectPanel);
+    return () => window.removeEventListener('toggle-project-panel', handleToggleProjectPanel);
+  }, [showProjectPanel]);
 
   // Progress tracking state
   const [aiProgress, setAiProgress] = useState({
@@ -1074,39 +1102,67 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     await createDefaultProject();
   };
 
+  const effectivePreviewMode = isMobile ? 'phone' : previewMode;
+
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex flex-col lg:flex-row h-screen bg-gray-50 pb-24 lg:pb-0">
       {/* Inject mobile viewport styles */}
-      <style dangerouslySetInnerHTML={{ __html: getMobileViewportStyles(previewMode) }} />
+      <style dangerouslySetInnerHTML={{ __html: getMobileViewportStyles(effectivePreviewMode) }} />
       {/* Left Side - Chat/Editor Panel */}
-      <div className="w-1/4 bg-white border-r border-gray-200 flex flex-col">
+      <div className={`${mobileView === 'chat' ? 'flex' : 'hidden'} lg:flex lg:w-2/5 bg-white border-r border-gray-200 flex-col`}>
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center">
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">
-                  {isEditorMode ? 'Template Editor' : 'AI Chat'}
-                </h1>
-                <p className="text-sm text-gray-500">
-                  {currentProject?.project_name || 'Loading...'}
-                </p>
+        <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-3 lg:py-4">
+          <div className="flex items-center justify-between">
+            {/* Left: Jetsy Logo + Project Name with Dropdown */}
+            <div className="flex items-center space-x-3 min-w-0 flex-1">
+              {/* Jetsy Logo */}
+              <div className="flex-shrink-0">
+                <img 
+                  src="/jetsy_logo.png" 
+                  alt="Jetsy" 
+                  className="w-8 h-8 lg:w-10 lg:h-10"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                  }}
+                />
+              </div>
+              
+              {/* Project Name with Dropdown */}
+              <div className="flex items-center space-x-2 min-w-0 flex-1">
+                <button
+                  onClick={() => setShowWorkflowPanel(!showWorkflowPanel)}
+                  className="flex items-center space-x-2 text-left hover:bg-gray-50 rounded-lg px-2 py-1 transition-colors min-w-0"
+                >
+                  <span className="text-sm lg:text-base font-medium text-gray-900 truncate">
+                    {currentProject?.project_name || 'Loading...'}
+                  </span>
+                  <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
               </div>
             </div>
             
-            <div className="flex items-center space-x-2">
+            {/* Right: Projects + Save Changes Buttons */}
+            <div className="flex items-center space-x-2 flex-shrink-0">
               <button
                 onClick={() => {
                   console.log('Toggling project panel, current state:', showProjectPanel);
                   setShowProjectPanel(!showProjectPanel);
                 }}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                className="px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
               >
                 Projects
               </button>
+              <button
+                onClick={onSaveChanges}
+                className="px-3 lg:px-4 py-2 text-xs lg:text-sm font-medium text-white bg-black hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                Save Changes
+              </button>
             </div>
-                      </div>
           </div>
+        </div>
 
         {/* Project Panel */}
         {showProjectPanel && (
@@ -2374,7 +2430,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       </div>
 
       {/* Right Side - Live Preview */}
-      <div className="w-3/4 bg-white flex flex-col">
+      <div className={`${mobileView === 'preview' ? 'flex' : 'hidden'} lg:flex lg:w-3/5 bg-white flex flex-col`}>
         {/* Preview Header */}
         <div className="bg-gray-50 border-b border-gray-200 px-6 py-3">
           <div className="flex items-center justify-between">
@@ -2390,9 +2446,9 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
           </div>
         </div>
         
-                 <div className="flex-1 overflow-y-auto bg-gray-100">
+        <div className="flex-1 overflow-y-auto bg-gray-100">
            {/* CSS Transform-based Mobile/Tablet Preview */}
-           {previewMode === 'phone' || previewMode === 'tablet' ? (
+           {effectivePreviewMode === 'phone' || effectivePreviewMode === 'tablet' ? (
              <div className="flex justify-center items-start min-h-full">
                 <div className="mobile-viewport-simulator">
                 <ExceptionalTemplate 
@@ -2514,7 +2570,68 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         </div>
       </div>
 
+      {/* Mobile bottom toggle bar */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 shadow-lg">
+        <div className="max-w-md mx-auto flex items-center justify-between px-4 py-3">
+          <button
+            onClick={() => setMobileView('chat')}
+            className={`flex-1 mx-2 py-3 px-4 rounded-lg font-medium transition-all duration-200 transform touch-manipulation ${mobileView === 'chat' ? 'bg-black text-white scale-105' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
+            style={{ minHeight: '48px' }}
+          >
+            Chat
+          </button>
+          <button
+            onClick={() => setMobileView('preview')}
+            className={`flex-1 mx-2 py-3 px-4 rounded-lg font-medium transition-all duration-200 transform touch-manipulation ${mobileView === 'preview' ? 'bg-black text-white scale-105' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
+            style={{ minHeight: '48px' }}
+          >
+            Preview
+          </button>
+        </div>
+      </div>
 
+      {/* Workflow Panel */}
+      {showWorkflowPanel && (
+        <div className="border-b border-gray-200 bg-gray-50">
+          <div className="p-4">
+            <div className="space-y-4">
+              {/* Workflow Progress */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-900 mb-3">Website Creation Progress</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                    <span className="text-xs text-gray-600">Website creation</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
+                    <span className="text-xs text-gray-500">Ads creation</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
+                    <span className="text-xs text-gray-500">Launch and monitor</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
+                    <span className="text-xs text-gray-500">Data Analytics</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Data Analytics Button */}
+              <button
+                onClick={() => {
+                  // Navigate to data analytics page
+                  window.location.href = `/data_analytics/project_${currentProject?.id}`;
+                }}
+                className="w-full px-3 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+              >
+                Go to Data Analytics
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 });
