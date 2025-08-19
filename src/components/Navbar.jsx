@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DeploymentButton from './DeploymentButton';
 import WorkflowProgressBar from './WorkflowProgressBar';
 import { getApiBaseUrl } from '../config/environment';
@@ -13,16 +13,34 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
   const [isMobile, setIsMobile] = useState(false);
   const [currentProjectName, setCurrentProjectName] = useState('');
   const [showProjectPanel, setShowProjectPanel] = useState(false);
+  const [hideNavbar, setHideNavbar] = useState(false);
 
-  // Detect mobile screen size
-  React.useEffect(() => {
-    const updateIsMobile = () => {
-      setIsMobile(window.innerWidth < 1024); // Tailwind lg breakpoint
+  // Effect to detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
     };
-    updateIsMobile();
-    window.addEventListener('resize', updateIsMobile);
-    return () => window.removeEventListener('resize', updateIsMobile);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Effect to listen for navbar visibility events from TemplateBasedChat
+  useEffect(() => {
+    const handleNavbarVisibility = (event) => {
+      if (event.detail && typeof event.detail.hide === 'boolean') {
+        // Only hide navbar if we're in chat mode and on mobile
+        if (isChatMode && isMobile && event.detail.hide) {
+          setHideNavbar(true);
+        } else {
+          setHideNavbar(false);
+        }
+      }
+    };
+
+    window.addEventListener('mobile-navbar-visibility', handleNavbarVisibility);
+    return () => window.removeEventListener('mobile-navbar-visibility', handleNavbarVisibility);
+  }, [isChatMode, isMobile]);
 
   // Get current project ID from localStorage
   React.useEffect(() => {
@@ -169,7 +187,7 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
   const previewInfo = getPreviewModeInfo();
 
   return (
-    <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+    <nav className={`fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 transition-all duration-300 ${hideNavbar ? 'transform -translate-y-full' : 'transform translate-y-0'}`}>
       <div className="flex items-center h-16">
         {/* Logo - positioned at far left with some padding */}
         <div className="flex items-center pl-8">

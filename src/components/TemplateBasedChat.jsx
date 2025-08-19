@@ -313,19 +313,30 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const [isMobile, setIsMobile] = useState(false);
   const [showWorkflowPanel, setShowWorkflowPanel] = useState(false);
 
-  // Detect mobile screen size
+  // Effect to detect mobile screen size
   useEffect(() => {
-    const updateIsMobile = () => {
-      const mobile = window.innerWidth < 1024; // Tailwind lg breakpoint
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
       if (mobile) {
         setMobileView('chat'); // default to Chat on mobile
       }
     };
-    updateIsMobile();
-    window.addEventListener('resize', updateIsMobile);
-    return () => window.removeEventListener('resize', updateIsMobile);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Effect to dispatch navbar visibility event
+  useEffect(() => {
+    if (isMobile) {
+      const shouldHideNavbar = mobileView === 'preview';
+      window.dispatchEvent(new CustomEvent('mobile-navbar-visibility', { detail: { hide: shouldHideNavbar } }));
+    } else {
+      // Ensure navbar is visible on desktop
+      window.dispatchEvent(new CustomEvent('mobile-navbar-visibility', { detail: { hide: false } }));
+    }
+  }, [mobileView, isMobile]);
 
   // Listen for project panel toggle from Navbar
   useEffect(() => {
@@ -1183,7 +1194,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             // Chat Mode
             <>
                               {/* Messages */}
-                <div className="h-[calc(100vh-400px)] overflow-y-auto p-6 space-y-4">
+                <div className={`h-[calc(100vh-400px)] overflow-y-auto p-6 space-y-4 ${isMobile ? 'pt-20' : ''}`}>
                 {messages.map((message) => (
                   <div
                     key={message.id}
@@ -1316,7 +1327,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             </>
           ) : (
             // Editor Mode
-            <div className="flex-1 p-6 overflow-y-auto">
+            <div className={`flex-1 p-6 overflow-y-auto ${isMobile ? 'pt-20' : ''}`}>
               <div className="space-y-6">
                 <div>
                   {initialUserIdea ? (
@@ -2431,27 +2442,29 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
 
       {/* Right Side - Live Preview */}
       <div className={`${mobileView === 'preview' ? 'flex' : 'hidden'} lg:flex lg:w-2/3 bg-white flex flex-col`}>
-        {/* Preview Header */}
-        <div className="bg-gray-50 border-b border-gray-200 px-6 py-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Live Preview</h2>
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-2 text-sm text-gray-500">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span>Real-time updates</span>
-              </div>
-              
+        {/* Preview Header - Hidden on mobile */}
+        {!isMobile && (
+          <div className="bg-gray-50 border-b border-gray-200 px-6 py-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">Live Preview</h2>
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2 text-sm text-gray-500">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span>Real-time updates</span>
+                </div>
+                
 
+              </div>
             </div>
           </div>
-        </div>
+        )}
         
-        <div className="flex-1 overflow-y-auto bg-gray-100">
+        <div className={`flex-1 overflow-y-auto ${isMobile ? 'bg-white' : 'bg-gray-100'}`}>
            {/* CSS Transform-based Mobile/Tablet Preview */}
            {effectivePreviewMode === 'phone' || effectivePreviewMode === 'tablet' ? (
-             <div className="flex justify-center items-start min-h-full">
-                <div className="mobile-viewport-simulator">
-                <ExceptionalTemplate 
+             <div className={`${isMobile ? 'w-full h-full' : 'flex justify-center items-start min-h-full'}`}>
+                <div className={`${isMobile ? 'w-full h-full' : 'mobile-viewport-simulator'}`}>
+                <ExceptionalTemplate
                   businessName={templateData.businessName || ''}
                   seoTitle={templateData.seoTitle || null}
                   businessLogoUrl={templateData.businessLogoUrl || null}
@@ -2509,7 +2522,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
               </div>
             </div>
           ) : (
-            <div className="max-w-full">
+            <div className={`${isMobile ? 'w-full h-full' : 'max-w-full'}`}>
               <ExceptionalTemplate 
                 businessName={templateData.businessName || ''}
                 seoTitle={templateData.seoTitle || null}
@@ -2572,18 +2585,18 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
 
       {/* Mobile bottom toggle bar */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 shadow-lg">
-        <div className="max-w-md mx-auto flex items-center justify-between px-4 py-3">
+        <div className="max-w-md mx-auto flex items-center justify-between px-4 py-2">
           <button
             onClick={() => setMobileView('chat')}
-            className={`flex-1 mx-2 py-3 px-4 rounded-lg font-medium transition-all duration-200 transform touch-manipulation ${mobileView === 'chat' ? 'bg-black text-white scale-105' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
-            style={{ minHeight: '48px' }}
+            className={`flex-1 mx-2 py-2 px-4 rounded-lg font-medium transition-all duration-200 transform touch-manipulation ${mobileView === 'chat' ? 'bg-black text-white scale-105' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
+            style={{ minHeight: '40px' }}
           >
             Chat
           </button>
           <button
             onClick={() => setMobileView('preview')}
-            className={`flex-1 mx-2 py-3 px-4 rounded-lg font-medium transition-all duration-200 transform touch-manipulation ${mobileView === 'preview' ? 'bg-black text-white scale-105' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
-            style={{ minHeight: '48px' }}
+            className={`flex-1 mx-2 py-2 px-4 rounded-lg font-medium transition-all duration-200 transform touch-manipulation ${mobileView === 'preview' ? 'bg-black text-white scale-105' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
+            style={{ minHeight: '40px' }}
           >
             Preview
           </button>
@@ -2616,20 +2629,16 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                   <h3 className="text-sm font-medium text-gray-900 mb-3">Website Creation Progress</h3>
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                      <span className="text-lg">🌐</span>
                       <span className="text-xs text-gray-600">Website creation</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
+                      <span className="text-lg">📢</span>
                       <span className="text-xs text-gray-500">Ads creation</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
+                      <span className="text-lg">🚀</span>
                       <span className="text-xs text-gray-500">Launch and monitor</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
-                      <span className="text-xs text-gray-500">Data Analytics</span>
                     </div>
                   </div>
                 </div>
@@ -2640,9 +2649,12 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                     // Navigate to data analytics page
                     window.location.href = `/data_analytics/project_${currentProject?.id}`;
                   }}
-                  className="w-full px-3 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors mt-4"
+                  className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700 inline-flex items-center gap-2 justify-center mt-4"
                 >
-                  Go to Data Analytics
+                  <span>Data Analytics</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-gray-500">
+                    <path d="M5 3a1 1 0 0 1 1 1v14h12a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2V4a1 1 0 0 1 1-1h1Zm4.5 5a1 1 0 0 1 1 1v7h-2v-7a1 1 0 0 1 1-1Zm4 -2a1 1 0 0 1 1 1v9h-2V7a1 1 0 0 1 1-1Zm4 4a1 1 0 0 1 1 1v5h-2v-5a1 1 0 0 1 1-1Z" />
+                  </svg>
                 </button>
               </div>
             </div>
