@@ -620,7 +620,14 @@ async function handleProjectTrackingSummary(request, env, corsHeaders) {
 
     const db = env.DB;
 
-    // Get event counts by type
+    // Get leads count from leads table for this project
+    const leadsResult = await db.prepare(`
+      SELECT COUNT(*) as count
+      FROM leads
+      WHERE project_id = ?
+    `).bind(parseInt(projectId, 10)).first();
+
+    // Get event counts by type from tracking_events
     const eventCounts = await db.prepare(`
       SELECT 
         event_name,
@@ -636,7 +643,6 @@ async function handleProjectTrackingSummary(request, env, corsHeaders) {
         DATE(created_at) as date,
         COUNT(*) as total_events,
         COUNT(CASE WHEN event_name = 'page_view' THEN 1 END) as page_views,
-        COUNT(CASE WHEN event_name = 'lead_form_submit' THEN 1 END) as leads,
         COUNT(CASE WHEN event_name = 'pricing_plan_select' THEN 1 END) as pricing_clicks
       FROM tracking_events
       WHERE JSON_EXTRACT(event_data, '$.project_id') = ?
@@ -648,14 +654,13 @@ async function handleProjectTrackingSummary(request, env, corsHeaders) {
     // Calculate totals
     const totals = {
       page_views: 0,
-      leads: 0,
+      leads: leadsResult?.count || 0, // Use leads count from leads table
       pricing_clicks: 0,
       total_events: 0
     };
 
     eventCounts.results?.forEach(row => {
       if (row.event_name === 'page_view') totals.page_views = row.count;
-      if (row.event_name === 'lead_form_submit') totals.leads = row.count;
       if (row.event_name === 'pricing_plan_select') totals.pricing_clicks = row.count;
       totals.total_events += row.count;
     });
