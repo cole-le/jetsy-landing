@@ -103,6 +103,21 @@ export default {
         return new Response(null, { status: 200, headers: corsHeaders });
       }
 
+      // --- Project Tracking API ---
+      if (path === '/api/project-tracking' && request.method === 'GET') {
+        return await handleProjectTracking(request, env, corsHeaders);
+      }
+      if (path === '/api/project-tracking' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
+      if (path === '/api/project-tracking-summary' && request.method === 'GET') {
+        return await handleProjectTrackingSummary(request, env, corsHeaders);
+      }
+      if (path === '/api/project-tracking-summary' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
       // --- Projects API ---
       if (path.startsWith('/api/projects')) {
         // Extract project id if present
@@ -513,6 +528,156 @@ async function ensureContactSubmissionsTable(db) {
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_contact_created_at ON contact_submissions(created_at);`).run();
 }
 
+// Ensure tracking_events table and indexes exist
+async function ensureTrackingEventsTable(db) {
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS tracking_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_name TEXT NOT NULL,
+      event_category TEXT,
+      event_data TEXT,
+      timestamp INTEGER,
+      user_agent TEXT,
+      url TEXT,
+      session_id TEXT,
+      page_title TEXT,
+      referrer TEXT,
+      website_id TEXT,
+      user_id TEXT,
+      jetsy_generated INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL
+    );
+  `).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_tracking_website_id ON tracking_events(website_id);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_tracking_event_name ON tracking_events(event_name);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_tracking_created_at ON tracking_events(created_at);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_tracking_session_id ON tracking_events(session_id);`).run();
+}
+
+// Handle project tracking data
+async function handleProjectTracking(request, env, corsHeaders) {
+  try {
+    const url = new URL(request.url);
+    const projectId = url.searchParams.get('project_id');
+    const limit = parseInt(url.searchParams.get('limit') || '100');
+    const offset = parseInt(url.searchParams.get('offset') || '0');
+
+    if (!projectId) {
+      return new Response(JSON.stringify({ error: 'Project ID is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
+    }
+
+    const db = env.DB;
+
+    // Get events for specific project
+    const result = await db.prepare(`
+      SELECT 
+        id,
+        event_name,
+        event_category,
+        event_data,
+        timestamp,
+        created_at,
+        url,
+        user_agent
+      FROM tracking_events
+      WHERE JSON_EXTRACT(event_data, '$.project_id') = ?
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+    `).bind(projectId, limit, offset).all();
+
+    return new Response(JSON.stringify({
+      success: true,
+      events: result.results || [],
+      total: result.results?.length || 0
+    }), {
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
+
+  } catch (error) {
+    console.error('Project tracking error:', error);
+    return new Response(JSON.stringify({ error: 'Failed to fetch project events' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
+  }
+}
+
+// Handle project tracking summary
+async function handleProjectTrackingSummary(request, env, corsHeaders) {
+  try {
+    const url = new URL(request.url);
+    const projectId = url.searchParams.get('project_id');
+
+    if (!projectId) {
+      return new Response(JSON.stringify({ error: 'Project ID is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
+    }
+
+    const db = env.DB;
+
+    // Get event counts by type
+    const eventCounts = await db.prepare(`
+      SELECT 
+        event_name,
+        COUNT(*) as count
+      FROM tracking_events
+      WHERE JSON_EXTRACT(event_data, '$.project_id') = ?
+      GROUP BY event_name
+    `).bind(projectId).all();
+
+    // Get daily counts for last 7 days
+    const dailyCounts = await db.prepare(`
+      SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as total_events,
+        COUNT(CASE WHEN event_name = 'page_view' THEN 1 END) as page_views,
+        COUNT(CASE WHEN event_name = 'lead_form_submit' THEN 1 END) as leads,
+        COUNT(CASE WHEN event_name = 'pricing_plan_select' THEN 1 END) as pricing_clicks
+      FROM tracking_events
+      WHERE JSON_EXTRACT(event_data, '$.project_id') = ?
+        AND created_at >= DATE('now', '-7 days')
+      GROUP BY DATE(created_at)
+      ORDER BY date
+    `).bind(projectId).all();
+
+    // Calculate totals
+    const totals = {
+      page_views: 0,
+      leads: 0,
+      pricing_clicks: 0,
+      total_events: 0
+    };
+
+    eventCounts.results?.forEach(row => {
+      if (row.event_name === 'page_view') totals.page_views = row.count;
+      if (row.event_name === 'lead_form_submit') totals.leads = row.count;
+      if (row.event_name === 'pricing_plan_select') totals.pricing_clicks = row.count;
+      totals.total_events += row.count;
+    });
+
+    return new Response(JSON.stringify({
+      success: true,
+      totals,
+      daily_counts: dailyCounts.results || [],
+      event_breakdown: eventCounts.results || []
+    }), {
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
+
+  } catch (error) {
+    console.error('Project tracking summary error:', error);
+    return new Response(JSON.stringify({ error: 'Failed to fetch project summary' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
+  }
+}
+
 // Handle lead submission with enhanced data
 async function handleLeadSubmission(request, env, corsHeaders) {
   try {
@@ -877,21 +1042,41 @@ async function handleTrackingData(request, env, corsHeaders) {
     const body = await request.json();
     const { 
       event, 
+      event_name, // Support old format
       data, 
+      event_data, // Support old format
       timestamp, 
       userAgent, 
+      user_agent, // Support old format
       url,
       category,
+      event_category, // Support old format
       sessionId,
+      session_id, // Support old format
       pageTitle,
+      page_title, // Support old format
       referrer,
       websiteId,
+      website_id, // Support old format
       userId,
-      jetsyGenerated = false
+      user_id, // Support old format
+      jetsyGenerated = false,
+      jetsy_generated = false // Support old format
     } = body;
 
+    // Normalize field names to support both old and new formats
+    const normalizedEvent = event || event_name;
+    const normalizedData = data || (event_data ? JSON.parse(event_data) : {});
+    const normalizedUserAgent = userAgent || user_agent;
+    const normalizedCategory = category || event_category;
+    const normalizedSessionId = sessionId || session_id;
+    const normalizedPageTitle = pageTitle || page_title;
+    const normalizedWebsiteId = websiteId || website_id;
+    const normalizedUserId = userId || user_id;
+    const normalizedJetsyGenerated = jetsyGenerated || jetsy_generated;
+
     // Validate required fields
-    if (!event) {
+    if (!normalizedEvent) {
       return new Response(JSON.stringify({ error: 'Event name is required' }), {
         status: 400,
         headers: {
@@ -903,6 +1088,10 @@ async function handleTrackingData(request, env, corsHeaders) {
 
     // Store tracking data in D1
     const db = env.DB;
+    
+    // Ensure tracking_events table exists
+    await ensureTrackingEventsTable(db);
+    
     const currentTime = new Date().toISOString();
     const ts = timestamp || Date.now();
 
@@ -910,18 +1099,18 @@ async function handleTrackingData(request, env, corsHeaders) {
     const result = await db.prepare(
       "INSERT INTO tracking_events (event_name, event_category, event_data, timestamp, user_agent, url, session_id, page_title, referrer, website_id, user_id, jetsy_generated, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     ).bind(
-      event,
-      category || 'user_interaction',
-      JSON.stringify(data || {}),
+      normalizedEvent,
+      normalizedCategory || 'user_interaction',
+      JSON.stringify(normalizedData || {}),
       ts,
-      userAgent || '',
+      normalizedUserAgent || '',
       url || '',
-      sessionId || '',
-      pageTitle || '',
+      normalizedSessionId || '',
+      normalizedPageTitle || '',
       referrer || '',
-      websiteId || null,
-      userId || null,
-      jetsyGenerated ? 1 : 0,
+      normalizedWebsiteId || null,
+      normalizedUserId || null,
+      normalizedJetsyGenerated ? 1 : 0,
       currentTime
     ).run();
 
@@ -930,18 +1119,18 @@ async function handleTrackingData(request, env, corsHeaders) {
     }
 
     // Handle session tracking
-    if (sessionId) {
-      await handleSessionTracking(db, sessionId, websiteId, userId, currentTime);
+    if (normalizedSessionId) {
+      await handleSessionTracking(db, normalizedSessionId, normalizedWebsiteId, normalizedUserId, currentTime);
     }
 
     // Handle conversion funnel tracking
-    if (event.includes('funnel') || event.includes('conversion')) {
-      await handleFunnelTracking(db, event, data, sessionId, websiteId, ts, currentTime);
+    if (normalizedEvent.includes('funnel') || normalizedEvent.includes('conversion')) {
+      await handleFunnelTracking(db, normalizedEvent, normalizedData, normalizedSessionId, normalizedWebsiteId, ts, currentTime);
     }
 
     // Handle performance tracking
-    if (event === 'performance' || event === 'jetsy_performance') {
-      await handlePerformanceTracking(db, data, websiteId, userAgent, url, ts, currentTime);
+    if (normalizedEvent === 'performance' || normalizedEvent === 'jetsy_performance') {
+      await handlePerformanceTracking(db, normalizedData, normalizedWebsiteId, normalizedUserAgent, url, ts, currentTime);
     }
 
     return new Response(JSON.stringify({ 

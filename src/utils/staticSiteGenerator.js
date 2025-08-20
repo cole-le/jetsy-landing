@@ -208,23 +208,32 @@ export const createStaticHTMLTemplate = (templateData, projectId) => {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    event_name: eventName,
-                    event_category: 'user_interaction',
-                    event_data: JSON.stringify({
-                        ...eventData,
-                        project_id: PROJECT_ID,
-                        source: 'vercel_deployment',
-                        timestamp: new Date().toISOString()
-                    }),
+                    event: eventName,
+                    data: { project_id: PROJECT_ID, ...eventData },
                     timestamp: Date.now(),
+                    userAgent: navigator.userAgent,
                     url: window.location.href,
-                    user_agent: navigator.userAgent,
-                    jetsy_generated: true,
-                    website_id: PROJECT_ID
+                    category: 'user_interaction',
+                    sessionId: getSessionId(),
+                    pageTitle: document.title,
+                    referrer: document.referrer,
+                    websiteId: PROJECT_ID,
+                    userId: PROJECT_ID,
+                    jetsyGenerated: true
                 })
             }).catch(error => {
                 console.error('Analytics tracking error:', error);
             });
+        }
+        
+        // Session management
+        function getSessionId() {
+            let sessionId = sessionStorage.getItem('jetsy_session_id');
+            if (!sessionId) {
+                sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                sessionStorage.setItem('jetsy_session_id', sessionId);
+            }
+            return sessionId;
         }
         
         // Initialize page
@@ -252,9 +261,10 @@ export const createStaticHTMLTemplate = (templateData, projectId) => {
             // Track CTA button clicks
             document.querySelectorAll('.cta-button').forEach(button => {
                 button.addEventListener('click', () => {
-                    trackEvent('cta_click', {
+                    trackEvent('pricing_plan_select', {
                         button_text: button.textContent,
-                        button_location: button.getAttribute('data-location') || 'unknown'
+                        button_location: button.getAttribute('data-location') || 'unknown',
+                        plan_type: 'cta_button'
                     });
                 });
             });
@@ -274,8 +284,8 @@ function escapeHtml(text) {
 
 // Get API base URL (same logic as in environment.js)
 function getApiBaseUrl() {
-  // In static deployment, we'll use the production Jetsy API
-  return 'https://jetsy.dev';
+  // In static deployment, we'll use the production Jetsy worker API
+  return 'https://jetsy-landing.jetsydev.workers.dev';
 }
 
 // Generate the static React component content as HTML string
@@ -777,7 +787,7 @@ export const generateStaticComponentHTML = (templateData) => {
             if (result.success) {
               showMessage('Thank you! Your message has been sent successfully.');
               e.target.reset();
-              trackEvent('contact_form_submitted', data);
+              trackEvent('contact_form_submit', data);
             } else {
               showMessage('Sorry, there was an error sending your message. Please try again.', 'error');
             }
@@ -802,7 +812,7 @@ export const generateStaticComponentHTML = (templateData) => {
             if (result.success) {
               showMessage('Thank you for your interest! We\'ll be in touch soon.');
               e.target.reset();
-              trackEvent('lead_form_submitted', data);
+              trackEvent('lead_form_submit', data);
             } else {
               showMessage('Sorry, there was an error. Please try again.', 'error');
             }

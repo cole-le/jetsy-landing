@@ -79,6 +79,40 @@ const calculateOptimalTextColor = (imageUrl) => {
   });
 };
 
+// Tracking functions for live preview
+const sendEvent = (eventName, eventData = {}) => {
+  if (!projectId) return; // Only track if we have a project ID
+  
+  fetch(`${getApiBaseUrl()}/api/track`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      event: eventName,
+      data: { project_id: projectId, ...eventData },
+      timestamp: Date.now(),
+      userAgent: navigator.userAgent,
+      url: window.location.href,
+      category: 'user_interaction',
+      sessionId: getSessionId(),
+      pageTitle: document.title,
+      referrer: document.referrer,
+      websiteId: projectId,
+      userId: projectId,
+      jetsyGenerated: true
+    })
+  }).catch(() => {});
+};
+
+// Session management
+const getSessionId = () => {
+  let sessionId = sessionStorage.getItem('jetsy_session_id');
+  if (!sessionId) {
+    sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    sessionStorage.setItem('jetsy_session_id', sessionId);
+  }
+  return sessionId;
+};
+
 const ExceptionalTemplate = ({ 
   businessName = 'Your Amazing Startup',
   seoTitle = null,
@@ -328,6 +362,14 @@ const ExceptionalTemplate = ({
   useEffect(() => {
     setIsVisible(true);
     
+    // Track page view for live websites
+    if (isLiveWebsite && projectId) {
+      sendEvent('page_view', {
+        page_title: document.title,
+        referrer: document.referrer
+      });
+    }
+    
     // Smooth scroll for navigation
     const handleSmoothScroll = (e) => {
       if (e.target.hash) {
@@ -367,7 +409,7 @@ const ExceptionalTemplate = ({
       document.removeEventListener('click', handleClickOutside);
       window.removeEventListener('resize', handleResize);
     };
-  }, [isMobileMenuOpen]);
+  }, [isMobileMenuOpen, isLiveWebsite, projectId]);
 
   // Set document title and favicon dynamically - only for live websites
   useEffect(() => {
@@ -439,6 +481,15 @@ const ExceptionalTemplate = ({
         })
       });
       if (res.ok) {
+        // Track successful form submission
+        if (isLiveWebsite && projectId) {
+          sendEvent('contact_form_submit', {
+            form_type: 'contact',
+            has_name: !!formData.name,
+            has_company: !!formData.company
+          });
+        }
+        
         alert('Thank you! We\'ll be in touch soon.');
         setFormData({ name: '', email: '', company: '', message: '' });
       } else {
@@ -915,11 +966,21 @@ const ExceptionalTemplate = ({
                   ))}
                 </ul>
                 
-                <button className={`w-full py-3 px-6 rounded-full font-semibold transition-all duration-300 transform hover:scale-105 ${
-                  plan.popular
-                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700'
-                    : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-                }`}>
+                <button 
+                  onClick={() => {
+                    if (isLiveWebsite && projectId) {
+                      sendEvent('pricing_plan_select', {
+                        plan_name: plan.name,
+                        plan_price: plan.price,
+                        plan_popular: plan.popular
+                      });
+                    }
+                  }}
+                  className={`w-full py-3 px-6 rounded-full font-semibold transition-all duration-300 transform hover:scale-105 ${
+                    plan.popular
+                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700'
+                      : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                  }`}>
                   {plan.cta}
                 </button>
               </div>
@@ -1119,6 +1180,14 @@ const ExceptionalTemplate = ({
                     })
                   });
                   if (res.ok) {
+                    // Track successful lead submission
+                    if (isLiveWebsite && projectId) {
+                      sendEvent('lead_form_submit', {
+                        form_type: 'lead',
+                        has_phone: !!leadPhone
+                      });
+                    }
+                    
                     setIsLeadModalOpen(false);
                     setLeadEmail('');
                     setLeadPhone('');
