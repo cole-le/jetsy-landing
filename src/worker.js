@@ -67,6 +67,32 @@ export default {
         return await getAnalytics(request, env, corsHeaders);
       }
 
+      // --- Comprehensive Analytics API for Dashboard ---
+      if (path === '/api/analytics/overview' && request.method === 'GET') {
+        return await getAnalyticsOverview(request, env, corsHeaders);
+      }
+      if (path === '/api/analytics/daily' && request.method === 'GET') {
+        return await getAnalyticsDaily(request, env, corsHeaders);
+      }
+      if (path === '/api/analytics/events-breakdown' && request.method === 'GET') {
+        return await getAnalyticsEventsBreakdown(request, env, corsHeaders);
+      }
+      if (path === '/api/analytics/funnel' && request.method === 'GET') {
+        return await getAnalyticsFunnel(request, env, corsHeaders);
+      }
+      if (path === '/api/analytics/events' && request.method === 'GET') {
+        return await getAnalyticsEvents(request, env, corsHeaders);
+      }
+      if (path === '/api/analytics/priority-access' && request.method === 'GET') {
+        return await getAnalyticsPriorityAccess(request, env, corsHeaders);
+      }
+      if (path === '/api/analytics/realtime' && request.method === 'GET') {
+        return await getAnalyticsRealTime(request, env, corsHeaders);
+      }
+      if (path === '/api/analytics/debug' && request.method === 'GET') {
+        return await getAnalyticsDebug(request, env, corsHeaders);
+      }
+
       if (path === '/api/priority-access' && request.method === 'POST') {
         return await handlePriorityAccess(request, env, corsHeaders);
       }
@@ -10168,5 +10194,388 @@ async function handleSaveBusinessInfo(request, env, corsHeaders) {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });
+  }
+}
+
+// --- Comprehensive Analytics API Functions ---
+
+async function getAnalyticsOverview(request, env, corsHeaders) {
+  try {
+    const db = env.DB;
+    
+    // Get total leads (from lead capture events) - only from main Jetsy website
+    const leadsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('lead_form_submit').first()
+    const totalLeads = leadsResult?.count || 0
+
+    // Get total events (streamlined events only) - only from main Jetsy website
+    const eventsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name IN (?, ?, ?, ?, ?, ?) AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').first()
+    const totalEvents = eventsResult?.count || 0
+
+    // Get priority access attempts (from tracking events) - only from main Jetsy website
+    const priorityResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('priority_access_attempt').first()
+    const priorityAccessAttempts = priorityResult?.count || 0
+
+    // Get today's leads - only from main Jetsy website
+    const todayLeadsResult = await db.prepare(`
+      SELECT COUNT(*) as count FROM tracking_events 
+      WHERE event_name = ? AND DATE(created_at) = DATE('now') AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")
+    `).bind('lead_form_submit').first()
+    const todayLeads = todayLeadsResult?.count || 0
+
+    // Get today's events - only from main Jetsy website
+    const todayEventsResult = await db.prepare(`
+      SELECT COUNT(*) as count FROM tracking_events 
+      WHERE event_name IN (?, ?, ?, ?, ?, ?) AND DATE(created_at) = DATE('now') AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")
+    `).bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').first()
+    const todayEvents = todayEventsResult?.count || 0
+
+    // Calculate conversion rate (leads who reached queue view) - only from main Jetsy website
+    const queueViewsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('queue_view').first()
+    const queueViews = queueViewsResult?.count || 0
+    const conversionRate = totalLeads > 0 ? Math.round((queueViews / totalLeads) * 100) : 0
+
+    return new Response(JSON.stringify({
+      totalLeads,
+      totalEvents,
+      priorityAccessAttempts,
+      conversionRate,
+      todayLeads,
+      todayEvents
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
+    })
+  } catch (error) {
+    console.error('Error getting analytics overview:', error)
+    throw error
+  }
+}
+
+async function getAnalyticsDaily(request, env, corsHeaders) {
+  try {
+    const db = env.DB;
+    
+    // First check if we have any streamlined event data - only from main Jetsy website
+    const leadsCount = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('lead_form_submit').first()
+    const eventsCount = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name IN (?, ?, ?, ?, ?, ?) AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').first()
+    
+    if ((leadsCount?.count || 0) === 0 && (eventsCount?.count || 0) === 0) {
+      // Return empty array if no data
+      return new Response(JSON.stringify([]), {
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      })
+    }
+
+    // If we have data, get the daily metrics for streamlined events - only from main Jetsy website
+    const result = await db.prepare(`
+      SELECT 
+        DATE(created_at) as date,
+        COUNT(CASE WHEN event_name = ? THEN 1 END) as leads,
+        COUNT(*) as events
+      FROM tracking_events
+      WHERE event_name IN (?, ?, ?, ?, ?, ?) 
+        AND created_at >= DATE('now', '-7 days')
+        AND (jetsy_generated = 0 OR jetsy_generated IS NULL) 
+        AND (website_id IS NULL OR website_id = "")
+      GROUP BY DATE(created_at)
+      ORDER BY date
+    `).bind('lead_form_submit', 'page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').all()
+
+    return new Response(JSON.stringify(result.results), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
+    })
+  } catch (error) {
+    console.error('Error getting analytics daily:', error)
+    // Return empty array on error
+    return new Response(JSON.stringify([]), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
+    })
+  }
+}
+
+async function getAnalyticsEventsBreakdown(request, env, corsHeaders) {
+  try {
+    const db = env.DB;
+    
+    const result = await db.prepare(`
+      SELECT 
+        event_name as name,
+        COUNT(*) as value
+      FROM tracking_events
+      WHERE event_name IN (?, ?, ?, ?, ?, ?)
+        AND (jetsy_generated = 0 OR jetsy_generated IS NULL) 
+        AND (website_id IS NULL OR website_id = "")
+      GROUP BY event_name
+      ORDER BY value DESC
+    `).bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').all()
+
+    return new Response(JSON.stringify(result.results), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
+    })
+  } catch (error) {
+    console.error('Error getting analytics events breakdown:', error)
+    throw error
+  }
+}
+
+async function getAnalyticsFunnel(request, env, corsHeaders) {
+  try {
+    const db = env.DB;
+    
+    console.log('Starting funnel metrics calculation...')
+    
+    // Use individual queries like events breakdown - only from main Jetsy website
+    const pageViewsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('page_view').first()
+    const ideaSubmissionsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('chat_input_submit').first()
+    const planSelectionsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('pricing_plan_select').first()
+    const leadCapturesResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('lead_form_submit').first()
+    const queueViewsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('queue_view').first()
+    const priorityAttemptsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('priority_access_attempt').first()
+    
+    console.log('Individual query results:', {
+      pageViews: pageViewsResult?.count,
+      ideaSubmissions: ideaSubmissionsResult?.count,
+      planSelections: planSelectionsResult?.count,
+      leadCaptures: leadCapturesResult?.count,
+      queueViews: queueViewsResult?.count,
+      priorityAttempts: priorityAttemptsResult?.count
+    })
+    
+    // Check what events actually exist - only from main Jetsy website
+    const allEvents = await db.prepare('SELECT event_name, COUNT(*) as count FROM tracking_events WHERE (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "") GROUP BY event_name').all()
+    console.log('All events in database:', allEvents?.results || [])
+
+    const funnel = [
+      { step: 'Page Views', count: pageViewsResult?.count || 0 },
+      { step: 'Idea Submissions', count: ideaSubmissionsResult?.count || 0 },
+      { step: 'Plan Selections', count: planSelectionsResult?.count || 0 },
+      { step: 'Lead Captures', count: leadCapturesResult?.count || 0 },
+      { step: 'Queue Views', count: queueViewsResult?.count || 0 },
+      { step: 'Priority Access Attempts', count: priorityAttemptsResult?.count || 0 }
+    ]
+
+    console.log('Final funnel result:', funnel)
+
+    return new Response(JSON.stringify(funnel), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
+    })
+  } catch (error) {
+    console.error('Error getting analytics funnel:', error)
+    // Return default funnel structure on error
+    const defaultFunnel = [
+      { step: 'Page Views', count: 0 },
+      { step: 'Idea Submissions', count: 0 },
+      { step: 'Plan Selections', count: 0 },
+      { step: 'Lead Captures', count: 0 },
+      { step: 'Queue Views', count: 0 },
+      { step: 'Priority Access Attempts', count: 0 }
+    ]
+    return new Response(JSON.stringify(defaultFunnel), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
+    })
+  }
+}
+
+async function getAnalyticsEvents(request, env, corsHeaders) {
+  try {
+    const db = env.DB;
+    
+    // Check if tracking_events table has data - only from main Jetsy website
+    const eventsCount = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').first()
+    
+    if ((eventsCount?.count || 0) === 0) {
+      // Return empty array if no events
+      return new Response(JSON.stringify([]), {
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      })
+    }
+
+    // If we have data, get the events - only from main Jetsy website
+    const result = await db.prepare(`
+      SELECT 
+        event_name,
+        event_category,
+        event_data,
+        timestamp,
+        created_at,
+        user_agent,
+        url
+      FROM tracking_events
+      WHERE (jetsy_generated = 0 OR jetsy_generated IS NULL) 
+        AND (website_id IS NULL OR website_id = "")
+      ORDER BY created_at DESC
+      LIMIT 100
+    `).all()
+
+    return new Response(JSON.stringify(result.results), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
+    })
+  } catch (error) {
+    console.error('Error getting analytics events:', error)
+    // Return empty array on error
+    return new Response(JSON.stringify([]), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
+    })
+  }
+}
+
+async function getAnalyticsPriorityAccess(request, env, corsHeaders) {
+  try {
+    const db = env.DB;
+    
+    const result = await db.prepare(`
+      SELECT 
+        JSON_EXTRACT(event_data, '$.email') as email,
+        JSON_EXTRACT(event_data, '$.phone') as phone,
+        created_at
+      FROM tracking_events
+      WHERE event_name = ? 
+        AND (jetsy_generated = 0 OR jetsy_generated IS NULL) 
+        AND (website_id IS NULL OR website_id = "")
+      ORDER BY created_at DESC
+      LIMIT 50
+    `).bind('priority_access_attempt').all()
+
+    return new Response(JSON.stringify(result.results), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
+    })
+  } catch (error) {
+    console.error('Error getting analytics priority access:', error)
+    throw error
+  }
+}
+
+async function getAnalyticsRealTime(request, env, corsHeaders) {
+  try {
+    const db = env.DB;
+    
+    // Get last 24 hours of activity for streamlined events - only from main Jetsy website
+    const leadsResult = await db.prepare(`
+      SELECT COUNT(*) as leads
+      FROM tracking_events 
+      WHERE event_name = ? AND created_at >= datetime('now', '-24 hours') AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")
+    `).bind('lead_form_submit').first()
+    
+    const eventsResult = await db.prepare(`
+      SELECT COUNT(*) as events
+      FROM tracking_events 
+      WHERE event_name IN (?, ?, ?, ?, ?, ?) AND created_at >= datetime('now', '-24 hours') AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")
+    `).bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').first()
+    
+    const priorityResult = await db.prepare(`
+      SELECT COUNT(*) as priority_attempts
+      FROM tracking_events 
+      WHERE event_name = ? AND created_at >= datetime('now', '-24 hours') AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")
+    `).bind('priority_access_attempt').first()
+
+    const result = {
+      period: 'Last 24 Hours',
+      leads: leadsResult?.leads || 0,
+      events: eventsResult?.events || 0,
+      priority_attempts: priorityResult?.priority_attempts || 0
+    }
+
+    return new Response(JSON.stringify(result), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
+    })
+  } catch (error) {
+    console.error('Error getting analytics realtime:', error)
+    // Return default values on error
+    return new Response(JSON.stringify({
+      period: 'Last 24 Hours',
+      leads: 0,
+      events: 0,
+      priority_attempts: 0
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
+    })
+  }
+}
+
+async function getAnalyticsDebug(request, env, corsHeaders) {
+  try {
+    const db = env.DB;
+    
+    // Test database connection and get basic info for streamlined events - only from main Jetsy website
+    const totalEvents = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name IN (?, ?, ?, ?, ?, ?) AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').first()
+    const totalLeads = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('lead_form_submit').first()
+    const totalPriority = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('priority_access_attempt').first()
+    
+    // Get recent streamlined events - only from main Jetsy website
+    const recentEvents = await db.prepare('SELECT event_name, created_at FROM tracking_events WHERE event_name IN (?, ?, ?, ?, ?, ?) AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "") ORDER BY created_at DESC LIMIT 10').bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').all()
+    
+    // Get all unique event names (streamlined only) - only from main Jetsy website
+    const eventNames = await db.prepare('SELECT DISTINCT event_name FROM tracking_events WHERE event_name IN (?, ?, ?, ?, ?, ?) AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').all()
+    
+    return new Response(JSON.stringify({
+      database_connection: 'success',
+      total_events: totalEvents?.count || 0,
+      total_leads: totalLeads?.count || 0,
+      total_priority_attempts: totalPriority?.count || 0,
+      recent_events: recentEvents?.results || [],
+      available_event_names: eventNames?.results?.map(r => r.event_name) || [],
+      timestamp: new Date().toISOString()
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
+    })
+  } catch (error) {
+    console.error('Error getting analytics debug:', error)
+    // Return default values on error
+    return new Response(JSON.stringify({
+      database_connection: 'error',
+      total_events: 0,
+      total_leads: 0,
+      total_priority_attempts: 0,
+      recent_events: [],
+      available_event_names: [],
+      timestamp: new Date().toISOString(),
+      error: error.message
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
+    })
   }
 }

@@ -131,34 +131,34 @@ async function handleAnalyticsRequest(path, request, env, corsHeaders) {
 
 async function getOverviewMetrics(db, corsHeaders) {
   try {
-    // Get total leads (from lead capture events)
-    const leadsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ?').bind('lead_form_submit').first()
+    // Get total leads (from lead capture events) - only from main Jetsy website
+    const leadsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('lead_form_submit').first()
     const totalLeads = leadsResult?.count || 0
 
-    // Get total events (streamlined events only)
-    const eventsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name IN (?, ?, ?, ?, ?, ?)').bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').first()
+    // Get total events (streamlined events only) - only from main Jetsy website
+    const eventsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name IN (?, ?, ?, ?, ?, ?) AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').first()
     const totalEvents = eventsResult?.count || 0
 
-    // Get priority access attempts (from tracking events)
-    const priorityResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ?').bind('priority_access_attempt').first()
+    // Get priority access attempts (from tracking events) - only from main Jetsy website
+    const priorityResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('priority_access_attempt').first()
     const priorityAccessAttempts = priorityResult?.count || 0
 
-    // Get today's leads
+    // Get today's leads - only from main Jetsy website
     const todayLeadsResult = await db.prepare(`
       SELECT COUNT(*) as count FROM tracking_events 
-      WHERE event_name = ? AND DATE(created_at) = DATE('now')
+      WHERE event_name = ? AND DATE(created_at) = DATE('now') AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")
     `).bind('lead_form_submit').first()
     const todayLeads = todayLeadsResult?.count || 0
 
-    // Get today's events
+    // Get today's events - only from main Jetsy website
     const todayEventsResult = await db.prepare(`
       SELECT COUNT(*) as count FROM tracking_events 
-      WHERE event_name IN (?, ?, ?, ?, ?, ?) AND DATE(created_at) = DATE('now')
+      WHERE event_name IN (?, ?, ?, ?, ?, ?) AND DATE(created_at) = DATE('now') AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")
     `).bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').first()
     const todayEvents = todayEventsResult?.count || 0
 
-    // Calculate conversion rate (leads who reached queue view)
-    const queueViewsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ?').bind('queue_view').first()
+    // Calculate conversion rate (leads who reached queue view) - only from main Jetsy website
+    const queueViewsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('queue_view').first()
     const queueViews = queueViewsResult?.count || 0
     const conversionRate = totalLeads > 0 ? Math.round((queueViews / totalLeads) * 100) : 0
 
@@ -183,9 +183,9 @@ async function getOverviewMetrics(db, corsHeaders) {
 
 async function getDailyMetrics(db, corsHeaders) {
   try {
-    // First check if we have any streamlined event data
-    const leadsCount = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ?').bind('lead_form_submit').first()
-    const eventsCount = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name IN (?, ?, ?, ?, ?, ?)').bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').first()
+    // First check if we have any streamlined event data - only from main Jetsy website
+    const leadsCount = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('lead_form_submit').first()
+    const eventsCount = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name IN (?, ?, ?, ?, ?, ?) AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').first()
     
     if ((leadsCount?.count || 0) === 0 && (eventsCount?.count || 0) === 0) {
       // Return empty array if no data
@@ -197,7 +197,7 @@ async function getDailyMetrics(db, corsHeaders) {
       })
     }
 
-    // If we have data, get the daily metrics for streamlined events
+    // If we have data, get the daily metrics for streamlined events - only from main Jetsy website
     const result = await db.prepare(`
       SELECT 
         DATE(created_at) as date,
@@ -206,6 +206,8 @@ async function getDailyMetrics(db, corsHeaders) {
       FROM tracking_events
       WHERE event_name IN (?, ?, ?, ?, ?, ?) 
         AND created_at >= DATE('now', '-7 days')
+        AND (jetsy_generated = 0 OR jetsy_generated IS NULL) 
+        AND (website_id IS NULL OR website_id = "")
       GROUP BY DATE(created_at)
       ORDER BY date
     `).bind('lead_form_submit', 'page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').all()
@@ -236,6 +238,8 @@ async function getEventsBreakdown(db, corsHeaders) {
         COUNT(*) as value
       FROM tracking_events
       WHERE event_name IN (?, ?, ?, ?, ?, ?)
+        AND (jetsy_generated = 0 OR jetsy_generated IS NULL) 
+        AND (website_id IS NULL OR website_id = "")
       GROUP BY event_name
       ORDER BY value DESC
     `).bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').all()
@@ -256,13 +260,13 @@ async function getFunnelMetrics(db, corsHeaders) {
   try {
     console.log('Starting funnel metrics calculation...')
     
-    // Use individual queries like events breakdown
-    const pageViewsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ?').bind('page_view').first()
-    const ideaSubmissionsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ?').bind('chat_input_submit').first()
-    const planSelectionsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ?').bind('pricing_plan_select').first()
-    const leadCapturesResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ?').bind('lead_form_submit').first()
-    const queueViewsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ?').bind('queue_view').first()
-    const priorityAttemptsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ?').bind('priority_access_attempt').first()
+    // Use individual queries like events breakdown - only from main Jetsy website
+    const pageViewsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('page_view').first()
+    const ideaSubmissionsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('chat_input_submit').first()
+    const planSelectionsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('pricing_plan_select').first()
+    const leadCapturesResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('lead_form_submit').first()
+    const queueViewsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('queue_view').first()
+    const priorityAttemptsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('priority_access_attempt').first()
     
     console.log('Individual query results:', {
       pageViews: pageViewsResult?.count,
@@ -273,8 +277,8 @@ async function getFunnelMetrics(db, corsHeaders) {
       priorityAttempts: priorityAttemptsResult?.count
     })
     
-    // Check what events actually exist
-    const allEvents = await db.prepare('SELECT event_name, COUNT(*) as count FROM tracking_events GROUP BY event_name').all()
+    // Check what events actually exist - only from main Jetsy website
+    const allEvents = await db.prepare('SELECT event_name, COUNT(*) as count FROM tracking_events WHERE (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "") GROUP BY event_name').all()
     console.log('All events in database:', allEvents?.results || [])
 
     const funnel = [
@@ -316,8 +320,8 @@ async function getFunnelMetrics(db, corsHeaders) {
 
 async function getEventTracking(db, corsHeaders) {
   try {
-    // Check if tracking_events table has data
-    const eventsCount = await db.prepare('SELECT COUNT(*) as count FROM tracking_events').first()
+    // Check if tracking_events table has data - only from main Jetsy website
+    const eventsCount = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').first()
     
     if ((eventsCount?.count || 0) === 0) {
       // Return empty array if no events
@@ -329,7 +333,7 @@ async function getEventTracking(db, corsHeaders) {
       })
     }
 
-    // If we have data, get the events
+    // If we have data, get the events - only from main Jetsy website
     const result = await db.prepare(`
       SELECT 
         event_name,
@@ -340,6 +344,8 @@ async function getEventTracking(db, corsHeaders) {
         user_agent,
         url
       FROM tracking_events
+      WHERE (jetsy_generated = 0 OR jetsy_generated IS NULL) 
+        AND (website_id IS NULL OR website_id = "")
       ORDER BY created_at DESC
       LIMIT 100
     `).all()
@@ -370,7 +376,9 @@ async function getPriorityAccessMetrics(db, corsHeaders) {
         JSON_EXTRACT(event_data, '$.phone') as phone,
         created_at
       FROM tracking_events
-      WHERE event_name = ?
+      WHERE event_name = ? 
+        AND (jetsy_generated = 0 OR jetsy_generated IS NULL) 
+        AND (website_id IS NULL OR website_id = "")
       ORDER BY created_at DESC
       LIMIT 50
     `).bind('priority_access_attempt').all()
@@ -389,23 +397,23 @@ async function getPriorityAccessMetrics(db, corsHeaders) {
 
 async function getRealTimeMetrics(db, corsHeaders) {
   try {
-    // Get last 24 hours of activity for streamlined events
+    // Get last 24 hours of activity for streamlined events - only from main Jetsy website
     const leadsResult = await db.prepare(`
       SELECT COUNT(*) as leads
       FROM tracking_events 
-      WHERE event_name = ? AND created_at >= datetime('now', '-24 hours')
+      WHERE event_name = ? AND created_at >= datetime('now', '-24 hours') AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")
     `).bind('lead_form_submit').first()
     
     const eventsResult = await db.prepare(`
       SELECT COUNT(*) as events
       FROM tracking_events 
-      WHERE event_name IN (?, ?, ?, ?, ?, ?) AND created_at >= datetime('now', '-24 hours')
+      WHERE event_name IN (?, ?, ?, ?, ?, ?) AND created_at >= datetime('now', '-24 hours') AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")
     `).bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').first()
     
     const priorityResult = await db.prepare(`
       SELECT COUNT(*) as priority_attempts
       FROM tracking_events 
-      WHERE event_name = ? AND created_at >= datetime('now', '-24 hours')
+      WHERE event_name = ? AND created_at >= datetime('now', '-24 hours') AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")
     `).bind('priority_access_attempt').first()
 
     const result = {
@@ -440,16 +448,16 @@ async function getRealTimeMetrics(db, corsHeaders) {
 
 async function getDebugInfo(db, corsHeaders) {
   try {
-    // Test database connection and get basic info for streamlined events
-    const totalEvents = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name IN (?, ?, ?, ?, ?, ?)').bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').first()
-    const totalLeads = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ?').bind('lead_form_submit').first()
-    const totalPriority = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ?').bind('priority_access_attempt').first()
+    // Test database connection and get basic info for streamlined events - only from main Jetsy website
+    const totalEvents = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name IN (?, ?, ?, ?, ?, ?) AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').first()
+    const totalLeads = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('lead_form_submit').first()
+    const totalPriority = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('priority_access_attempt').first()
     
-    // Get recent streamlined events
-    const recentEvents = await db.prepare('SELECT event_name, created_at FROM tracking_events WHERE event_name IN (?, ?, ?, ?, ?, ?) ORDER BY created_at DESC LIMIT 10').bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').all()
+    // Get recent streamlined events - only from main Jetsy website
+    const recentEvents = await db.prepare('SELECT event_name, created_at FROM tracking_events WHERE event_name IN (?, ?, ?, ?, ?, ?) AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "") ORDER BY created_at DESC LIMIT 10').bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').all()
     
-    // Get all unique event names (streamlined only)
-    const eventNames = await db.prepare('SELECT DISTINCT event_name FROM tracking_events WHERE event_name IN (?, ?, ?, ?, ?, ?)').bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').all()
+    // Get all unique event names (streamlined only) - only from main Jetsy website
+    const eventNames = await db.prepare('SELECT DISTINCT event_name FROM tracking_events WHERE event_name IN (?, ?, ?, ?, ?, ?) AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').all()
     
     return new Response(JSON.stringify({
       database_connection: 'success',
@@ -467,12 +475,17 @@ async function getDebugInfo(db, corsHeaders) {
     })
   } catch (error) {
     console.error('Debug info error:', error)
+    // Return default values on error
     return new Response(JSON.stringify({
       database_connection: 'error',
-      error: error.message,
-      timestamp: new Date().toISOString()
+      total_events: 0,
+      total_leads: 0,
+      total_priority_attempts: 0,
+      recent_events: [],
+      available_event_names: [],
+      timestamp: new Date().toISOString(),
+      error: error.message
     }), {
-      status: 500,
       headers: {
         'Content-Type': 'application/json',
         ...corsHeaders,
