@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Pricing Button Tracking</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .tracking-log {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            border: 2px solid #4F46E5;
+            border-radius: 8px;
+            padding: 20px;
+            max-width: 400px;
+            max-height: 300px;
+            overflow-y: auto;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            z-index: 9999;
+        }
+        .log-entry {
+            padding: 8px;
+            margin: 4px 0;
+            background: #F3F4F6;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry.success {
+            background: #D1FAE5;
+            border-left: 3px solid #10B981;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Tracking Log Display -->
+    <div class="tracking-log">
+        <h3 class="font-bold text-lg mb-2">🔍 Tracking Events Log</h3>
+        <div id="log-container">
+            <div class="log-entry">Waiting for button clicks...</div>
+        </div>
+    </div>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="py-20 bg-white">
+        <div class="max-w-6xl mx-auto px-4">
+            <h2 class="text-4xl font-bold text-center text-gray-900 mb-4">Choose Your Plan</h2>
+            <p class="text-xl text-center text-gray-600 mb-16 max-w-3xl mx-auto">
+                Click any pricing button below to test tracking
+            </p>
+            
+            <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                <!-- Basic Plan -->
+                <div class="relative p-8 bg-white border-2 border-gray-200 rounded-lg">
+                    <div class="text-center">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-4">Basic Plan</h3>
+                        <div class="mb-6">
+                            <span class="text-4xl font-bold text-gray-900">$9</span>
+                            <span class="text-gray-600">/month</span>
+                        </div>
+                        <p class="text-gray-600 mb-6">Perfect for getting started</p>
+                        <button class="pricing-button w-full py-3 px-6 bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold rounded-lg transition-all duration-300" 
+                                data-location="pricing" 
+                                data-plan-name="Basic Plan" 
+                                onclick="openLeadModal()">
+                            Start Basic
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Pro Plan -->
+                <div class="relative p-8 bg-white border-2 border-blue-500 shadow-xl scale-105 rounded-lg">
+                    <div class="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                        <span class="bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-medium">
+                            Most Popular
+                        </span>
+                    </div>
+                    <div class="text-center">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-4">Pro Plan</h3>
+                        <div class="mb-6">
+                            <span class="text-4xl font-bold text-gray-900">$29</span>
+                            <span class="text-gray-600">/month</span>
+                        </div>
+                        <p class="text-gray-600 mb-6">Best for growing businesses</p>
+                        <button class="pricing-button w-full py-3 px-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all duration-300" 
+                                data-location="pricing" 
+                                data-plan-name="Pro Plan" 
+                                onclick="openLeadModal()">
+                            Go Pro
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Enterprise Plan -->
+                <div class="relative p-8 bg-white border-2 border-gray-200 rounded-lg">
+                    <div class="text-center">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-4">Enterprise</h3>
+                        <div class="mb-6">
+                            <span class="text-4xl font-bold text-gray-900">Custom</span>
+                        </div>
+                        <p class="text-gray-600 mb-6">For large organizations</p>
+                        <button class="pricing-button w-full py-3 px-6 bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold rounded-lg transition-all duration-300" 
+                                data-location="pricing" 
+                                data-plan-name="Enterprise" 
+                                onclick="openLeadModal()">
+                            Contact Sales
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Lead Modal (hidden by default) -->
+    <div id="leadModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+                <h3 class="text-2xl font-bold text-gray-900 mb-4">Lead Modal</h3>
+                <p class="text-gray-600 mb-4">This modal would normally contain a lead capture form.</p>
+                <button onclick="closeLeadModal()" class="w-full bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const JETSY_API_BASE = 'https://jetsy-landing.jetsydev.workers.dev';
+        const PROJECT_ID = 'test-pricing-' + Date.now();
+        
+        // Logging helper
+        const logContainer = document.getElementById('log-container');
+        function addLog(message, isSuccess = false) {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${isSuccess ? 'success' : ''}`;
+            entry.textContent = new Date().toLocaleTimeString() + ' - ' + message;
+            logContainer.insertBefore(entry, logContainer.firstChild);
+            
+            // Keep only last 10 entries
+            while (logContainer.children.length > 10) {
+                logContainer.removeChild(logContainer.lastChild);
+            }
+        }
+
+        // Modal functions
+        function openLeadModal() {
+            document.getElementById('leadModal').classList.remove('hidden');
+            addLog('Lead modal opened');
+        }
+        
+        function closeLeadModal() {
+            document.getElementById('leadModal').classList.add('hidden');
+        }
+
+        // Tracking function
+        function trackEvent(eventName, eventData = {}) {
+            const payload = {
+                event: eventName,
+                data: { project_id: PROJECT_ID, ...eventData },
+                timestamp: Date.now(),
+                userAgent: navigator.userAgent,
+                url: window.location.href
+            };
+            
+            // Log the tracking attempt
+            addLog(`Tracking: ${eventName} - ${eventData.plan_name || eventData.button_text || 'N/A'}`, true);
+            console.log('📊 Tracking Event:', payload);
+            
+            // Send to API (this might fail in local testing, but that's OK)
+            fetch(`${JETSY_API_BASE}/api/track`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            }).then(response => {
+                if (response.ok) {
+                    console.log('✅ Tracking sent successfully');
+                } else {
+                    console.log('⚠️ Tracking failed (expected in local test)');
+                }
+            }).catch(error => {
+                console.log('⚠️ Tracking error (expected in local test):', error.message);
+            });
+        }
+
+        // Initialize tracking on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            addLog('Page loaded - initializing tracking...');
+            
+            // Track page view
+            trackEvent('page_view', {
+                page_title: document.title,
+                referrer: document.referrer
+            });
+            
+            // Track pricing button clicks
+            document.querySelectorAll('.pricing-button').forEach(button => {
+                const buttonText = button.textContent.trim();
+                const planName = button.getAttribute('data-plan-name') || 'Unknown Plan';
+                const originalOnclick = button.getAttribute('onclick');
+                
+                // Remove the onclick attribute to prevent double execution
+                button.removeAttribute('onclick');
+                
+                button.addEventListener('click', () => {
+                    // Track the pricing button click
+                    trackEvent('pricing_plan_select', {
+                        button_text: buttonText,
+                        button_location: 'pricing_section',
+                        plan_type: 'pricing_button',
+                        plan_name: planName
+                    });
+                    
+                    // Execute the original function
+                    if (originalOnclick && originalOnclick.includes('openLeadModal')) {
+                        openLeadModal();
+                    }
+                });
+                
+                addLog(`Initialized tracking for: ${planName}`);
+            });
+            
+            addLog('✅ Tracking initialized for all pricing buttons');
+        });
+    </script>
+</body>
+</html>

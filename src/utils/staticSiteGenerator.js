@@ -235,6 +235,30 @@ export const createStaticHTMLTemplate = (templateData, projectId) => {
             }
             return sessionId;
         }
+
+        // Lead modal functionality with tracking
+        function openLeadModal() {
+            // Track lead modal open event
+            trackEvent('pricing_plan_select', {
+                button_text: 'Lead Modal Opened',
+                button_location: 'modal',
+                plan_type: 'lead_modal',
+                plan_name: 'Lead Capture'
+            });
+            
+            // Show the modal
+            const modal = document.getElementById('leadModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+            }
+        }
+        
+        function closeLeadModal() {
+            const modal = document.getElementById('leadModal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        }
         
         // Initialize page
         document.addEventListener('DOMContentLoaded', () => {
@@ -258,14 +282,65 @@ export const createStaticHTMLTemplate = (templateData, projectId) => {
                 });
             });
             
-            // Track CTA button clicks
+            // Track CTA button clicks (hero section)
             document.querySelectorAll('.cta-button').forEach(button => {
                 button.addEventListener('click', () => {
                     trackEvent('pricing_plan_select', {
-                        button_text: button.textContent,
-                        button_location: button.getAttribute('data-location') || 'unknown',
-                        plan_type: 'cta_button'
+                        button_text: button.textContent.trim(),
+                        button_location: button.getAttribute('data-location') || 'hero',
+                        plan_type: 'hero_cta',
+                        plan_name: 'Hero CTA'
                     });
+                });
+            });
+
+            // Track pricing button clicks specifically
+            document.querySelectorAll('.pricing-button').forEach(button => {
+                const buttonText = button.textContent.trim();
+                const planName = button.getAttribute('data-plan-name') || 'Unknown Plan';
+                const originalOnclick = button.getAttribute('onclick');
+                
+                // Remove the onclick attribute to prevent double execution
+                button.removeAttribute('onclick');
+                
+                button.addEventListener('click', () => {
+                    // Track the pricing button click
+                    trackEvent('pricing_plan_select', {
+                        button_text: buttonText,
+                        button_location: 'pricing_section',
+                        plan_type: 'pricing_button',
+                        plan_name: planName
+                    });
+                    
+                    // Execute the original function
+                    if (originalOnclick && originalOnclick.includes('openLeadModal')) {
+                        openLeadModal();
+                    }
+                });
+            });
+
+            // Track any other buttons that call openLeadModal (fallback)
+            document.querySelectorAll('button[onclick*="openLeadModal"]').forEach(button => {
+                // Skip if already handled as pricing-button
+                if (button.classList.contains('pricing-button')) return;
+                
+                const buttonText = button.textContent.trim();
+                const originalOnclick = button.getAttribute('onclick');
+                
+                // Remove the onclick attribute to prevent conflicts
+                button.removeAttribute('onclick');
+                
+                button.addEventListener('click', () => {
+                    // Track the click
+                    trackEvent('pricing_plan_select', {
+                        button_text: buttonText,
+                        button_location: button.getAttribute('data-location') || 'unknown',
+                        plan_type: 'modal_trigger',
+                        plan_name: 'Lead Modal'
+                    });
+                    
+                    // Execute the original function
+                    openLeadModal();
                 });
             });
         });
@@ -541,7 +616,7 @@ export const generateStaticComponentHTML = (templateData) => {
                   </ul>
                 ` : ''}
                 
-                <button class="cta-button w-full py-3 px-6 ${plan.featured ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'} font-semibold rounded-lg transition-all duration-300" data-location="pricing">
+                <button class="pricing-button w-full py-3 px-6 ${plan.featured ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'} font-semibold rounded-lg transition-all duration-300" data-location="pricing" data-plan-name="${escapeHtml(plan.name || '')}" onclick="openLeadModal()">
                   ${escapeHtml(plan.ctaText || ctaButtonText)}
                 </button>
               </div>
@@ -765,6 +840,42 @@ export const generateStaticComponentHTML = (templateData) => {
     ${contactSection}
     ${footer}
     
+    <!-- Lead Modal -->
+    <div id="leadModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+      <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+          <div class="flex justify-between items-center mb-6">
+            <h3 class="text-2xl font-bold text-gray-900">Create Your Account</h3>
+            <button onclick="closeLeadModal()" class="text-gray-400 hover:text-gray-600">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+          
+          <form id="leadForm" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Email Address *</label>
+              <input type="email" name="email" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+              <input type="tel" name="phone" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            
+            <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors">
+              Create your Account
+            </button>
+          </form>
+          
+          <div class="text-center text-sm text-gray-600 mt-4">
+            Already have an account? <a href="#" class="text-blue-600 hover:underline">Log in</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    
     <script>
       // Form submission handlers
       document.addEventListener('DOMContentLoaded', () => {
@@ -818,6 +929,43 @@ export const generateStaticComponentHTML = (templateData) => {
             }
           });
         });
+
+        // Lead modal form handler
+        const leadForm = document.getElementById('leadForm');
+        if (leadForm) {
+          leadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitButton = e.target.querySelector('button[type="submit"]');
+            showLoading(submitButton);
+            
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            
+            const result = await submitLeadForm(data);
+            
+            hideLoading(submitButton);
+            
+            if (result.success) {
+              showMessage('Thank you! We\'ll be in touch soon.');
+              closeLeadModal();
+              e.target.reset();
+              trackEvent('lead_form_submit', data);
+            } else {
+              showMessage('Sorry, there was an error. Please try again.', 'error');
+            }
+          });
+        }
+
+        // Close modal on background click
+        const leadModal = document.getElementById('leadModal');
+        if (leadModal) {
+          leadModal.addEventListener('click', function(e) {
+            if (e.target === this) {
+              closeLeadModal();
+            }
+          });
+        }
       });
     </script>
   `;

@@ -3720,7 +3720,7 @@ function createCompleteStaticSite(templateData, projectId) {
                             </ul>
                         ` : ''}
                         
-                        <button onclick="openLeadModal()" class="w-full py-3 px-6 rounded-full font-semibold transition-all duration-300 transform hover:scale-105 ${plan.popular ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'}">
+                        <button onclick="openLeadModal()" class="w-full py-3 px-6 rounded-full font-semibold transition-all duration-300 transform hover:scale-105 ${plan.popular ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'} pricing-button" data-plan-name="${escapeHtml(plan.name || '')}" data-location="pricing_section">
                             ${escapeHtml(plan.cta || 'Choose Plan')}
                         </button>
                     </div>
@@ -3932,6 +3932,91 @@ function createCompleteStaticSite(templateData, projectId) {
             const mobileMenu = document.getElementById('mobileMenu');
             mobileMenu.classList.toggle('hidden');
         }
+        
+        // Analytics tracking setup (mirrors staticSiteGenerator.js)
+        const PROJECT_ID = '${projectId}';
+        
+        function getSessionId() {
+            let sessionId = sessionStorage.getItem('jetsy_session_id');
+            if (!sessionId) {
+                sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                sessionStorage.setItem('jetsy_session_id', sessionId);
+            }
+            return sessionId;
+        }
+        
+        function trackEvent(eventName, eventData = {}) {
+            fetch('https://jetsy-landing.jetsydev.workers.dev/api/track', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    event: eventName,
+                    data: { project_id: PROJECT_ID, ...eventData },
+                    timestamp: Date.now(),
+                    userAgent: navigator.userAgent,
+                    url: window.location.href,
+                    category: 'user_interaction',
+                    sessionId: getSessionId(),
+                    pageTitle: document.title,
+                    referrer: document.referrer,
+                    websiteId: PROJECT_ID,
+                    userId: PROJECT_ID,
+                    jetsyGenerated: true
+                })
+            }).catch((err) => {
+                console.error('Analytics tracking error:', err);
+            });
+        }
+        
+        // Attach pricing and modal trigger listeners once DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            // Track pricing button clicks and open modal
+            document.querySelectorAll('.pricing-button').forEach(button => {
+                const buttonText = button.textContent.trim();
+                const planName = button.getAttribute('data-plan-name') || 'Unknown Plan';
+                const originalOnclick = button.getAttribute('onclick');
+                
+                // Prevent duplicate inline handler execution
+                button.removeAttribute('onclick');
+                
+                button.addEventListener('click', () => {
+                    trackEvent('pricing_plan_select', {
+                        button_text: buttonText,
+                        button_location: 'pricing_section',
+                        plan_type: 'pricing_button',
+                        plan_name: planName
+                    });
+                    
+                    if (originalOnclick && originalOnclick.includes('openLeadModal')) {
+                        openLeadModal();
+                    }
+                });
+            });
+            
+            // Fallback: any other button that opens the lead modal
+            document.querySelectorAll('button[onclick*="openLeadModal"]').forEach(button => {
+                if (button.classList.contains('pricing-button')) return;
+                const buttonText = button.textContent.trim();
+                const originalOnclick = button.getAttribute('onclick');
+                
+                button.removeAttribute('onclick');
+                
+                button.addEventListener('click', () => {
+                    trackEvent('pricing_plan_select', {
+                        button_text: buttonText,
+                        button_location: button.getAttribute('data-location') || 'unknown',
+                        plan_type: 'modal_trigger',
+                        plan_name: 'Lead Modal'
+                    });
+                    
+                    if (originalOnclick && originalOnclick.includes('openLeadModal')) {
+                        openLeadModal();
+                    } else {
+                        openLeadModal();
+                    }
+                });
+            });
+        });
         
         // Close modal on background click
         document.getElementById('leadModal').addEventListener('click', function(e) {
