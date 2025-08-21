@@ -291,18 +291,18 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
                     projectId={currentProjectId}
                     websiteDeployed={websiteDeployed}
                     adsExist={adsExist}
-                    onStageClick={(stageId) => {
-                      if (stageId === 2 && currentProjectId) {
-                        // Navigate to ads creation
-                        window.location.href = `/ad-creatives/${currentProjectId}`;
-                      } else if (stageId === 1) {
-                        // Already on website creation, do nothing
-                        return;
-                      } else if (stageId === 3) {
-                        // Launch and monitor - placeholder for now
-                        alert('Launch and monitor feature coming soon!');
-                      }
-                    }}
+                                          onStageClick={(stageId) => {
+                        if (stageId === 2 && currentProjectId) {
+                          // Navigate to ads creation
+                          window.location.href = `/ad-creatives/${currentProjectId}`;
+                        } else if (stageId === 1) {
+                          // Already on website creation, do nothing
+                          return;
+                        } else if (stageId === 3 && currentProjectId) {
+                          // Navigate to launch and monitor page
+                          window.location.href = `/launch/${currentProjectId}`;
+                        }
+                      }}
                   />
                   )}
 
@@ -442,7 +442,7 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
                           window.location.href = `/chat/${currentProjectId}`;
                         } else if (stageId === 2 && currentProjectId) {
                           // Navigate to ads creation
-                          window.location.href = `/ads/${currentProjectId}`;
+                          window.location.href = `/ad-creatives/${currentProjectId}`;
                         } else if (stageId === 3) {
                           // Already on launch and monitor, do nothing
                           return;
@@ -462,6 +462,18 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
                         projectId={currentProjectId || undefined}
                         websiteDeployed={websiteDeployed}
                         adsExist={adsExist}
+                        onStageClick={(stageId) => {
+                          if (stageId === 1 && currentProjectId) {
+                            // Navigate to website creation
+                            window.location.href = `/chat/${currentProjectId}`;
+                          } else if (stageId === 2) {
+                            // Already on ads creation, do nothing
+                            return;
+                          } else if (stageId === 3 && currentProjectId) {
+                            // Navigate to launch and monitor page
+                            window.location.href = `/launch/${currentProjectId}`;
+                          }
+                        }}
                       />
                     </div>
                   )}

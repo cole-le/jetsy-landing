@@ -489,6 +489,9 @@ const LaunchMonitorPage = ({ projectId }) => {
                 )}
               </div>
             </div>
+            <div className="flex gap-2">
+              <button onClick={() => (window.location.href = `/chat/${projectId}`)} className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm hover:bg-gray-200 transition-colors">Edit website</button>
+            </div>
             {/* UTM helper removed */}
           </div>
         )}
@@ -581,13 +584,7 @@ const LaunchMonitorPage = ({ projectId }) => {
           {/* Action buttons */}
           <div className="flex gap-3">
             <button
-              onClick={() => window.location.href = `/ads/${projectId}`}
-              className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
-            >
-              ✨ Generate Ad with AI
-            </button>
-            <button
-              onClick={() => window.location.href = `/ads/${projectId}`}
+              onClick={() => window.location.href = `/ad-creatives/${projectId}`}
               className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm hover:bg-gray-200 transition-colors"
             >
               Edit Ads

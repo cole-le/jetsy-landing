@@ -854,7 +854,15 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
                       <div className="flex-shrink-0 w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-gray-600">
                         <span className="text-lg">🚀</span>
                       </div>
-                      <span className="text-sm font-medium text-gray-500">Launch and monitor</span>
+                      <button
+                        onClick={() => {
+                          // Navigate to launch and monitor page
+                          window.location.href = `/launch/${projectId}`;
+                        }}
+                        className="text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 px-2 py-1 rounded transition-colors"
+                      >
+                        Launch and monitor
+                      </button>
                     </div>
                     
                   </div>

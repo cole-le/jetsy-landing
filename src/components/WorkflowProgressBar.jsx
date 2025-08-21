@@ -7,24 +7,6 @@ const WorkflowProgressBar = ({ currentStage = 1, onStageClick, projectId, pulseS
     { id: 3, name: 'Launch and monitor', icon: '🚀' }
   ];
 
-  const getHref = (stageId) => {
-    if (!projectId) return '#';
-    if (stageId === 1) return `/chat/${projectId}`;
-    if (stageId === 2) return `/ad-creatives/${projectId}`;
-    if (stageId === 3) return `/data_analytics/project_${projectId}`;
-    return '#';
-  };
-
-  const getLinkProps = (stageId) => {
-    if (stageId === 2) {
-      return {
-        target: "_blank",
-        rel: "noopener noreferrer"
-      };
-    }
-    return {};
-  };
-
   const handleStageClick = (stageId) => {
     if (onStageClick) {
       onStageClick(stageId);
@@ -41,10 +23,8 @@ const WorkflowProgressBar = ({ currentStage = 1, onStageClick, projectId, pulseS
               {pulseStageId === stage.id && (
                 <span className="absolute -inset-1 rounded-full border border-blue-400/60 animate-ping" />
               )}
-              <a
-                href={getHref(stage.id)}
+              <button
                 onClick={() => handleStageClick(stage.id)}
-                {...getLinkProps(stage.id)}
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 cursor-pointer hover:scale-105 shadow-sm ${
                   (stage.id === 1 && websiteDeployed) || (stage.id === 2 && adsExist) || (stage.id === 3 && currentStage === 3)
                     ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'
@@ -53,14 +33,12 @@ const WorkflowProgressBar = ({ currentStage = 1, onStageClick, projectId, pulseS
                 title={stage.name}
               >
                 <span>{stage.icon}</span>
-              </a>
+              </button>
             </div>
             
             {/* Stage name with button-like styling */}
-            <a
-              href={getHref(stage.id)}
+            <button
               onClick={() => handleStageClick(stage.id)}
-              {...getLinkProps(stage.id)}
               className={`ml-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 cursor-pointer hover:scale-105 shadow-sm ${
                 (stage.id === 1 && websiteDeployed) || (stage.id === 2 && adsExist) || (stage.id === 3 && currentStage === 3)
                   ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border border-blue-200 hover:border-blue-300'
@@ -68,7 +46,7 @@ const WorkflowProgressBar = ({ currentStage = 1, onStageClick, projectId, pulseS
               }`}
             >
               {stage.name}
-            </a>
+            </button>
           </div>
           
           {/* Connector line */}
