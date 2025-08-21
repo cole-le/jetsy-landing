@@ -532,6 +532,7 @@ function App() {
           onSaveChanges={handleSaveChanges}
           isChatMode={currentStep === 'chat'}
           isAdCreativesMode={currentStep === 'ad-creatives'}
+          isLaunchMonitorMode={currentStep === 'launch-monitor'}
           previewMode={previewMode}
           onPreviewModeChange={handlePreviewModeChange}
         />

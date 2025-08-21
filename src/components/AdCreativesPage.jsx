@@ -17,6 +17,10 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
   const [mobileView, setMobileView] = useState('ads-copy'); // 'ads-copy' or 'preview'
   const [showWorkflowPanel, setShowWorkflowPanel] = useState(false);
 
+  // Workflow status state for navbar progress bar
+  const [websiteDeployed, setWebsiteDeployed] = useState(false);
+  const [adsExist, setAdsExist] = useState(false);
+
   // Placeholder ads template data for projects with blank ads data
   const placeholderAdsData = {
     linkedIn: {
@@ -140,6 +144,59 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
       const projectData = result.project;
       
       setProject(projectData);
+      
+      // Check website deployment status
+      let isWebsiteDeployed = false;
+      if (projectData.template_data) {
+        try {
+          const templateData = JSON.parse(projectData.template_data);
+          // Check if template data exists and has content
+          isWebsiteDeployed = !!(templateData && Object.keys(templateData).length > 0);
+        } catch (error) {
+          console.error('Error parsing template data:', error);
+        }
+      }
+      
+      // Also check deployment status from deployment API if available
+      try {
+        const deploymentResponse = await fetch(`${getApiBaseUrl()}/api/projects/${projectId}/deployment`);
+        if (deploymentResponse.ok) {
+          const deploymentData = await deploymentResponse.json();
+          if (deploymentData.status === 'deployed' && (deploymentData.customDomain || deploymentData.vercelDomain)) {
+            isWebsiteDeployed = true;
+          }
+        }
+      } catch (error) {
+        // Ignore deployment check errors, fall back to template data check
+        console.log('Deployment status check failed, using template data:', error);
+      }
+      
+      // Check ads existence
+      let hasAds = false;
+      if (projectData.ads_data) {
+        try {
+          const adsData = JSON.parse(projectData.ads_data);
+          hasAds = !!(adsData && (adsData.linkedIn || adsData.meta || adsData.instagram));
+        } catch (error) {
+          console.error('Error parsing ads data:', error);
+        }
+      }
+      
+      // Update workflow status state
+      setWebsiteDeployed(isWebsiteDeployed);
+      setAdsExist(hasAds);
+      
+      // Dispatch custom event to update navbar workflow progress bar
+      try {
+        window.dispatchEvent(new CustomEvent('ad-creatives:workflow-status', {
+          detail: {
+            websiteDeployed: isWebsiteDeployed,
+            adsExist: hasAds
+          }
+        }));
+      } catch (error) {
+        console.error('Error dispatching workflow status event:', error);
+      }
       
       // Load existing ads data if available
       if (projectData.ads_data) {
@@ -265,6 +322,19 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
             instagram: { copy: instagram.copy, visual: instagram.visual }
           }, imageUrl, imageId);
 
+          // Update workflow status after successful ads generation
+          setAdsExist(true);
+          try {
+            window.dispatchEvent(new CustomEvent('ad-creatives:workflow-status', {
+              detail: {
+                websiteDeployed: websiteDeployed,
+                adsExist: true
+              }
+            }));
+          } catch (error) {
+            console.error('Error dispatching workflow status event:', error);
+          }
+
           alert('Ads generated successfully with AI!');
           
           // Auto-switch to Preview page on mobile after successful generation
@@ -306,6 +376,19 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
 
       if (!response.ok) {
         throw new Error('Failed to save ads edits');
+      }
+
+      // Update workflow status after successful ads save
+      setAdsExist(true);
+      try {
+        window.dispatchEvent(new CustomEvent('ad-creatives:workflow-status', {
+          detail: {
+            websiteDeployed: websiteDeployed,
+            adsExist: true
+          }
+        }));
+      } catch (error) {
+        console.error('Error dispatching workflow status event:', error);
       }
 
       alert('Ads edits saved successfully!');
@@ -708,7 +791,11 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
                   <div className="space-y-3">
                     {/* Step 1: Website Creation */}
                     <div className="flex items-center space-x-3">
-                      <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-700">
+                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 ${
+                        websiteDeployed 
+                          ? 'bg-blue-600 text-white shadow-md' 
+                          : 'bg-blue-100 text-blue-700'
+                      }`}>
                         <span className="text-lg">🌐</span>
                       </div>
                       <button
@@ -717,7 +804,11 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
                           // Navigate back to website creation
                           handleNavigateToWebsiteCreation();
                         }}
-                        className="text-sm font-medium px-3 py-1 rounded-lg shadow-sm transition-colors border bg-white text-blue-700 border-blue-200 hover:bg-blue-50"
+                        className={`text-sm font-medium px-3 py-1 rounded-lg shadow-sm transition-colors border ${
+                          websiteDeployed
+                            ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                            : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'
+                        }`}
                         aria-label="Go to Website creation"
                       >
                         Website creation
@@ -726,12 +817,27 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
                     
                     {/* Step 2: Ads Creation */}
                     <div className="flex items-center space-x-3">
-                      <div className="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white relative shadow-md shadow-blue-300/50">
+                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 ${
+                        adsExist 
+                          ? 'bg-blue-600 text-white shadow-md' 
+                          : 'bg-blue-500 text-white shadow-md shadow-blue-300/50'
+                      }`}>
                         <span className="text-lg">📢</span>
                       </div>
-                      <span className="text-sm font-semibold text-gray-700 px-3 py-1 bg-blue-50 border border-blue-200 rounded-lg">
+                      <span className={`text-sm font-semibold px-3 py-1 rounded-lg border ${
+                        adsExist
+                          ? 'bg-blue-50 text-blue-700 border-blue-200'
+                          : 'bg-blue-50 text-gray-700 border-blue-200'
+                      }`}>
                         Ads creation
                       </span>
+                    </div>
+                    
+                    {/* Connector line between steps */}
+                    <div className="flex justify-center">
+                      <div className={`w-0.5 h-6 transition-colors duration-200 ${
+                        websiteDeployed && adsExist ? 'bg-blue-600' : 'bg-gray-200'
+                      }`}></div>
                     </div>
                     
                     {/* Step 3: Launch and Monitor */}

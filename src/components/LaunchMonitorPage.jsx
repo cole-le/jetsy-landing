@@ -364,6 +364,9 @@ const LaunchMonitorPage = ({ projectId }) => {
                 setRefreshSuccess(true);
                 // Reset success state after 2 seconds
                 setTimeout(() => setRefreshSuccess(false), 2000);
+                
+                // Dispatch event to refresh navbar data
+                window.dispatchEvent(new CustomEvent('launch-monitor:refresh'));
               } finally {
                 setLoading(false);
               }

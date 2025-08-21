@@ -118,6 +118,18 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
     return () => window.removeEventListener('launch-monitor:refresh', onRefresh);
   }, [currentProjectId]);
 
+  // Listen for workflow status updates from AdCreativesPage
+  React.useEffect(() => {
+    const handleWorkflowStatus = (event) => {
+      const { websiteDeployed: newWebsiteDeployed, adsExist: newAdsExist } = event.detail;
+      setWebsiteDeployed(newWebsiteDeployed);
+      setAdsExist(newAdsExist);
+    };
+    
+    window.addEventListener('ad-creatives:workflow-status', handleWorkflowStatus);
+    return () => window.removeEventListener('ad-creatives:workflow-status', handleWorkflowStatus);
+  }, []);
+
   // Function to load ads state (extracted for reuse)
   const loadAdsState = async () => {
     try {
@@ -448,6 +460,8 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
                       <WorkflowProgressBar 
                         currentStage={2} 
                         projectId={currentProjectId || undefined}
+                        websiteDeployed={websiteDeployed}
+                        adsExist={adsExist}
                       />
                     </div>
                   )}
