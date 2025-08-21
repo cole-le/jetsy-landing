@@ -50,6 +50,9 @@ const LaunchMonitorPage = ({ projectId }) => {
   const [adsCreated, setAdsCreated] = useState(false);
   const [adsData, setAdsData] = useState(null);
 
+  // Refresh button state
+  const [refreshSuccess, setRefreshSuccess] = useState(false);
+
   const apiBase = getApiBaseUrl();
 
   // Placeholder ads template data for projects with blank ads data
@@ -246,12 +249,6 @@ const LaunchMonitorPage = ({ projectId }) => {
   useEffect(() => {
     setLoading(true);
     Promise.all([loadDeployment(), loadMetrics(), loadScore(), loadTestRun(), loadAdsData()]).finally(() => setLoading(false));
-    // Poll metrics and score every ~20s
-    const interval = setInterval(() => {
-      loadMetrics();
-      loadScore();
-    }, 20000);
-    return () => clearInterval(interval);
   }, [projectId]);
 
   const saveAudience = async () => {
@@ -356,6 +353,53 @@ const LaunchMonitorPage = ({ projectId }) => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Launch & Monitor</h1>
           <p className="text-sm text-gray-600 mt-1">Run a 24-hour paid traffic test to gauge demand for your business. We track on-site engagement and your ad campaign inputs to compute a single Jetsy Validation Score.</p>
+          
+          {/* Refresh Button */}
+          <button
+            onClick={async () => {
+              setLoading(true);
+              setRefreshSuccess(false);
+              try {
+                await Promise.all([loadDeployment(), loadMetrics(), loadScore(), loadTestRun(), loadAdsData()]);
+                setRefreshSuccess(true);
+                // Reset success state after 2 seconds
+                setTimeout(() => setRefreshSuccess(false), 2000);
+              } finally {
+                setLoading(false);
+              }
+            }}
+            disabled={loading || refreshSuccess}
+            className={`mt-3 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+              refreshSuccess
+                ? 'bg-green-600 text-white cursor-default'
+                : loading
+                ? 'bg-gray-400 text-white cursor-not-allowed'
+                : 'bg-black text-white hover:bg-gray-800'
+            }`}
+          >
+            {refreshSuccess ? (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Successfully refreshed!
+              </>
+            ) : loading ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refresh and get updates
+              </>
+            )}
+          </button>
         </div>
         <div className="relative rounded-2xl w-[280px]">
           {/* Glow */}
