@@ -20,6 +20,7 @@ import ProjectDataAnalytics from './components/ProjectDataAnalytics'
 import PublicRouteView from './components/PublicRouteView'
 import AdCreativesPage from './components/AdCreativesPage'
 import AdsTemplatePage from './components/AdsTemplatePage'
+import LaunchMonitorPage from './components/LaunchMonitorPage'
 
 function App() {
   const [currentStep, setCurrentStep] = useState('hero') // hero, faq, pricing, lead-capture, onboarding, login, demo-booking, demo-thankyou, chat
@@ -105,6 +106,13 @@ function App() {
       if (!isNaN(pid)) {
         setAdCreativesProjectId(pid);
         setCurrentStep('ad-creatives');
+      }
+    } else if (path.startsWith('/launch/')) {
+      const projectIdStr = path.slice('/launch/'.length);
+      const pid = parseInt(projectIdStr, 10);
+      if (!isNaN(pid)) {
+        setRouteProjectId(pid);
+        setCurrentStep('launch-monitor');
       }
     } else if (path === '/ads_template') {
       // Handle ads template route - no password required
@@ -234,6 +242,8 @@ function App() {
       window.history.pushState({}, '', '/chat');
     } else if (currentStep === 'ad-creatives' && adCreativesProjectId && path !== `/ad-creatives/${adCreativesProjectId}`) {
       window.history.pushState({}, '', `/ad-creatives/${adCreativesProjectId}`);
+    } else if (currentStep === 'launch-monitor' && routeProjectId && path !== `/launch/${routeProjectId}`) {
+      window.history.pushState({}, '', `/launch/${routeProjectId}`);
     } else if (currentStep === 'ads-template' && path !== '/ads_template') {
       window.history.pushState({}, '', '/ads_template');
     } else if (currentStep === 'data-analytics' && analyticsProjectId && path !== `/data_analytics/project_${analyticsProjectId}`) {
@@ -707,6 +717,11 @@ function App() {
         <AdsTemplatePage 
           onBackToHome={() => setCurrentStep('hero')}
         />
+      )}
+
+      {/* Launch & Monitor Page */}
+      {currentStep === 'launch-monitor' && routeProjectId && (
+        <LaunchMonitorPage projectId={routeProjectId} />
       )}
 
       {/* Public full-screen route */}

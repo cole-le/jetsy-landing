@@ -148,6 +148,10 @@ export default {
       if (path.startsWith('/api/projects')) {
         // Extract project id if present
         const projectIdMatch = path.match(/^\/api\/projects\/(\d+)$/);
+        const metricsMatch = path.match(/^\/api\/projects\/(\d+)\/metrics$/);
+        const scoreMatch = path.match(/^\/api\/projects\/(\d+)\/score$/);
+        const testrunMatch = path.match(/^\/api\/projects\/(\d+)\/testrun$/);
+        const deploymentMatch = path.match(/^\/api\/projects\/(\d+)\/deployment$/);
         if (request.method === 'GET' && path === '/api/projects') {
           // GET /api/projects - list all projects for user
           return await getProjects(request, env, corsHeaders);
@@ -167,6 +171,35 @@ export default {
         if (request.method === 'DELETE' && projectIdMatch) {
           // DELETE /api/projects/:id
           return await deleteProject(projectIdMatch[1], env, corsHeaders);
+        }
+
+        // --- Project Metrics (24h) ---
+        if (request.method === 'GET' && metricsMatch) {
+          return await getProjectMetrics(metricsMatch[1], env, corsHeaders);
+        }
+
+        // --- Project Score (Jetsy Validation Score) ---
+        if (request.method === 'GET' && scoreMatch) {
+          return await getProjectScore(scoreMatch[1], env, corsHeaders);
+        }
+
+        // --- TestRun CRUD operates on latest row per project ---
+        if (testrunMatch) {
+          const pid = testrunMatch[1];
+          if (request.method === 'GET') {
+            return await getLatestTestRun(pid, env, corsHeaders);
+          }
+          if (request.method === 'POST') {
+            return await createTestRun(pid, request, env, corsHeaders);
+          }
+          if (request.method === 'PATCH') {
+            return await updateLatestTestRun(pid, request, env, corsHeaders);
+          }
+        }
+
+        // --- Deployment status (proxy/compose) ---
+        if (request.method === 'GET' && deploymentMatch) {
+          return await getProjectDeploymentStatus(deploymentMatch[1], env, corsHeaders);
         }
         if (request.method === 'OPTIONS') {
           return new Response(null, { status: 200, headers: corsHeaders });
@@ -706,6 +739,228 @@ async function handleProjectTrackingSummary(request, env, corsHeaders) {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
+  }
+}
+
+// --- Project Metrics (24h) ---
+async function getProjectMetrics(projectId, env, corsHeaders) {
+  try {
+    const db = env.DB;
+    // 24h window
+    const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    // visitors: distinct session_id from tracking_events for project
+    const visitorsRow = await db.prepare(`
+      SELECT COUNT(DISTINCT session_id) as visitors
+      FROM tracking_events
+      WHERE JSON_EXTRACT(event_data, '$.project_id') = ?
+        AND created_at >= ?
+    `).bind(projectId, sinceIso).first();
+
+    // pricing clicks total and by plan
+    const pricingRows = await db.prepare(`
+      SELECT event_data as data
+      FROM tracking_events
+      WHERE JSON_EXTRACT(event_data, '$.project_id') = ?
+        AND event_name = 'pricing_plan_select'
+        AND created_at >= ?
+    `).bind(projectId, sinceIso).all();
+    let pricingClicksTotal = 0;
+    const pricingByPlan = {};
+    for (const row of (pricingRows.results || [])) {
+      pricingClicksTotal += 1;
+      try {
+        const d = JSON.parse(row.data || '{}');
+        const plan = String(d.plan_type || d.plan_name || 'unknown').toLowerCase();
+        pricingByPlan[plan] = (pricingByPlan[plan] || 0) + 1;
+      } catch {}
+    }
+
+    // leads count
+    const leadsRow = await db.prepare(`
+      SELECT COUNT(*) as leads
+      FROM tracking_events
+      WHERE JSON_EXTRACT(event_data, '$.project_id') = ?
+        AND event_name = 'lead_form_submit'
+        AND created_at >= ?
+    `).bind(projectId, sinceIso).first();
+
+    // ctas: count non-pricing CTA if tracked; fallback to pricing clicks as ctas
+    const ctas = pricingClicksTotal;
+
+    return new Response(JSON.stringify({
+      visitors: visitorsRow?.visitors || 0,
+      pricingClicksTotal,
+      pricingByPlan,
+      leads: leadsRow?.leads || 0,
+      ctas,
+      since: sinceIso
+    }), { headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  } catch (e) {
+    return new Response(JSON.stringify({ error: 'Failed to compute metrics' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  }
+}
+
+// --- Jetsy Validation Score ---
+async function getProjectScore(projectId, env, corsHeaders) {
+  try {
+    // Reuse metrics to compute score
+    const metricsResp = await getProjectMetrics(projectId, env, corsHeaders);
+    if (!metricsResp.ok) return metricsResp;
+    const m = await metricsResp.json();
+
+    const visitors = m.visitors || 0;
+    const pricingClicks = m.pricingClicksTotal || 0;
+    const leads = m.leads || 0;
+
+    // Benchmarks
+    const trafficFull = 100;
+    const engageRateFull = 0.08;
+    const leadRateFull = 0.02;
+    // Weights
+    const wTraffic = 30;
+    const wEngage = 40;
+    const wIntent = 30;
+
+    const engageRate = visitors > 0 ? pricingClicks / visitors : 0;
+    const leadRate = visitors > 0 ? leads / visitors : 0;
+
+    const trafficScore = Math.max(0, Math.min(1, visitors / trafficFull)) * wTraffic;
+    const engageScore = Math.max(0, Math.min(1, engageRate / engageRateFull)) * wEngage;
+    const intentScore = Math.max(0, Math.min(1, leadRate / leadRateFull)) * wIntent;
+    const total = Math.round(trafficScore + engageScore + intentScore);
+
+    let verdict = 'Weak signal — iterate offer, headline, or audience.';
+    if (total >= 70) verdict = 'Strong signal — consider deeper tests and more budget.';
+    else if (total >= 40) verdict = 'Promising but inconclusive — refine and retest.';
+
+    return new Response(JSON.stringify({ total, verdict, breakdown: { traffic: Math.round(trafficScore), engagement: Math.round(engageScore), intent: Math.round(intentScore) } }), { headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  } catch (e) {
+    return new Response(JSON.stringify({ error: 'Failed to compute score' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  }
+}
+
+// --- TestRun CRUD ---
+async function getLatestTestRun(projectId, env, corsHeaders) {
+  try {
+    await ensureTestRunTable(env);
+    const db = env.DB;
+    const row = await db.prepare(`
+      SELECT * FROM test_runs WHERE project_id = ? ORDER BY created_at DESC LIMIT 1
+    `).bind(parseInt(projectId, 10)).first();
+    return new Response(JSON.stringify(row || null), { headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  } catch (e) {
+    return new Response(JSON.stringify({ error: 'Failed to fetch test run' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  }
+}
+
+async function createTestRun(projectId, request, env, corsHeaders) {
+  try {
+    await ensureTestRunTable(env);
+    const db = env.DB;
+    const body = await request.json().catch(() => ({}));
+    const nowIso = new Date().toISOString();
+
+    // Sanitize numeric inputs
+    const adSpendCents = body.adSpendCents == null ? null : Math.max(0, parseInt(body.adSpendCents, 10) || 0);
+    const impressions = body.impressions == null ? null : Math.max(0, parseInt(body.impressions, 10) || 0);
+    const clicks = body.clicks == null ? null : Math.max(0, parseInt(body.clicks, 10) || 0);
+
+    await db.prepare(`
+      INSERT INTO test_runs (project_id, launched_at, ad_platform, ad_spend_cents, impressions, clicks, notes, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      parseInt(projectId, 10),
+      body.launchedAt || null,
+      body.adPlatform || null,
+      adSpendCents,
+      impressions,
+      clicks,
+      body.notes || null,
+      nowIso
+    ).run();
+
+    return await getLatestTestRun(projectId, env, corsHeaders);
+  } catch (e) {
+    return new Response(JSON.stringify({ error: 'Failed to create test run' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  }
+}
+
+async function updateLatestTestRun(projectId, request, env, corsHeaders) {
+  try {
+    await ensureTestRunTable(env);
+    const db = env.DB;
+    const body = await request.json().catch(() => ({}));
+
+    // Find latest row
+    const latest = await db.prepare(`SELECT id FROM test_runs WHERE project_id = ? ORDER BY created_at DESC LIMIT 1`).bind(parseInt(projectId, 10)).first();
+    if (!latest) {
+      // If none exists, create a new one using provided fields
+      return await createTestRun(projectId, request, env, corsHeaders);
+    }
+
+    // Validate and coerce fields
+    const fields = [];
+    const params = [];
+    const addField = (name, value) => { fields.push(`${name} = ?`); params.push(value); };
+
+    if (body.launchedAt !== undefined) addField('launched_at', body.launchedAt || null);
+    if (body.adPlatform !== undefined) addField('ad_platform', body.adPlatform || null);
+    if (body.adSpendCents !== undefined) {
+      const v = body.adSpendCents == null ? null : Math.max(0, parseInt(body.adSpendCents, 10) || 0);
+      addField('ad_spend_cents', v);
+    }
+    if (body.impressions !== undefined) {
+      const v = body.impressions == null ? null : Math.max(0, parseInt(body.impressions, 10) || 0);
+      addField('impressions', v);
+    }
+    if (body.clicks !== undefined) {
+      const v = body.clicks == null ? null : Math.max(0, parseInt(body.clicks, 10) || 0);
+      addField('clicks', v);
+    }
+    if (body.notes !== undefined) addField('notes', body.notes || null);
+    addField('updated_at', new Date().toISOString());
+
+    if (fields.length === 0) {
+      return await getLatestTestRun(projectId, env, corsHeaders);
+    }
+
+    const sql = `UPDATE test_runs SET ${fields.join(', ')} WHERE id = ?`;
+    params.push(latest.id);
+    await db.prepare(sql).bind(...params).run();
+
+    return await getLatestTestRun(projectId, env, corsHeaders);
+  } catch (e) {
+    return new Response(JSON.stringify({ error: 'Failed to update test run' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  }
+}
+
+// --- Deployment status ---
+async function getProjectDeploymentStatus(projectId, env, corsHeaders) {
+  try {
+    // Prefer custom domain from projects table if set
+    const db = env.DB;
+    await ensureVercelTables(env).catch(() => {});
+    const project = await db.prepare(`SELECT custom_domain, current_deployment_url, updated_at FROM projects WHERE id = ?`).bind(parseInt(projectId, 10)).first();
+
+    let customDomain = project?.custom_domain || null;
+    let vercelDomain = project?.current_deployment_url || null;
+    let status = (customDomain || vercelDomain) ? 'deployed' : 'not_deployed';
+    let lastDeployedAt = project?.updated_at || null;
+
+    // If we have a vercel deployment record, refine from latest
+    const latestDep = await db.prepare(`SELECT deployment_url, status, created_at FROM vercel_deployments WHERE project_id = ? ORDER BY created_at DESC LIMIT 1`).bind(parseInt(projectId, 10)).first().catch(() => null);
+    if (latestDep) {
+      vercelDomain = latestDep.deployment_url || vercelDomain;
+      if (latestDep.status && latestDep.status.toLowerCase() === 'error') {
+        status = 'error';
+      }
+      lastDeployedAt = latestDep.created_at || lastDeployedAt;
+    }
+
+    return new Response(JSON.stringify({ status, customDomain: customDomain ? (customDomain.startsWith('http') ? customDomain : `https://${customDomain}`) : null, vercelDomain: vercelDomain ? (vercelDomain.startsWith('http') ? vercelDomain : `https://${vercelDomain}`) : null, lastDeployedAt, notes: null }), { headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  } catch (e) {
+    return new Response(JSON.stringify({ status: 'error', customDomain: null, vercelDomain: null, lastDeployedAt: null, notes: 'Failed to load deployment status' }), { headers: { 'Content-Type': 'application/json', ...corsHeaders } });
   }
 }
 
@@ -2384,6 +2639,31 @@ async function ensureVercelTables(env) {
   } catch (e) {
     // Column probably already exists
   }
+}
+
+// Ensure TestRun table exists
+async function ensureTestRunTable(env) {
+  const db = env.DB;
+  if (!db) {
+    console.error('Database not available in ensureTestRunTable');
+    throw new Error('Database not available');
+  }
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS test_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL,
+      launched_at TEXT,
+      ad_platform TEXT,
+      ad_spend_cents INTEGER,
+      impressions INTEGER,
+      clicks INTEGER,
+      notes TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (project_id) REFERENCES projects(id)
+    );
+  `).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_test_runs_project_created ON test_runs(project_id, created_at);`).run();
 }
 
 // Utility functions for Vercel deployment (embedded versions of the functions from vercelDeployment.js)
