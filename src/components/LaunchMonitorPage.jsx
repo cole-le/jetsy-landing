@@ -385,7 +385,10 @@ const LaunchMonitorPage = ({ projectId }) => {
           <button
             className="text-black hover:text-gray-700 transition-colors p-1 ml-2 flex-shrink-0"
             aria-label={isCollapsed ? 'Expand section' : 'Collapse section'}
-            onClick={(e) => e.stopPropagation()} // Prevent double-triggering
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleCollapse();
+            }}
           >
             <svg
               className={`w-5 h-5 transform transition-transform ${isCollapsed ? 'rotate-180' : ''}`}
@@ -639,9 +642,15 @@ const LaunchMonitorPage = ({ projectId }) => {
       <Section title="Step 3 — Launch ads for 24 hours 🚀" stepKey="step3">
         <div className="space-y-4">
           <div className="flex flex-wrap gap-3">
-            <a href="https://www.linkedin.com/campaignmanager" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm">LinkedIn Campaign Manager</a>
-            <a href="https://business.facebook.com/adsmanager" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm">Meta Ads Manager</a>
-            <a href="https://www.instagram.com" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm">Instagram Promotions</a>
+            <a href="https://www.linkedin.com/campaignmanager" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm flex items-center gap-2 hover:bg-gray-200 transition-colors">
+              <SiLinkedin className="w-4 h-4 text-blue-600" />
+              <span>LinkedIn Ads Manager</span>
+            </a>
+            <a href="https://business.facebook.com/adsmanager" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm flex items-center gap-2 hover:bg-gray-200 transition-colors">
+              <SiFacebook className="w-4 h-4 text-blue-600" />
+              <SiInstagram className="w-4 h-4 text-pink-500" />
+              <span>Meta and Instagram Ads Manager</span>
+            </a>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Target audience (temporary — AI-generated soon)</label>
