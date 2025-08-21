@@ -26,6 +26,10 @@ const ProjectDataAnalytics = ({ projectId, onBack }) => {
   const [eventsSummary, setEventsSummary] = useState(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
 
+  // New state for project details
+  const [projectName, setProjectName] = useState('');
+  const [projectLoading, setProjectLoading] = useState(true);
+
   const pageSize = 20;
 
   useEffect(() => {
@@ -113,16 +117,39 @@ const ProjectDataAnalytics = ({ projectId, onBack }) => {
     loadEvents();
   }, [projectId, eventsPage]);
 
+  // New useEffect for project details
+  useEffect(() => {
+    const loadProjectDetails = async () => {
+      setProjectLoading(true);
+      try {
+        const res = await fetch(`${getApiBaseUrl()}/api/projects/${projectId}`);
+        const data = await res.json();
+        if (res.ok) {
+          setProjectName(data.project?.project_name || `Project ${projectId}`);
+        } else {
+          setProjectName(`Project ${projectId}`);
+        }
+      } catch (err) {
+        setProjectName(`Project ${projectId}`);
+      } finally {
+        setProjectLoading(false);
+      }
+    };
+    loadProjectDetails();
+  }, [projectId]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-5xl mx-auto px-4 py-6 pt-20 lg:pt-20">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-semibold text-gray-900">Project {projectId} - Analytics</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">
+            {projectLoading ? 'Loading...' : `${projectName} - Analytics`}
+          </h1>
           <button
             onClick={onBack}
             className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800"
           >
-            Back to Builder
+            Back to Builder 💻
           </button>
         </div>
 
