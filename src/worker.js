@@ -423,6 +423,13 @@ export default {
         return new Response(null, { status: 200, headers: corsHeaders });
       }
 
+      if (path === '/api/generate-target-audience' && request.method === 'POST') {
+        return await handleGenerateTargetAudience(request, env, corsHeaders);
+      }
+      if (path === '/api/generate-target-audience' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
       // Serve static files
       return await serveStaticFiles(request, env);
 
@@ -10857,5 +10864,164 @@ async function getAnalyticsDebug(request, env, corsHeaders) {
         ...corsHeaders,
       },
     })
+  }
+}
+
+
+// Generate target audience for social media platforms using OpenAI GPT-4o-mini
+async function handleGenerateTargetAudience(request, env, corsHeaders) {
+  try {
+    if (!env.OPENAI_API_KEY) {
+      throw new Error('OpenAI API key is required but not found');
+    }
+
+    const { projectId } = await request.json();
+    if (!projectId) {
+      return new Response(JSON.stringify({ error: 'projectId is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    // Get project data to understand the business
+    const db = env.DB;
+    const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+    if (!project) {
+      return new Response(JSON.stringify({ error: 'Project not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    let templateData = {};
+    try {
+      templateData = project.template_data
+        ? (typeof project.template_data === 'string' ? JSON.parse(project.template_data) : project.template_data)
+        : {};
+    } catch {}
+
+    const businessName = templateData.businessName || project.project_name || 'Your Business';
+    const businessDescription = templateData.businessDescription || templateData.description || 'A business service';
+
+    // Create prompt for OpenAI
+    const prompt = `You are an expert marketing strategist specializing in social media advertising targeting. 
+
+Based on this business information:
+- Business Name: ${businessName}
+- Business Description: ${businessDescription}
+
+Generate specific, actionable target audience descriptions for each of these social media platforms. Each description should be optimized for that platform's advertising system and include relevant demographics, interests, behaviors, and job titles where applicable.
+
+For each platform, provide a concise but comprehensive targeting description that advertisers can directly copy and paste into their ad manager:
+
+1. LinkedIn - Focus on B2B, professional demographics, job titles, company size, industry
+2. Meta (Facebook) - Focus on broader demographics, interests, behaviors, location
+3. Instagram - Focus on visual interests, age groups, lifestyle, shopping behaviors
+
+IMPORTANT: You must respond with ONLY a valid JSON object. Do not include any other text, explanations, or markdown formatting. The response must be parseable JSON with exactly these keys:
+
+{
+  "linkedin": "LinkedIn targeting description here",
+  "meta": "Meta targeting description here", 
+  "instagram": "Instagram targeting description here"
+}
+
+Make each description specific, actionable, and optimized for the respective platform's advertising system.`;
+
+    // Call OpenAI GPT-4o-mini
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert marketing strategist specializing in social media advertising targeting. You must ALWAYS respond with valid JSON only. Never include markdown, explanations, or any other text outside the JSON object.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: 1000,
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    
+    if (!content) {
+      throw new Error('Invalid response from OpenAI');
+    }
+
+    console.log('OpenAI response content:', content);
+    console.log('Content length:', content.length);
+    console.log('Content type:', typeof content);
+
+    // Parse the JSON response from OpenAI
+    let targetAudience;
+    try {
+      targetAudience = JSON.parse(content);
+    } catch (parseError) {
+      // If JSON parsing fails, try to extract the content manually
+      console.warn('Failed to parse OpenAI response as JSON, attempting manual extraction');
+      console.log('Raw OpenAI response:', content);
+      
+      // Try to extract JSON from the response if it's wrapped in markdown or has extra text
+      let jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          targetAudience = JSON.parse(jsonMatch[0]);
+        } catch (secondParseError) {
+          console.warn('Second JSON parse attempt failed:', secondParseError.message);
+          // Use fallback values
+          targetAudience = {
+            linkedin: 'B2B professionals, decision makers, 25-65 age range, interested in business solutions',
+            meta: 'Adults 25-65, interested in business services, located in target markets',
+            instagram: 'Professionals 25-45, interested in business growth, visual learners'
+          };
+        }
+      } else {
+        // Use fallback values
+        targetAudience = {
+          linkedin: 'B2B professionals, decision makers, 25-65 age range, interested in business solutions',
+          meta: 'Adults 25-65, interested in business services, located in target markets',
+          instagram: 'Professionals 25-45, interested in business growth, visual learners'
+        };
+      }
+    }
+
+    // Validate the response structure
+    if (!targetAudience.linkedin || !targetAudience.meta || !targetAudience.instagram) {
+      throw new Error('Invalid target audience response structure from OpenAI');
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      targetAudience
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+
+  } catch (error) {
+    console.error('Target audience generation error:', error);
+    return new Response(JSON.stringify({ 
+      error: 'Failed to generate target audience',
+      details: error.message 
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
   }
 }

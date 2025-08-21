@@ -25,6 +25,21 @@ const copyToClipboard = async (text) => {
   }
 };
 
+const copyTargetAudience = async (platform) => {
+  const text = aiTargetAudience[platform];
+  if (text) {
+    const success = await copyToClipboard(text);
+    if (success) {
+      // Show a brief success message
+      const originalText = document.getElementById(`copy-${platform}`).textContent;
+      document.getElementById(`copy-${platform}`).textContent = 'Copied!';
+      setTimeout(() => {
+        document.getElementById(`copy-${platform}`).textContent = originalText;
+      }, 2000);
+    }
+  }
+};
+
 const LaunchMonitorPage = ({ projectId }) => {
   const [project, setProject] = useState(null);
   const [deployment, setDeployment] = useState(null);
@@ -35,9 +50,13 @@ const LaunchMonitorPage = ({ projectId }) => {
   const [error, setError] = useState(null);
 
   // Step 3 inputs
-  const [targetAudience, setTargetAudience] = useState('');
-  const [savingAudience, setSavingAudience] = useState(false);
   const [launchSaving, setLaunchSaving] = useState(false);
+  const [aiTargetAudience, setAiTargetAudience] = useState({
+    linkedin: '',
+    meta: '',
+    instagram: ''
+  });
+  const [isGeneratingAudience, setIsGeneratingAudience] = useState(false);
 
   // Step 4 inputs
   const [adSpendDollars, setAdSpendDollars] = useState('');
@@ -275,20 +294,28 @@ const LaunchMonitorPage = ({ projectId }) => {
     Promise.all([loadProjectData(), loadDeployment(), loadMetrics(), loadScore(), loadTestRun(), loadAdsData()]).finally(() => setLoading(false));
   }, [projectId]);
 
-  const saveAudience = async () => {
+  const generateTargetAudience = async () => {
     try {
-      setSavingAudience(true);
-      await fetch(`${apiBase}/api/projects/${projectId}/testrun`, {
-        method: 'PATCH',
+      setIsGeneratingAudience(true);
+      const response = await fetch(`${apiBase}/api/generate-target-audience`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes: targetAudience })
+        body: JSON.stringify({ projectId })
       });
-      await loadTestRun();
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate target audience');
+      }
+      
+      const data = await response.json();
+      if (data.success && data.targetAudience) {
+        setAiTargetAudience(data.targetAudience);
+      }
     } catch (e) {
-      setError('Failed to save target audience');
+      setError('Failed to generate target audience');
       setTimeout(() => setError(null), 3000);
     } finally {
-      setSavingAudience(false);
+      setIsGeneratingAudience(false);
     }
   };
 
@@ -653,16 +680,108 @@ const LaunchMonitorPage = ({ projectId }) => {
             </a>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Target audience (temporary — AI-generated soon)</label>
-            <textarea value={targetAudience} onChange={(e) => setTargetAudience(e.target.value)} rows={2} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="e.g., B2B marketers in SaaS, 5–200 employees, US, job titles: Demand Gen, Growth" />
-            <div className="flex gap-2 mt-2">
-              <button onClick={saveAudience} disabled={savingAudience} className={`px-3 py-2 rounded text-sm ${savingAudience ? 'bg-gray-100 text-gray-400 border border-gray-300' : 'bg-gray-100 border border-gray-300'}`}>Save audience</button>
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-sm font-medium text-gray-700">AI-Generated Target Audience</label>
+              <button 
+                onClick={generateTargetAudience} 
+                disabled={isGeneratingAudience}
+                className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                  isGeneratingAudience 
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
+                {isGeneratingAudience ? (
+                  <span className="flex items-center gap-2">
+                    <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+                    Generating...
+                  </span>
+                ) : (
+                  '✨ Generate with AI'
+                )}
+              </button>
+            </div>
+            
+            {aiTargetAudience.linkedin && (
+              <div className="space-y-3">
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                      <SiLinkedin className="w-4 h-4 text-blue-600" />
+                      LinkedIn
+                    </label>
+                    <button
+                      id="copy-linkedin"
+                      onClick={() => copyTargetAudience('linkedin')}
+                      className="px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <div className="text-sm text-gray-800 bg-white p-2 rounded border">
+                    {aiTargetAudience.linkedin}
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                      <SiFacebook className="w-4 h-4 text-blue-600" />
+                      Meta (Facebook)
+                    </label>
+                    <button
+                      id="copy-meta"
+                      onClick={() => copyTargetAudience('meta')}
+                      className="px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <div className="text-sm text-gray-800 bg-white p-2 rounded border">
+                    {aiTargetAudience.meta}
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                      <SiInstagram className="w-4 h-4 text-pink-500" />
+                      Instagram
+                    </label>
+                    <button
+                      id="copy-instagram"
+                      onClick={() => copyTargetAudience('instagram')}
+                      className="px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <div className="text-sm text-gray-800 bg-white p-2 rounded border">
+                    {aiTargetAudience.instagram}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!aiTargetAudience.linkedin && (
+              <div className="text-center py-8 text-gray-500">
+                <p className="text-sm">Click "Generate with AI" to create optimized target audience descriptions for each platform.</p>
+              </div>
+            )}
+
+            <div className="mt-4">
               <button onClick={handleLaunched} disabled={launchSaving} className={`px-3 py-2 rounded text-sm ${launchSaving ? 'bg-blue-300 text-white' : 'bg-blue-600 text-white'}`}>I launched my ads</button>
             </div>
+            
             {testRun?.launched_at && (
               <p className="text-xs text-gray-600 mt-2">Launched at: {new Date(testRun.launched_at).toLocaleString()}</p>
             )}
-            <p className="text-xs text-gray-500 mt-2">If CPC &gt; $4 after the first 50 clicks, broaden targeting or pause.</p>
+            
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                💡 <strong>Smart Testing Strategy:</strong> You don't need to spend much on ads to test your business idea. Just $17 is enough to get around 380+ impressions on your ads. From this, you can see how many people click on your ads and interact with your website. Based on these metrics, you'll know if your idea has potential or needs refinement.
+              </p>
+            </div>
           </div>
         </div>
       </Section>
