@@ -216,9 +216,44 @@ const LaunchMonitorPage = ({ projectId }) => {
           <h1 className="text-2xl font-bold text-gray-900">Launch & Monitor</h1>
           <p className="text-sm text-gray-600 mt-1">Run a 24-hour paid traffic test to gauge demand for your business. We track on-site engagement and your ad campaign inputs to compute a single Jetsy Validation Score.</p>
         </div>
-        <div className="relative p-[3px] rounded-2xl">
-          <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-red-500 via-orange-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 blur-md opacity-75"></div>
-          <div className="relative z-10 bg-white rounded-2xl p-6 shadow-md text-center min-w-[220px]">
+        <div className="relative rounded-2xl min-w-[220px]">
+          {/* Glow */}
+          <div
+            aria-hidden
+            className="absolute -inset-[6px] rounded-2xl blur-md opacity-70"
+            style={{
+              background:
+                'conic-gradient(from var(--tw-gradient-angle,0deg), #ef4444, #f59e0b, #facc15, #22c55e, #3b82f6, #a855f7, #ef4444)'
+            }}
+          />
+          {/* Rainbow ring via mask */}
+          <div
+            aria-hidden
+            className="absolute inset-0 rounded-2xl p-[3px]"
+            style={{
+              background:
+                'conic-gradient(from var(--tw-gradient-angle,0deg), #ef4444, #f59e0b, #facc15, #22c55e, #3b82f6, #a855f7, #ef4444)',
+              WebkitMask:
+                'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
+              WebkitMaskComposite: 'xor',
+              maskComposite: 'exclude'
+            }}
+          />
+          {/* Shine */}
+          <div
+            aria-hidden
+            className="absolute inset-0 rounded-2xl p-[3px] bg-[length:200%_100%] animate-shine motion-reduce:animate-none"
+            style={{
+              background:
+                'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.85) 50%, rgba(255,255,255,0) 100%)',
+              WebkitMask:
+                'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
+              WebkitMaskComposite: 'xor',
+              maskComposite: 'exclude'
+            }}
+          />
+          {/* Content */}
+          <div className="relative z-10 bg-white rounded-2xl p-6 shadow-md text-center">
             <div className="text-xs font-medium text-gray-500 mb-2">Jetsy Validation Score</div>
             <div className="text-3xl font-extrabold text-gray-900">{displayTotal}</div>
             <div className="text-xs text-gray-500 mt-1">/100</div>
@@ -343,9 +378,44 @@ const LaunchMonitorPage = ({ projectId }) => {
       {/* Step 5 */}
       <Section title="Step 5 — Jetsy Validation Score">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-stretch">
-          {/* Total Score with colorful glowing border */}
-          <div className="relative p-[3px] rounded-2xl">
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-red-500 via-orange-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 blur-md opacity-75"></div>
+          {/* Total Score with animated rainbow ring, glow, and masked shine */}
+          <div className="relative rounded-2xl">
+            {/* Glow (soft outer halo) */}
+            <div
+              aria-hidden
+              className="absolute -inset-[6px] rounded-2xl blur-md opacity-70"
+              style={{
+                background:
+                  'conic-gradient(from var(--tw-gradient-angle,0deg), #ef4444, #f59e0b, #facc15, #22c55e, #3b82f6, #a855f7, #ef4444)'
+              }}
+            />
+            {/* Rainbow ring (border only via mask) */}
+            <div
+              aria-hidden
+              className="absolute inset-0 rounded-2xl p-[3px]"
+              style={{
+                background:
+                  'conic-gradient(from var(--tw-gradient-angle,0deg), #ef4444, #f59e0b, #facc15, #22c55e, #3b82f6, #a855f7, #ef4444)',
+                WebkitMask:
+                  'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
+                WebkitMaskComposite: 'xor',
+                maskComposite: 'exclude'
+              }}
+            />
+            {/* Moving white shine on the ring (masked the same way) */}
+            <div
+              aria-hidden
+              className="absolute inset-0 rounded-2xl p-[3px] bg-[length:200%_100%] animate-shine motion-reduce:animate-none"
+              style={{
+                background:
+                  'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.85) 50%, rgba(255,255,255,0) 100%)',
+                WebkitMask:
+                  'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
+                WebkitMaskComposite: 'xor',
+                maskComposite: 'exclude'
+              }}
+            />
+            {/* Content */}
             <div className="relative z-10 bg-white rounded-2xl p-6 shadow-md text-center">
               <div className="text-xs font-medium text-gray-500 mb-2">Jetsy Validation Score</div>
               <div className="text-3xl font-extrabold text-gray-900">{displayTotal}</div>

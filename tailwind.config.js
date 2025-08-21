@@ -27,6 +27,8 @@ export default {
         'fade-in': 'fadeIn 0.5s ease-in-out',
         'slide-up': 'slideUp 0.3s ease-out',
         'float': 'float 3s ease-in-out infinite',
+        'shine': 'shine 3.5s linear infinite',
+        'rainbow-spin': 'rainbowSpin 14s linear infinite',
       },
       keyframes: {
         gradient: {
@@ -50,6 +52,14 @@ export default {
         float: {
           '0%, 100%': { transform: 'translateY(0px)' },
           '50%': { transform: 'translateY(-10px)' },
+        },
+        shine: {
+          '0%': { 'background-position': '0% 0' },
+          '100%': { 'background-position': '200% 0' },
+        },
+        rainbowSpin: {
+          '0%': { '--tw-gradient-angle': '0deg' },
+          '100%': { '--tw-gradient-angle': '360deg' },
         },
       },
       backgroundImage: {
