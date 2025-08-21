@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { getApiBaseUrl } from '../config/environment';
 import { SiLinkedin, SiFacebook, SiInstagram } from 'react-icons/si';
 import LinkedInSingleImageAdPreview from './ads-template/LinkedInSingleImageAdPreview';
@@ -25,7 +25,7 @@ const copyToClipboard = async (text) => {
   }
 };
 
-const copyTargetAudience = async (platform) => {
+const copyTargetAudience = async (platform, aiTargetAudience) => {
   const text = aiTargetAudience[platform];
   if (text) {
     const success = await copyToClipboard(text);
@@ -50,7 +50,6 @@ const LaunchMonitorPage = ({ projectId }) => {
   const [error, setError] = useState(null);
 
   // Step 3 inputs
-  const [launchSaving, setLaunchSaving] = useState(false);
   const [aiTargetAudience, setAiTargetAudience] = useState({
     linkedin: '',
     meta: '',
@@ -64,6 +63,11 @@ const LaunchMonitorPage = ({ projectId }) => {
   const [clicks, setClicks] = useState('');
   const [saveStep4Loading, setSaveStep4Loading] = useState(false);
   const [validationMsg, setValidationMsg] = useState(null);
+  
+  // Time range picker for Step 4
+  const [timeRange, setTimeRange] = useState('24h');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
 
   // Ads-related state
   const [activePlatform, setActivePlatform] = useState('linkedin');
@@ -157,12 +161,11 @@ const LaunchMonitorPage = ({ projectId }) => {
 
   // Consider the header state incomplete until user provides key launch+ads inputs
   const isIncomplete = useMemo(() => {
-    const noLaunch = !testRun?.launched_at;
     const noAdsInputs =
       testRun?.ad_spend_cents == null &&
       testRun?.impressions == null &&
       testRun?.clicks == null;
-    return noLaunch || noAdsInputs;
+    return noAdsInputs;
   }, [testRun]);
 
   const displayTotal = useMemo(() => {
@@ -217,7 +220,16 @@ const LaunchMonitorPage = ({ projectId }) => {
 
   const loadMetrics = async () => {
     try {
-      const res = await fetch(`${apiBase}/api/projects/${projectId}/metrics`);
+      let url = `${apiBase}/api/projects/${projectId}/metrics`;
+      
+      // Add time range parameters
+      if (timeRange === 'custom' && customStartDate && customEndDate) {
+        url += `?startDate=${customStartDate}&endDate=${customEndDate}`;
+      } else if (timeRange !== '24h') {
+        url += `?timeRange=${timeRange}`;
+      }
+      
+      const res = await fetch(url);
       if (!res.ok) throw new Error('metrics failed');
       const j = await res.json();
       setMetrics(j);
@@ -242,7 +254,6 @@ const LaunchMonitorPage = ({ projectId }) => {
       const res = await fetch(`${apiBase}/api/projects/${projectId}/testrun`);
       const j = await res.json();
       setTestRun(j);
-      setTargetAudience(j?.notes || '');
       setAdSpendDollars(j?.ad_spend_cents != null ? formatCentsToDollars(j.ad_spend_cents) : '');
       setImpressions(j?.impressions != null ? String(j.impressions) : '');
       setClicks(j?.clicks != null ? String(j.clicks) : '');
@@ -294,6 +305,13 @@ const LaunchMonitorPage = ({ projectId }) => {
     Promise.all([loadProjectData(), loadDeployment(), loadMetrics(), loadScore(), loadTestRun(), loadAdsData()]).finally(() => setLoading(false));
   }, [projectId]);
 
+  // Reload metrics when time range changes
+  useEffect(() => {
+    if (projectId) {
+      loadMetrics();
+    }
+  }, [timeRange, customStartDate, customEndDate]);
+
   const generateTargetAudience = async () => {
     try {
       setIsGeneratingAudience(true);
@@ -319,22 +337,19 @@ const LaunchMonitorPage = ({ projectId }) => {
     }
   };
 
-  const handleLaunched = async () => {
-    try {
-      setLaunchSaving(true);
-      const launchedAt = new Date().toISOString();
-      await fetch(`${apiBase}/api/projects/${projectId}/testrun`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ launchedAt })
-      });
-      await loadTestRun();
-    } catch (e) {
-      setError('Failed to set launch timestamp');
-      setTimeout(() => setError(null), 3000);
-    } finally {
-      setLaunchSaving(false);
+  const handleTimeRangeChange = async (newTimeRange) => {
+    setTimeRange(newTimeRange);
+    
+    // If custom date range is selected, show date inputs
+    if (newTimeRange === 'custom') {
+      const now = new Date();
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      setCustomEndDate(now.toISOString().split('T')[0]);
+      setCustomStartDate(yesterday.toISOString().split('T')[0]);
     }
+    
+    // Reload metrics with new time range
+    await loadMetrics();
   };
 
   const saveStep4 = async () => {
@@ -712,7 +727,7 @@ const LaunchMonitorPage = ({ projectId }) => {
                     </label>
                     <button
                       id="copy-linkedin"
-                      onClick={() => copyTargetAudience('linkedin')}
+                      onClick={() => copyTargetAudience('linkedin', aiTargetAudience)}
                       className="px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
                     >
                       Copy
@@ -731,7 +746,7 @@ const LaunchMonitorPage = ({ projectId }) => {
                     </label>
                     <button
                       id="copy-meta"
-                      onClick={() => copyTargetAudience('meta')}
+                      onClick={() => copyTargetAudience('meta', aiTargetAudience)}
                       className="px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
                     >
                       Copy
@@ -750,7 +765,7 @@ const LaunchMonitorPage = ({ projectId }) => {
                     </label>
                     <button
                       id="copy-instagram"
-                      onClick={() => copyTargetAudience('instagram')}
+                      onClick={() => copyTargetAudience('instagram', aiTargetAudience)}
                       className="px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
                     >
                       Copy
@@ -767,14 +782,6 @@ const LaunchMonitorPage = ({ projectId }) => {
               <div className="text-center py-8 text-gray-500">
                 <p className="text-sm">Click "Generate with AI" to create optimized target audience descriptions for each platform.</p>
               </div>
-            )}
-
-            <div className="mt-4">
-              <button onClick={handleLaunched} disabled={launchSaving} className={`px-3 py-2 rounded text-sm ${launchSaving ? 'bg-blue-300 text-white' : 'bg-blue-600 text-white'}`}>I launched my ads</button>
-            </div>
-            
-            {testRun?.launched_at && (
-              <p className="text-xs text-gray-600 mt-2">Launched at: {new Date(testRun.launched_at).toLocaleString()}</p>
             )}
             
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -814,9 +821,81 @@ const LaunchMonitorPage = ({ projectId }) => {
           </div>
           <div>
             <h4 className="text-sm font-semibold text-gray-800 mb-2">From Jetsy (auto)</h4>
+            
+            {/* Time Range Picker */}
+            <div className="mb-4">
+              <label className="block text-sm text-gray-700 mb-2">Time Range</label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => handleTimeRangeChange('24h')}
+                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                    timeRange === '24h'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  24h
+                </button>
+                <button
+                  onClick={() => handleTimeRangeChange('7d')}
+                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                    timeRange === '7d'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  7 days
+                </button>
+                <button
+                  onClick={() => handleTimeRangeChange('30d')}
+                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                    timeRange === '30d'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  30 days
+                </button>
+                <button
+                  onClick={() => handleTimeRangeChange('custom')}
+                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                    timeRange === 'custom'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Custom
+                </button>
+              </div>
+              
+              {/* Custom Date Range Inputs */}
+              {timeRange === 'custom' && (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Start Date</label>
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">End Date</label>
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+            
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-gray-50 border border-gray-200 rounded p-3 text-center">
-                <div className="text-xs text-gray-600">Visitors (24h)</div>
+                <div className="text-xs text-gray-600">Visitors ({timeRange === 'custom' ? 'custom' : timeRange})</div>
                 <div className="text-xl font-bold text-gray-900">{metrics?.visitors ?? '—'}</div>
               </div>
               <div className="bg-gray-50 border border-gray-200 rounded p-3 text-center">
