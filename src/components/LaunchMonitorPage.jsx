@@ -1,5 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getApiBaseUrl } from '../config/environment';
+import { SiLinkedin, SiFacebook, SiInstagram } from 'react-icons/si';
+import LinkedInSingleImageAdPreview from './ads-template/LinkedInSingleImageAdPreview';
+import MetaFeedSingleImageAdPreview from './ads-template/MetaFeedSingleImageAdPreview';
+import InstagramSingleImageAdPreview from './ads-template/InstagramSingleImageAdPreview';
 
 const formatCentsToDollars = (cents) => {
   if (cents == null || isNaN(cents)) return '';
@@ -41,7 +45,67 @@ const LaunchMonitorPage = ({ projectId }) => {
   const [saveStep4Loading, setSaveStep4Loading] = useState(false);
   const [validationMsg, setValidationMsg] = useState(null);
 
+  // Ads-related state
+  const [activePlatform, setActivePlatform] = useState('linkedin');
+  const [adsCreated, setAdsCreated] = useState(false);
+  const [adsData, setAdsData] = useState(null);
+
   const apiBase = getApiBaseUrl();
+
+  // Placeholder ads template data for projects with blank ads data
+  const placeholderAdsData = {
+    linkedIn: {
+      copy: {
+        primaryText: "Introductory text - Describe your product or service here",
+        headline: "Headline text - Your main message",
+        description: "Description text - Additional details about your offering",
+        cta: "LEARN_MORE",
+        linkUrl: "https://example.com",
+      },
+      visual: {
+        imageUrl: null,
+        logoUrl: null,
+        brandName: "Your Business Name",
+        verified: false,
+      },
+    },
+    meta: {
+      copy: {
+        primaryText: "Introductory text - Describe your product or service here",
+        headline: "Headline text - Your main message",
+        description: "Description text - Additional details about your offering",
+        cta: "SIGN_UP",
+        linkUrl: "https://example.com",
+      },
+      visual: {
+        imageUrl: null,
+        logoUrl: null,
+        brandName: "Your Business Name",
+      },
+    },
+    instagram: {
+      copy: {
+        primaryText: "Introductory text - Describe your product or service here",
+        headline: "Headline text - Your main message",
+        description: "Description text - Additional details about your offering",
+        cta: "GET_STARTED",
+        linkUrl: "https://example.com",
+      },
+      visual: {
+        imageUrl: null,
+        logoUrl: null,
+        brandName: "Your Business Name",
+      },
+    },
+  };
+
+  // Fallback image URLs for demo purposes
+  const fallbackImages = {
+    linkedIn: '/ferrari.jpg',
+    meta: '/ferrari.jpg',
+    instagram: '/ferrari.jpg',
+    logo: '/ferrari_logo.jpg'
+  };
 
   const displayUrl = useMemo(() => {
     if (!deployment) return null;
@@ -154,9 +218,34 @@ const LaunchMonitorPage = ({ projectId }) => {
     }
   };
 
+  const loadAdsData = async () => {
+    try {
+      const res = await fetch(`${apiBase}/api/projects/${projectId}`);
+      if (!res.ok) return;
+      
+      const result = await res.json();
+      const projectData = result.project;
+      
+      if (projectData.ads_data) {
+        try {
+          const parsedAdsData = JSON.parse(projectData.ads_data);
+          setAdsData(parsedAdsData);
+          setAdsCreated(true);
+        } catch (error) {
+          console.error('Error parsing ads data:', error);
+        }
+      } else {
+        setAdsData(placeholderAdsData);
+        setAdsCreated(false);
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+
   useEffect(() => {
     setLoading(true);
-    Promise.all([loadDeployment(), loadMetrics(), loadScore(), loadTestRun()]).finally(() => setLoading(false));
+    Promise.all([loadDeployment(), loadMetrics(), loadScore(), loadTestRun(), loadAdsData()]).finally(() => setLoading(false));
     // Poll metrics and score every ~20s
     const interval = setInterval(() => {
       loadMetrics();
@@ -235,6 +324,23 @@ const LaunchMonitorPage = ({ projectId }) => {
     <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${color}`}>{text}</span>
   );
 
+  // Helper function to get ads data with fallbacks
+  const getAdsDataWithFallback = (platform) => {
+    if (!adsData) return placeholderAdsData[platform];
+    
+    const platformData = adsData[platform];
+    if (!platformData) return placeholderAdsData[platform];
+    
+    return {
+      ...platformData,
+      visual: {
+        ...platformData.visual,
+        imageUrl: platformData.visual?.imageUrl || fallbackImages[platform],
+        logoUrl: platformData.visual?.logoUrl || fallbackImages.logo
+      }
+    };
+  };
+
   const Section = ({ title, helper, children }) => (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
@@ -306,7 +412,7 @@ const LaunchMonitorPage = ({ projectId }) => {
       )}
 
       {/* Step 1 */}
-      <Section title="Step 1 — Launch Website" helper="Deploy your site so we can run traffic and attribute results with UTMs.">
+      <Section title="Step 1 — Launch Website 🌐" helper="Deploy your site so we can run traffic and attribute results with UTMs.">
         {deployment?.status === 'deployed' && (
           <div className="space-y-3">
             <div>{pill(`✅ Website live${deployment.lastDeployedAt ? ` — ${new Date(deployment.lastDeployedAt).toLocaleString()}` : ''}`, 'bg-green-100 text-green-800')}</div>
@@ -314,9 +420,9 @@ const LaunchMonitorPage = ({ projectId }) => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Website URL</label>
               <div className="flex gap-2">
                 <input readOnly value={displayUrl || ''} className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm" />
-                <button onClick={() => displayUrl && copyToClipboard(displayUrl)} className="px-3 py-2 bg-gray-100 border border-gray-300 rounded text-sm">Copy URL</button>
+                <button onClick={() => displayUrl && copyToClipboard(displayUrl)} className="px-3 py-2 bg-gray-100 border border-gray-300 rounded text-sm">Copy URL 📋</button>
                 {displayUrl && (
-                  <a href={displayUrl} target="_blank" rel="noopener noreferrer" className="px-3 py-2 bg-blue-600 text-white rounded text-sm">Open site</a>
+                  <a href={displayUrl} target="_blank" rel="noopener noreferrer" className="px-3 py-2 bg-blue-600 text-white rounded text-sm">Visit site ➡️</a>
                 )}
               </div>
             </div>
@@ -338,16 +444,97 @@ const LaunchMonitorPage = ({ projectId }) => {
       </Section>
 
       {/* Step 2 */}
-      <Section title="Step 2 — Create Your Ads" helper="Objective: Traffic. Budget: $25–$100 for 1 day. Audience: Job title/interests. Placements: Auto.">
-        <div className="flex flex-wrap gap-3">
-          <a href="https://www.linkedin.com/campaignmanager" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm">Open LinkedIn Ads</a>
-          <a href="https://business.facebook.com/adsmanager" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm">Open Meta Ads</a>
-          <a href="https://www.instagram.com" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm">Open Instagram Promotions</a>
+      <Section title="Step 2 — Create Your Ads 📢">
+        <div className="space-y-4">
+          {/* Status indicator */}
+          <div>
+            {adsCreated ? (
+              pill('✅ Ads created', 'bg-green-100 text-green-800')
+            ) : (
+              pill('⚠️ No ads created yet', 'bg-yellow-100 text-yellow-800')
+            )}
+          </div>
+
+          {/* Platform Toggle */}
+          <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
+            <button
+              onClick={() => setActivePlatform('linkedin')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
+                activePlatform === 'linkedin'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <SiLinkedin className="w-4 h-4 text-blue-600" />
+              <span>LinkedIn Ads</span>
+            </button>
+            <button
+              onClick={() => setActivePlatform('meta')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
+                activePlatform === 'meta'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <SiFacebook className="w-4 h-4 text-blue-600" />
+              <span>Meta Ads</span>
+            </button>
+            <button
+              onClick={() => setActivePlatform('instagram')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
+                activePlatform === 'instagram'
+                  ? 'bg-white text-pink-500 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <SiInstagram className="w-4 h-4 text-pink-500" />
+              <span>Instagram Ads</span>
+            </button>
+          </div>
+
+          {/* Ads Preview */}
+          <div className="flex justify-center">
+            {activePlatform === 'linkedin' ? (
+              <LinkedInSingleImageAdPreview
+                copy={getAdsDataWithFallback('linkedIn').copy}
+                visual={getAdsDataWithFallback('linkedIn').visual}
+                aspectRatio="1200×628"
+              />
+            ) : activePlatform === 'meta' ? (
+              <MetaFeedSingleImageAdPreview
+                copy={getAdsDataWithFallback('meta').copy}
+                visual={getAdsDataWithFallback('meta').visual}
+                aspectRatio="1:1"
+              />
+            ) : (
+              <InstagramSingleImageAdPreview
+                copy={getAdsDataWithFallback('instagram').copy}
+                visual={getAdsDataWithFallback('instagram').visual}
+                aspectRatio="1080×1080"
+              />
+            )}
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex gap-3">
+            <button
+              onClick={() => window.location.href = `/ads/${projectId}`}
+              className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
+            >
+              ✨ Generate Ad with AI
+            </button>
+            <button
+              onClick={() => window.location.href = `/ads/${projectId}`}
+              className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm hover:bg-gray-200 transition-colors"
+            >
+              Edit Ads
+            </button>
+          </div>
         </div>
       </Section>
 
       {/* Step 3 */}
-      <Section title="Step 3 — Launch ads for 24 hours">
+      <Section title="Step 3 — Launch ads for 24 hours 🚀">
         <div className="space-y-4">
           <div className="flex flex-wrap gap-3">
             <a href="https://www.linkedin.com/campaignmanager" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm">LinkedIn Campaign Manager</a>
@@ -370,7 +557,7 @@ const LaunchMonitorPage = ({ projectId }) => {
       </Section>
 
       {/* Step 4 */}
-      <Section title="Step 4 — Monitor Key Metrics">
+      <Section title="Step 4 — Monitor Key Metrics 📊">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <h4 className="text-sm font-semibold text-gray-800 mb-2">From Ads (manual)</h4>
@@ -416,7 +603,7 @@ const LaunchMonitorPage = ({ projectId }) => {
       </Section>
 
       {/* Step 5 */}
-      <Section title="Step 5 — Jetsy Validation Score">
+      <Section title="Step 5 — Jetsy Validation Score ⭐">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-stretch">
           {/* Total Score with animated rainbow ring, glow, and masked shine */}
           <div className="relative rounded-2xl w-[280px]">
@@ -486,7 +673,7 @@ const LaunchMonitorPage = ({ projectId }) => {
       </Section>
 
       {/* Step 6 */}
-      <Section title="Step 6 — Next Actions">
+      <Section title="Step 6 — Next Actions 🔮">
         <div className="flex flex-wrap gap-3">
           <button onClick={() => (window.location.href = `/chat/${projectId}`)} className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm">Regenerate offer</button>
           <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm">Try new audience</button>
