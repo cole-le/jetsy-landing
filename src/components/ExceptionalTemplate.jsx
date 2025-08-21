@@ -968,6 +968,10 @@ const ExceptionalTemplate = ({
                 
                 <button 
                   onClick={() => {
+                    // Always open the lead modal for Live Preview
+                    setIsLeadModalOpen(true);
+                    
+                    // Track event if it's a live website
                     if (isLiveWebsite && projectId) {
                       sendEvent('pricing_plan_select', {
                         plan_name: plan.name,
