@@ -73,6 +73,41 @@ const LaunchMonitorPage = ({ projectId }) => {
     return score?.total ?? '—';
   }, [isIncomplete, score]);
 
+  // Verdict messaging for completed runs
+  const verdictCopy = useMemo(() => {
+    if (!score || typeof score.total !== 'number') return null;
+    if (score.total >= 70) return 'Great business idea — high potential 🚀';
+    if (score.total >= 40) return 'Promising — refine and retest 🔧';
+    return 'Weak signal — consider a new angle 🧪';
+  }, [score]);
+
+  // Cycle encouragement/warning copy when incomplete (header card)
+  const [cycleIdx, setCycleIdx] = useState(0);
+  const cycleMessages = useMemo(
+    () => [
+      'Awesome business idea — you should build it! 🚀',
+      'This could be the next big thing! 💡',
+      'Market validation time — let\'s see! 📊',
+      'Not good idea — pursue another one! ❌',
+      'Maybe pivot the concept? 🔄',
+      'Test different angles first! 🎯',
+      'Great potential here! ⭐',
+      'Needs more validation! 🔍',
+    ],
+    []
+  );
+
+  useEffect(() => {
+    const mq = typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+    const reduce = mq?.matches;
+    if (isIncomplete && !reduce) {
+      const id = setInterval(() => {
+        setCycleIdx((i) => (i + 1) % cycleMessages.length);
+      }, 3500);
+      return () => clearInterval(id);
+    }
+  }, [isIncomplete, cycleMessages.length]);
+
   const loadDeployment = async () => {
     try {
       const res = await fetch(`${apiBase}/api/projects/${projectId}/deployment`);
@@ -253,10 +288,15 @@ const LaunchMonitorPage = ({ projectId }) => {
             }}
           />
           {/* Content */}
-          <div className="relative z-10 bg-white rounded-2xl p-6 shadow-md text-center">
+          <div className="relative z-10 bg-white rounded-2xl p-6 shadow-md text-center h-[140px] flex flex-col justify-center">
             <div className="text-xs font-medium text-gray-500 mb-2">Jetsy Validation Score</div>
             <div className="text-3xl font-extrabold text-gray-900">{displayTotal}</div>
             <div className="text-xs text-gray-500 mt-1">/100</div>
+            {isIncomplete ? (
+              <div className="text-xs text-gray-500 mt-2 animate-pulse min-h-[20px]">{cycleMessages[cycleIdx]}</div>
+            ) : (
+              <div className="text-xs text-gray-600 mt-2 min-h-[20px]">{verdictCopy || 'Complete your test to see results'}</div>
+            )}
           </div>
         </div>
       </div>
@@ -416,10 +456,17 @@ const LaunchMonitorPage = ({ projectId }) => {
               }}
             />
             {/* Content */}
-            <div className="relative z-10 bg-white rounded-2xl p-6 shadow-md text-center">
+            <div className="relative z-10 bg-white rounded-2xl p-6 shadow-md text-center h-[140px] flex flex-col justify-center">
               <div className="text-xs font-medium text-gray-500 mb-2">Jetsy Validation Score</div>
               <div className="text-3xl font-extrabold text-gray-900">{displayTotal}</div>
               <div className="text-xs text-gray-500 mt-1">/100</div>
+              <div className="text-xs text-gray-600 mt-2 min-h-[20px]">
+                {isIncomplete ? (
+                  <span className="animate-pulse">{cycleMessages[cycleIdx]}</span>
+                ) : (
+                  verdictCopy || 'Complete your test to see results'
+                )}
+              </div>
             </div>
           </div>
           <div className="bg-gray-50 border border-gray-200 rounded p-4 text-center">
