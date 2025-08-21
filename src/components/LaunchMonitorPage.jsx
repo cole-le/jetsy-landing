@@ -54,6 +54,16 @@ const LaunchMonitorPage = ({ projectId }) => {
   // Refresh button state
   const [refreshSuccess, setRefreshSuccess] = useState(false);
 
+  // Collapsible steps state - default to only Step 1 open
+  const [collapsedSteps, setCollapsedSteps] = useState({
+    step1: false,  // Step 1 is open by default
+    step2: true,   // Step 2 is collapsed
+    step3: true,   // Step 3 is collapsed
+    step4: true,   // Step 4 is collapsed
+    step5: true,   // Step 5 is collapsed
+    step6: true    // Step 6 is collapsed
+  });
+
   const apiBase = getApiBaseUrl();
 
   // Placeholder ads template data for projects with blank ads data
@@ -352,13 +362,45 @@ const LaunchMonitorPage = ({ projectId }) => {
     };
   };
 
-  const Section = ({ title, helper, children }) => (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
-      {helper && <p className="text-sm text-gray-600 mb-4">{helper}</p>}
-      {children}
-    </div>
-  );
+  const Section = ({ title, helper, children, stepKey }) => {
+    const isCollapsed = collapsedSteps[stepKey];
+    
+    const toggleCollapse = () => {
+      setCollapsedSteps(prev => ({
+        ...prev,
+        [stepKey]: !prev[stepKey]
+      }));
+    };
+
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div 
+          className="flex items-start justify-between mb-2 cursor-pointer hover:bg-gray-50 p-2 -m-2 rounded transition-colors"
+          onClick={toggleCollapse}
+        >
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+            {helper && <p className="text-sm text-gray-600 mt-1">{helper}</p>}
+          </div>
+          <button
+            className="text-black hover:text-gray-700 transition-colors p-1 ml-2 flex-shrink-0"
+            aria-label={isCollapsed ? 'Expand section' : 'Collapse section'}
+            onClick={(e) => e.stopPropagation()} // Prevent double-triggering
+          >
+            <svg
+              className={`w-5 h-5 transform transition-transform ${isCollapsed ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+        {!isCollapsed && children}
+      </div>
+    );
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -475,7 +517,7 @@ const LaunchMonitorPage = ({ projectId }) => {
       )}
 
       {/* Step 1 */}
-      <Section title="Step 1 — Launch Website 🌐" helper="Deploy your site so we can run traffic and attribute results with UTMs.">
+      <Section title="Step 1 — Launch Website 🌐" helper="Deploy your site so we can run traffic and attribute results with UTMs." stepKey="step1">
         {deployment?.status === 'deployed' && (
           <div className="space-y-3">
             <div>{pill(`✅ Website live${deployment.lastDeployedAt ? ` — ${new Date(deployment.lastDeployedAt).toLocaleString()}` : ''}`, 'bg-green-100 text-green-800')}</div>
@@ -510,7 +552,7 @@ const LaunchMonitorPage = ({ projectId }) => {
       </Section>
 
       {/* Step 2 */}
-      <Section title="Step 2 — Create Your Ads 📢">
+      <Section title="Step 2 — Create Your Ads 📢" stepKey="step2">
         <div className="space-y-4">
           {/* Status indicator */}
           <div>
@@ -594,7 +636,7 @@ const LaunchMonitorPage = ({ projectId }) => {
       </Section>
 
       {/* Step 3 */}
-      <Section title="Step 3 — Launch ads for 24 hours 🚀">
+      <Section title="Step 3 — Launch ads for 24 hours 🚀" stepKey="step3">
         <div className="space-y-4">
           <div className="flex flex-wrap gap-3">
             <a href="https://www.linkedin.com/campaignmanager" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm">LinkedIn Campaign Manager</a>
@@ -617,7 +659,7 @@ const LaunchMonitorPage = ({ projectId }) => {
       </Section>
 
       {/* Step 4 */}
-      <Section title="Step 4 — Monitor Key Metrics 📊">
+      <Section title="Step 4 — Monitor Key Metrics 📊" stepKey="step4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <h4 className="text-sm font-semibold text-gray-800 mb-2">From Ads (manual)</h4>
@@ -663,7 +705,7 @@ const LaunchMonitorPage = ({ projectId }) => {
       </Section>
 
       {/* Step 5 */}
-      <Section title="Step 5 — Jetsy Validation Score ⭐">
+      <Section title="Step 5 — Jetsy Validation Score ⭐" stepKey="step5">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-stretch">
           {/* Total Score with animated rainbow ring, glow, and masked shine */}
           <div className="relative rounded-2xl w-[280px]">
@@ -733,7 +775,7 @@ const LaunchMonitorPage = ({ projectId }) => {
       </Section>
 
       {/* Step 6 */}
-      <Section title="Step 6 — Next Actions 🔮">
+      <Section title="Step 6 — Next Actions 🔮" stepKey="step6">
         <div className="flex flex-wrap gap-3">
           <button onClick={() => (window.location.href = `/chat/${projectId}`)} className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm">Regenerate offer</button>
           <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm">Try new audience</button>
