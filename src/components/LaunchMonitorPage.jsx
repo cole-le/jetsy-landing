@@ -199,7 +199,7 @@ const LaunchMonitorPage = ({ projectId }) => {
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Launch & Monitor</h1>
-          <p className="text-sm text-gray-600 mt-1">Run a 24-hour paid traffic test to measure demand. We track site engagement and compute a Jetsy score.</p>
+          <p className="text-sm text-gray-600 mt-1">Run a 24-hour paid traffic test to gauge demand for your business. We track on-site engagement and your ad campaign inputs to compute a single Jetsy Validation Score.</p>
         </div>
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 min-w-[220px] text-right">
           <div className="text-3xl font-extrabold text-gray-900">{score?.total ?? '—'}/100</div>
