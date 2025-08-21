@@ -551,6 +551,15 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
           </div>
         )}
 
+        {/* Project Headline */}
+        {(!isMobile || mobileView === 'ads-copy') && (
+          <div className="mb-4">
+            <h1 className="text-2xl font-bold text-gray-900">
+              {project?.project_name || 'Project'} - Ads Creative
+            </h1>
+          </div>
+        )}
+
         {/* AI Copywriting Note (Sabri Suby) - Hidden on mobile when in Preview mode */}
         {(!isMobile || mobileView === 'ads-copy') && (
           <div className="mb-3 flex items-center text-sm text-gray-600">

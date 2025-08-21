@@ -26,6 +26,7 @@ const copyToClipboard = async (text) => {
 };
 
 const LaunchMonitorPage = ({ projectId }) => {
+  const [project, setProject] = useState(null);
   const [deployment, setDeployment] = useState(null);
   const [metrics, setMetrics] = useState(null);
   const [score, setScore] = useState(null);
@@ -221,6 +222,19 @@ const LaunchMonitorPage = ({ projectId }) => {
     }
   };
 
+  const loadProjectData = async () => {
+    try {
+      const res = await fetch(`${apiBase}/api/projects/${projectId}`);
+      if (!res.ok) return;
+      
+      const result = await res.json();
+      const projectData = result.project;
+      setProject(projectData);
+    } catch (e) {
+      // ignore
+    }
+  };
+
   const loadAdsData = async () => {
     try {
       const res = await fetch(`${apiBase}/api/projects/${projectId}`);
@@ -248,7 +262,7 @@ const LaunchMonitorPage = ({ projectId }) => {
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([loadDeployment(), loadMetrics(), loadScore(), loadTestRun(), loadAdsData()]).finally(() => setLoading(false));
+    Promise.all([loadProjectData(), loadDeployment(), loadMetrics(), loadScore(), loadTestRun(), loadAdsData()]).finally(() => setLoading(false));
   }, [projectId]);
 
   const saveAudience = async () => {
@@ -351,7 +365,9 @@ const LaunchMonitorPage = ({ projectId }) => {
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Launch & Monitor</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {project?.project_name || 'Project'} - Launch & Monitor
+          </h1>
           <p className="text-sm text-gray-600 mt-1">Run a 24-hour paid traffic test to gauge demand for your business. We track on-site engagement and your ad campaign inputs to compute a single Jetsy Validation Score.</p>
           
           {/* Refresh Button */}
@@ -359,15 +375,15 @@ const LaunchMonitorPage = ({ projectId }) => {
             onClick={async () => {
               setLoading(true);
               setRefreshSuccess(false);
-              try {
-                await Promise.all([loadDeployment(), loadMetrics(), loadScore(), loadTestRun(), loadAdsData()]);
-                setRefreshSuccess(true);
-                // Reset success state after 2 seconds
-                setTimeout(() => setRefreshSuccess(false), 2000);
-                
-                // Dispatch event to refresh navbar data
-                window.dispatchEvent(new CustomEvent('launch-monitor:refresh'));
-              } finally {
+                          try {
+              await Promise.all([loadProjectData(), loadDeployment(), loadMetrics(), loadScore(), loadTestRun(), loadAdsData()]);
+              setRefreshSuccess(true);
+              // Reset success state after 2 seconds
+              setTimeout(() => setRefreshSuccess(false), 2000);
+              
+              // Dispatch event to refresh navbar data
+              window.dispatchEvent(new CustomEvent('launch-monitor:refresh'));
+            } finally {
                 setLoading(false);
               }
             }}
