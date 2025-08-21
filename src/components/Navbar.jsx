@@ -3,13 +3,14 @@ import DeploymentButton from './DeploymentButton';
 import WorkflowProgressBar from './WorkflowProgressBar';
 import { getApiBaseUrl } from '../config/environment';
 
-const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, onChatClick, onSaveChanges, isChatMode = false, isAdCreativesMode = false, previewMode = 'desktop', onPreviewModeChange }) => {
+const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, onChatClick, onSaveChanges, isChatMode = false, isAdCreativesMode = false, isLaunchMonitorMode = false, previewMode = 'desktop', onPreviewModeChange }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [isAdGenerating, setIsAdGenerating] = useState(false);
   const [adsExist, setAdsExist] = useState(false);
   const [hasTemplateData, setHasTemplateData] = useState(false);
+  const [websiteDeployed, setWebsiteDeployed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [currentProjectName, setCurrentProjectName] = useState('');
   const [showProjectPanel, setShowProjectPanel] = useState(false);
@@ -73,35 +74,9 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
 
   // Check if ads data exists for current project
   React.useEffect(() => {
-    const controller = new AbortController();
-    const loadAdsState = async () => {
-      try {
-        if (!currentProjectId) {
-          setAdsExist(false);
-          setHasTemplateData(false);
-          setCurrentProjectName('');
-          return;
-        }
-        const res = await fetch(`${getApiBaseUrl()}/api/projects/${currentProjectId}`, { signal: controller.signal });
-        if (!res.ok) return;
-        const json = await res.json();
-        const project = json.project;
-        // Treat non-empty ads_data as existence
-        setAdsExist(!!project?.ads_data);
-        setHasTemplateData(!!project?.template_data);
-        setCurrentProjectName(project?.project_name || 'Project');
-      } catch (_) {
-        // ignore
-      }
-    };
-    loadAdsState();
-    
-    // No need for periodic polling - data only changes when user makes changes
-    // The useEffect will re-run when currentProjectId changes, which is sufficient
-    
-    return () => { 
-      controller.abort(); 
-    };
+    if (currentProjectId) {
+      loadAdsState();
+    }
   }, [currentProjectId]);
 
   // Close publish modal when clicking outside
@@ -130,6 +105,55 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
     window.addEventListener('ad-creatives:loading', onLoading);
     return () => window.removeEventListener('ad-creatives:loading', onLoading);
   }, []);
+
+  // Listen for refresh events from Launch & Monitor page
+  React.useEffect(() => {
+    const onRefresh = async () => {
+      if (currentProjectId) {
+        await loadAdsState();
+      }
+    };
+    
+    window.addEventListener('launch-monitor:refresh', onRefresh);
+    return () => window.removeEventListener('launch-monitor:refresh', onRefresh);
+  }, [currentProjectId]);
+
+  // Function to load ads state (extracted for reuse)
+  const loadAdsState = async () => {
+    try {
+      if (!currentProjectId) {
+        setAdsExist(false);
+        setHasTemplateData(false);
+        setWebsiteDeployed(false);
+        setCurrentProjectName('');
+        return;
+      }
+      
+      // Load project data
+      const res = await fetch(`${getApiBaseUrl()}/api/projects/${currentProjectId}`);
+      if (!res.ok) return;
+      const json = await res.json();
+      const project = json.project;
+      
+      // Treat non-empty ads_data as existence
+      setAdsExist(!!project?.ads_data);
+      setHasTemplateData(!!project?.template_data);
+      setCurrentProjectName(project?.project_name || 'Project');
+      
+      // Check website deployment status
+      try {
+        const deploymentRes = await fetch(`${getApiBaseUrl()}/api/projects/${currentProjectId}/deployment`);
+        if (deploymentRes.ok) {
+          const deploymentData = await deploymentRes.json();
+          setWebsiteDeployed(deploymentData.status === 'deployed' && (deploymentData.customDomain || deploymentData.vercelDomain));
+        }
+      } catch (_) {
+        // ignore deployment check errors
+      }
+    } catch (_) {
+      // ignore
+    }
+  };
 
 
   const handlePricingClick = (e) => {
@@ -216,7 +240,7 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
               </div>
 
               {/* Desktop Navigation and Account Actions */}
-              {!isChatMode && !isAdCreativesMode && (
+              {!isChatMode && !isAdCreativesMode && !isLaunchMonitorMode && (
                 <div className="hidden md:flex items-center space-x-8">
                   <button
                     onClick={onFAQClick}
@@ -249,23 +273,25 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
                 <div className="flex items-center space-x-1 sm:space-x-2 lg:space-x-3 overflow-hidden min-w-0">
                   {/* Workflow Progress Bar - Hidden on mobile to save space */}
                   {!isMobile && (
-                    <WorkflowProgressBar 
-                      currentStage={adsExist ? 2 : 1} 
-                      pulseStageId={adsExist ? 2 : (hasTemplateData ? 2 : undefined)}
-                      projectId={currentProjectId}
-                      onStageClick={(stageId) => {
-                        if (stageId === 2 && currentProjectId) {
-                          // Navigate to ads creation
-                          window.location.href = `/ad-creatives/${currentProjectId}`;
-                        } else if (stageId === 1) {
-                          // Already on website creation, do nothing
-                          return;
-                        } else if (stageId === 3) {
-                          // Launch and monitor - placeholder for now
-                          alert('Launch and monitor feature coming soon!');
-                        }
-                      }}
-                    />
+                                      <WorkflowProgressBar 
+                    currentStage={adsExist ? 2 : 1} 
+                    pulseStageId={adsExist ? 2 : (hasTemplateData ? 2 : undefined)}
+                    projectId={currentProjectId}
+                    websiteDeployed={websiteDeployed}
+                    adsExist={adsExist}
+                    onStageClick={(stageId) => {
+                      if (stageId === 2 && currentProjectId) {
+                        // Navigate to ads creation
+                        window.location.href = `/ad-creatives/${currentProjectId}`;
+                      } else if (stageId === 1) {
+                        // Already on website creation, do nothing
+                        return;
+                      } else if (stageId === 3) {
+                        // Launch and monitor - placeholder for now
+                        alert('Launch and monitor feature coming soon!');
+                      }
+                    }}
+                  />
                   )}
 
                   {/* Data Analytics button - Hidden on mobile to save space */}
@@ -387,6 +413,31 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
                       )}
                     </div>
                   )}
+                </div>
+              ) : isLaunchMonitorMode ? (
+                // Launch & Monitor mode header content
+                <div className="flex-1 flex justify-start">
+                  {/* Workflow Progress Bar */}
+                  <div className="ml-24">
+                    <WorkflowProgressBar 
+                      currentStage={3} 
+                      projectId={currentProjectId || undefined}
+                      websiteDeployed={websiteDeployed}
+                      adsExist={adsExist}
+                      onStageClick={(stageId) => {
+                        if (stageId === 1 && currentProjectId) {
+                          // Navigate to website creation
+                          window.location.href = `/chat/${currentProjectId}`;
+                        } else if (stageId === 2 && currentProjectId) {
+                          // Navigate to ads creation
+                          window.location.href = `/ads/${currentProjectId}`;
+                        } else if (stageId === 3) {
+                          // Already on launch and monitor, do nothing
+                          return;
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
               ) : isAdCreativesMode ? (
                 // Ad Creatives mode header content
