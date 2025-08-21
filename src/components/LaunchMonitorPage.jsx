@@ -58,6 +58,21 @@ const LaunchMonitorPage = ({ projectId }) => {
     return `$${(cents / 100 / c).toFixed(2)}`;
   }, [adSpendDollars, clicks]);
 
+  // Consider the header state incomplete until user provides key launch+ads inputs
+  const isIncomplete = useMemo(() => {
+    const noLaunch = !testRun?.launched_at;
+    const noAdsInputs =
+      testRun?.ad_spend_cents == null &&
+      testRun?.impressions == null &&
+      testRun?.clicks == null;
+    return noLaunch || noAdsInputs;
+  }, [testRun]);
+
+  const displayTotal = useMemo(() => {
+    if (isIncomplete && (!score || score.total === 0)) return '?';
+    return score?.total ?? '—';
+  }, [isIncomplete, score]);
+
   const loadDeployment = async () => {
     try {
       const res = await fetch(`${apiBase}/api/projects/${projectId}/deployment`);
@@ -201,9 +216,13 @@ const LaunchMonitorPage = ({ projectId }) => {
           <h1 className="text-2xl font-bold text-gray-900">Launch & Monitor</h1>
           <p className="text-sm text-gray-600 mt-1">Run a 24-hour paid traffic test to gauge demand for your business. We track on-site engagement and your ad campaign inputs to compute a single Jetsy Validation Score.</p>
         </div>
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 min-w-[220px] text-right">
-          <div className="text-3xl font-extrabold text-gray-900">{score?.total ?? '—'}/100</div>
-          <div className="text-xs text-gray-600 mt-1">{score?.verdict ?? 'Waiting for data...'}</div>
+        <div className="relative p-[3px] rounded-2xl">
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-red-500 via-orange-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 blur-md opacity-75"></div>
+          <div className="relative z-10 bg-white rounded-2xl p-6 shadow-md text-center min-w-[220px]">
+            <div className="text-xs font-medium text-gray-500 mb-2">Jetsy Validation Score</div>
+            <div className="text-3xl font-extrabold text-gray-900">{displayTotal}</div>
+            <div className="text-xs text-gray-500 mt-1">/100</div>
+          </div>
         </div>
       </div>
 
@@ -324,9 +343,14 @@ const LaunchMonitorPage = ({ projectId }) => {
       {/* Step 5 */}
       <Section title="Step 5 — Jetsy Validation Score">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-stretch">
-          <div className="bg-gray-50 border border-gray-200 rounded p-4 text-center">
-            <div className="text-xs text-gray-600 mb-1">Total</div>
-            <div className="text-3xl font-extrabold text-gray-900">{score?.total ?? '—'}</div>
+          {/* Total Score with colorful glowing border */}
+          <div className="relative p-[3px] rounded-2xl">
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-red-500 via-orange-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 blur-md opacity-75"></div>
+            <div className="relative z-10 bg-white rounded-2xl p-6 shadow-md text-center">
+              <div className="text-xs font-medium text-gray-500 mb-2">Jetsy Validation Score</div>
+              <div className="text-3xl font-extrabold text-gray-900">{displayTotal}</div>
+              <div className="text-xs text-gray-500 mt-1">/100</div>
+            </div>
           </div>
           <div className="bg-gray-50 border border-gray-200 rounded p-4 text-center">
             <div className="text-xs text-gray-600 mb-1">Traffic /30</div>
