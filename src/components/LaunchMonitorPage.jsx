@@ -251,7 +251,7 @@ const LaunchMonitorPage = ({ projectId }) => {
           <h1 className="text-2xl font-bold text-gray-900">Launch & Monitor</h1>
           <p className="text-sm text-gray-600 mt-1">Run a 24-hour paid traffic test to gauge demand for your business. We track on-site engagement and your ad campaign inputs to compute a single Jetsy Validation Score.</p>
         </div>
-        <div className="relative rounded-2xl min-w-[220px]">
+        <div className="relative rounded-2xl w-[280px]">
           {/* Glow */}
           <div
             aria-hidden
@@ -419,7 +419,7 @@ const LaunchMonitorPage = ({ projectId }) => {
       <Section title="Step 5 — Jetsy Validation Score">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-stretch">
           {/* Total Score with animated rainbow ring, glow, and masked shine */}
-          <div className="relative rounded-2xl">
+          <div className="relative rounded-2xl w-[280px]">
             {/* Glow (soft outer halo) */}
             <div
               aria-hidden
