@@ -49,10 +49,7 @@ const LaunchMonitorPage = ({ projectId }) => {
     return url || null;
   }, [deployment]);
 
-  const utmQuery = useMemo(() => {
-    const ymd = new Date().toISOString().slice(0, 10);
-    return `?utm_source=<platform>&utm_medium=paid&utm_campaign=jetsy_test_${ymd}&utm_content=<creative_id>`;
-  }, []);
+  // UTM helper removed per request
 
   const cpc = useMemo(() => {
     const cents = dollarsToCents(adSpendDollars);
@@ -229,14 +226,7 @@ const LaunchMonitorPage = ({ projectId }) => {
                 )}
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">UTM helper</label>
-              <div className="flex gap-2">
-                <input readOnly value={utmQuery} className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm" />
-                <button onClick={() => copyToClipboard(utmQuery)} className="px-3 py-2 bg-gray-100 border border-gray-300 rounded text-sm">Copy</button>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">Append this to your ad URLs. Replace &lt;platform&gt; and &lt;creative_id&gt;.</p>
-            </div>
+            {/* UTM helper removed */}
           </div>
         )}
         {(!deployment || deployment?.status === 'not_deployed' || (!deployment.customDomain && !deployment.vercelDomain)) && (
