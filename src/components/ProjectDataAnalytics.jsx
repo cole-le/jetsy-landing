@@ -140,16 +140,18 @@ const ProjectDataAnalytics = ({ projectId, onBack }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-5xl mx-auto px-4 py-6 pt-20 lg:pt-20">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-semibold text-gray-900">
+      <div className="max-w-5xl mx-auto px-4 py-6 pt-8 lg:pt-20">
+        {/* Mobile-optimized header with reduced spacing */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-3 sm:gap-0">
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">
             {projectLoading ? 'Loading...' : `${projectName} - Analytics`}
           </h1>
           <button
             onClick={onBack}
-            className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800"
+            className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 w-full sm:w-auto"
           >
-            Back to Builder 💻
+            <span className="hidden sm:inline">Back to Builder 💻</span>
+            <span className="sm:hidden">Back to Builder</span>
           </button>
         </div>
 
@@ -237,31 +239,63 @@ const ProjectDataAnalytics = ({ projectId, onBack }) => {
           </div>
         )}
 
-        {/* Leads table */}
+        {/* Responsive Leads table */}
         <h2 className="text-lg font-semibold text-gray-900 mb-3">Leads</h2>
         {leadsLoading && <div className="text-gray-600">Loading...</div>}
         {leadsError && <div className="text-red-600">{leadsError}</div>}
 
         {!leadsLoading && !leadsError && (
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-8">
-            <div className="grid grid-cols-4 gap-0 bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 border-b border-gray-200">
-              <div>Email</div>
-              <div>Phone</div>
-              <div>Submitted</div>
-              <div>ID</div>
+            {/* Desktop table view */}
+            <div className="hidden md:block">
+              <div className="grid grid-cols-4 gap-0 bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 border-b border-gray-200">
+                <div>Email</div>
+                <div>Phone</div>
+                <div>Submitted</div>
+                <div>ID</div>
+              </div>
+              {leads.length === 0 ? (
+                <div className="p-4 text-gray-500">No leads yet.</div>
+              ) : (
+                leads.map((lead) => (
+                  <div key={lead.id} className="grid grid-cols-4 gap-0 px-4 py-3 border-b border-gray-100 text-sm">
+                    <div className="truncate">{lead.email}</div>
+                    <div className="truncate">{lead.phone || '-'}</div>
+                    <div>{lead.submitted_at || lead.created_at}</div>
+                    <div>#{lead.id}</div>
+                  </div>
+                ))
+              )}
             </div>
-            {leads.length === 0 ? (
-              <div className="p-4 text-gray-500">No leads yet.</div>
-            ) : (
-              leads.map((lead) => (
-                <div key={lead.id} className="grid grid-cols-4 gap-0 px-4 py-3 border-b border-gray-100 text-sm">
-                  <div className="truncate">{lead.email}</div>
-                  <div className="truncate">{lead.phone || '-'}</div>
-                  <div>{lead.submitted_at || lead.created_at}</div>
-                  <div>#{lead.id}</div>
-                </div>
-              ))
-            )}
+
+            {/* Mobile card view */}
+            <div className="md:hidden">
+              {leads.length === 0 ? (
+                <div className="p-4 text-gray-500">No leads yet.</div>
+              ) : (
+                leads.map((lead) => (
+                  <div key={lead.id} className="p-4 border-b border-gray-100">
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-start">
+                        <div className="font-medium text-gray-900">#{lead.id}</div>
+                        <div className="text-xs text-gray-500">{lead.submitted_at || lead.created_at}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-700">Email</div>
+                        <div className="text-sm text-gray-900 break-all">{lead.email}</div>
+                      </div>
+                      {lead.phone && (
+                        <div>
+                          <div className="text-sm font-medium text-gray-700">Phone</div>
+                          <div className="text-sm text-gray-900">{lead.phone}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
             <div className="flex items-center justify-between px-4 py-2">
               <button disabled={leadsPage === 0} onClick={() => setLeadsPage((p) => Math.max(0, p - 1))} className={`px-3 py-1 rounded ${leadsPage === 0 ? 'bg-gray-100 text-gray-400' : 'bg-gray-200 hover:bg-gray-300'}`}>Prev</button>
               <div className="text-sm text-gray-600">Page {leadsPage + 1}</div>
@@ -270,33 +304,69 @@ const ProjectDataAnalytics = ({ projectId, onBack }) => {
           </div>
         )}
 
-        {/* Contact submissions table */}
+        {/* Responsive Contact submissions table */}
         <h2 className="text-lg font-semibold text-gray-900 mb-3">Contact Submissions</h2>
         {contactsLoading && <div className="text-gray-600">Loading...</div>}
         {contactsError && <div className="text-red-600">{contactsError}</div>}
 
         {!contactsLoading && !contactsError && (
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <div className="grid grid-cols-5 gap-0 bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 border-b border-gray-200">
-              <div>Name</div>
-              <div>Email</div>
-              <div>Company</div>
-              <div>Message</div>
-              <div>Submitted</div>
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-8">
+            {/* Desktop table view */}
+            <div className="hidden md:block">
+              <div className="grid grid-cols-5 gap-0 bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 border-b border-gray-200">
+                <div>Name</div>
+                <div>Email</div>
+                <div>Company</div>
+                <div>Message</div>
+                <div>Submitted</div>
+              </div>
+              {contacts.length === 0 ? (
+                <div className="p-4 text-gray-500">No contact submissions yet.</div>
+              ) : (
+                contacts.map((c) => (
+                  <div key={c.id} className="grid grid-cols-5 gap-0 px-4 py-3 border-b border-gray-100 text-sm">
+                    <div className="truncate">{c.name || '-'}</div>
+                    <div className="truncate">{c.email}</div>
+                    <div className="truncate">{c.company || '-'}</div>
+                    <div className="truncate" title={c.message}>{c.message}</div>
+                    <div>{c.submitted_at || c.created_at}</div>
+                  </div>
+                ))
+              )}
             </div>
-            {contacts.length === 0 ? (
-              <div className="p-4 text-gray-500">No contact submissions yet.</div>
-            ) : (
-              contacts.map((c) => (
-                <div key={c.id} className="grid grid-cols-5 gap-0 px-4 py-3 border-b border-gray-100 text-sm">
-                  <div className="truncate">{c.name || '-'}</div>
-                  <div className="truncate">{c.email}</div>
-                  <div className="truncate">{c.company || '-'}</div>
-                  <div className="truncate" title={c.message}>{c.message}</div>
-                  <div>{c.submitted_at || c.created_at}</div>
-                </div>
-              ))
-            )}
+
+            {/* Mobile card view */}
+            <div className="md:hidden">
+              {contacts.length === 0 ? (
+                <div className="p-4 text-gray-500">No contact submissions yet.</div>
+              ) : (
+                contacts.map((c) => (
+                  <div key={c.id} className="p-4 border-b border-gray-100">
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-start">
+                        <div className="font-medium text-gray-900">{c.name || 'Anonymous'}</div>
+                        <div className="text-xs text-gray-500">{c.submitted_at || c.created_at}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-700">Email</div>
+                        <div className="text-sm text-gray-900 break-all">{c.email}</div>
+                      </div>
+                      {c.company && (
+                        <div>
+                          <div className="text-sm font-medium text-gray-700">Company</div>
+                          <div className="text-sm text-gray-900">{c.company}</div>
+                        </div>
+                      )}
+                      <div>
+                        <div className="text-sm font-medium text-gray-700">Message</div>
+                        <div className="text-sm text-gray-900 break-words">{c.message}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
             <div className="flex items-center justify-between px-4 py-2">
               <button disabled={contactsPage === 0} onClick={() => setContactsPage((p) => Math.max(0, p - 1))} className={`px-3 py-1 rounded ${contactsPage === 0 ? 'bg-gray-100 text-gray-400' : 'bg-gray-200 hover:bg-gray-300'}`}>Prev</button>
               <div className="text-sm text-gray-600">Page {contactsPage + 1}</div>
@@ -305,57 +375,116 @@ const ProjectDataAnalytics = ({ projectId, onBack }) => {
           </div>
         )}
 
-        {/* Events Table */}
+        {/* Responsive Events Table */}
         <h2 className="text-lg font-semibold text-gray-900 mb-3">Recent Events</h2>
         {eventsLoading && <div className="text-gray-600">Loading...</div>}
         {eventsError && <div className="text-red-600">{eventsError}</div>}
 
         {!eventsLoading && !eventsError && (
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-8">
-            <div className="grid grid-cols-5 gap-0 bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 border-b border-gray-200">
-              <div>Event</div>
-              <div>Category</div>
-              <div>URL</div>
-              <div>Data</div>
-              <div>Time</div>
+            {/* Desktop table view */}
+            <div className="hidden md:block">
+              <div className="grid grid-cols-5 gap-0 bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 border-b border-gray-200">
+                <div>Event</div>
+                <div>Category</div>
+                <div>URL</div>
+                <div>Data</div>
+                <div>Time</div>
+              </div>
+              {events.length === 0 ? (
+                <div className="p-4 text-gray-500">No events tracked yet.</div>
+              ) : (
+                events.map((event) => (
+                  <div key={event.id} className="grid grid-cols-5 gap-0 px-4 py-3 border-b border-gray-100 text-sm">
+                    <div className="truncate">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        event.event_name === 'page_view' ? 'bg-blue-100 text-blue-800' :
+                        event.event_name === 'lead_form_submit' ? 'bg-green-100 text-green-800' :
+                        event.event_name === 'pricing_plan_select' ? 'bg-purple-100 text-purple-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {event.event_name}
+                      </span>
+                    </div>
+                    <div className="truncate">{event.event_category || '-'}</div>
+                    <div className="truncate" title={event.url}>
+                      {event.url ? (
+                        <a href={event.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
+                          {event.url.length > 30 ? event.url.substring(0, 30) + '...' : event.url}
+                        </a>
+                      ) : '-'}
+                    </div>
+                    <div className="truncate">
+                      <details className="group">
+                        <summary className="cursor-pointer text-blue-600 hover:text-blue-800 text-xs">
+                          View Data
+                        </summary>
+                        <div className="mt-2 p-2 bg-gray-50 rounded text-xs font-mono overflow-x-auto">
+                          <pre>{JSON.stringify(JSON.parse(event.event_data || '{}'), null, 2)}</pre>
+                        </div>
+                      </details>
+                    </div>
+                    <div>{new Date(event.created_at).toLocaleString()}</div>
+                  </div>
+                ))
+              )}
             </div>
-            {events.length === 0 ? (
-              <div className="p-4 text-gray-500">No events tracked yet.</div>
-            ) : (
-              events.map((event) => (
-                <div key={event.id} className="grid grid-cols-5 gap-0 px-4 py-3 border-b border-gray-100 text-sm">
-                  <div className="truncate">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      event.event_name === 'page_view' ? 'bg-blue-100 text-blue-800' :
-                      event.event_name === 'lead_form_submit' ? 'bg-green-100 text-green-800' :
-                      event.event_name === 'pricing_plan_select' ? 'bg-purple-100 text-purple-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {event.event_name}
-                    </span>
-                  </div>
-                  <div className="truncate">{event.event_category || '-'}</div>
-                  <div className="truncate" title={event.url}>
-                    {event.url ? (
-                      <a href={event.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
-                        {event.url.length > 30 ? event.url.substring(0, 30) + '...' : event.url}
-                      </a>
-                    ) : '-'}
-                  </div>
-                  <div className="truncate">
-                    <details className="group">
-                      <summary className="cursor-pointer text-blue-600 hover:text-blue-800 text-xs">
-                        View Data
-                      </summary>
-                      <div className="mt-2 p-2 bg-gray-50 rounded text-xs font-mono overflow-x-auto">
-                        <pre>{JSON.stringify(JSON.parse(event.event_data || '{}'), null, 2)}</pre>
+
+            {/* Mobile card view */}
+            <div className="md:hidden">
+              {events.length === 0 ? (
+                <div className="p-4 text-gray-500">No events tracked yet.</div>
+              ) : (
+                events.map((event) => (
+                  <div key={event.id} className="p-4 border-b border-gray-100">
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-start">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          event.event_name === 'page_view' ? 'bg-blue-100 text-blue-800' :
+                          event.event_name === 'lead_form_submit' ? 'bg-green-100 text-green-800' :
+                          event.event_name === 'pricing_plan_select' ? 'bg-purple-100 text-purple-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {event.event_name}
+                        </span>
+                        <div className="text-xs text-gray-500">{new Date(event.created_at).toLocaleString()}</div>
                       </div>
-                    </details>
+                      
+                      {event.event_category && (
+                        <div>
+                          <div className="text-sm font-medium text-gray-700">Category</div>
+                          <div className="text-sm text-gray-900">{event.event_category}</div>
+                        </div>
+                      )}
+                      
+                      {event.url && (
+                        <div>
+                          <div className="text-sm font-medium text-gray-700">URL</div>
+                          <div className="text-sm text-gray-900 break-all">
+                            <a href={event.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
+                              {event.url}
+                            </a>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div>
+                        <div className="text-sm font-medium text-gray-700">Event Data</div>
+                        <details className="mt-1">
+                          <summary className="cursor-pointer text-blue-600 hover:text-blue-800 text-xs">
+                            View Data
+                          </summary>
+                          <div className="mt-2 p-2 bg-gray-50 rounded text-xs font-mono overflow-x-auto">
+                            <pre className="whitespace-pre-wrap break-words">{JSON.stringify(JSON.parse(event.event_data || '{}'), null, 2)}</pre>
+                          </div>
+                        </details>
+                      </div>
+                    </div>
                   </div>
-                  <div>{new Date(event.created_at).toLocaleString()}</div>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
+
             <div className="flex items-center justify-between px-4 py-2">
               <button disabled={eventsPage === 0} onClick={() => setEventsPage((p) => Math.max(0, p - 1))} className={`px-3 py-1 rounded ${eventsPage === 0 ? 'bg-gray-100 text-gray-400' : 'bg-gray-200 hover:bg-gray-300'}`}>Prev</button>
               <div className="text-sm text-gray-600">Page {eventsPage + 1}</div>
