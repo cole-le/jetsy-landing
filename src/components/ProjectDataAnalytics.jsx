@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getApiBaseUrl } from '../config/environment';
+import DailyActivityChart from './DailyActivityChart';
+import EventsBreakdownChart from './EventsBreakdownChart';
 
 const ProjectDataAnalytics = ({ projectId, onBack }) => {
   const [leads, setLeads] = useState([]);
@@ -190,6 +192,21 @@ const ProjectDataAnalytics = ({ projectId, onBack }) => {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Charts Section */}
+        {!summaryLoading && eventsSummary && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <DailyActivityChart 
+              dailyData={eventsSummary.daily_counts} 
+              loading={summaryLoading} 
+            />
+            <EventsBreakdownChart 
+              eventsData={eventsSummary.event_breakdown} 
+              loading={summaryLoading}
+              leadsCount={eventsSummary.totals.leads}
+            />
           </div>
         )}
 
