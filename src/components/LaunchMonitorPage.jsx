@@ -637,7 +637,7 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
           <h1 className="text-2xl font-bold text-gray-900">
             {project?.project_name || 'Project'} - Launch & Monitor
           </h1>
-          <p className="text-sm text-gray-600 mt-1">Run a 24-hour paid traffic test to gauge demand for your business. We track on-site engagement and your ad campaign inputs to compute a single Jetsy Validation Score.</p>
+          <p className="text-sm text-gray-600 mt-1">Run a 24-hour paid ads ($15-20) to gauge demand for your business. We track on-site engagement and your ad campaign inputs to compute a single Jetsy Validation Score.</p>
           
           {/* Refresh Button */}
           <button
