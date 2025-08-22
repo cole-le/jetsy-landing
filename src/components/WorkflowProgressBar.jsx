@@ -14,18 +14,18 @@ const WorkflowProgressBar = ({ currentStage = 1, onStageClick, projectId, pulseS
   };
 
   return (
-    <div className="flex items-center space-x-2">
+    <div className="flex items-center space-x-2 flex-nowrap">
       {stages.map((stage, index) => (
-        <div key={stage.id} className="flex items-center">
+        <div key={stage.id} className="flex items-center flex-nowrap">
           {/* Stage indicator */}
-          <div className="flex items-center">
-            <div className="relative">
+          <div className="flex items-center flex-nowrap">
+            <div className="relative flex-shrink-0">
               {pulseStageId === stage.id && (
                 <span className="absolute -inset-1 rounded-full border border-blue-400/60 animate-ping" />
               )}
               <button
                 onClick={() => handleStageClick(stage.id)}
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 cursor-pointer hover:scale-105 shadow-sm ${
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 cursor-pointer hover:scale-105 shadow-sm flex-shrink-0 ${
                   (stage.id === 1 && websiteDeployed) || (stage.id === 2 && adsExist) || (stage.id === 3 && currentStage === 3)
                     ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'
                     : 'bg-gray-200 text-gray-500 hover:bg-gray-300 shadow-md'
@@ -39,7 +39,7 @@ const WorkflowProgressBar = ({ currentStage = 1, onStageClick, projectId, pulseS
             {/* Stage name with button-like styling */}
             <button
               onClick={() => handleStageClick(stage.id)}
-              className={`ml-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 cursor-pointer hover:scale-105 shadow-sm ${
+              className={`ml-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 cursor-pointer hover:scale-105 shadow-sm whitespace-nowrap flex-shrink-0 ${
                 (stage.id === 1 && websiteDeployed) || (stage.id === 2 && adsExist) || (stage.id === 3 && currentStage === 3)
                   ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border border-blue-200 hover:border-blue-300'
                   : 'bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-700 border border-gray-200 hover:border-gray-300'
@@ -52,7 +52,7 @@ const WorkflowProgressBar = ({ currentStage = 1, onStageClick, projectId, pulseS
           {/* Connector line */}
           {index < stages.length - 1 && (
             <div
-              className={`w-8 h-0.5 mx-2 transition-colors duration-200 ${
+              className={`w-8 h-0.5 mx-2 transition-colors duration-200 flex-shrink-0 ${
                 (stage.id === 1 && websiteDeployed) || (stage.id === 2 && adsExist)
                   ? 'bg-blue-600' 
                   : 'bg-gray-200'

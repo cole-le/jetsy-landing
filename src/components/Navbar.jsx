@@ -255,31 +255,51 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
               <div className="flex items-center justify-center flex-1">
                 {/* Workflow Progress Bar - Show when there's a current project ID */}
                 {!isMobile && currentProjectId && (
-                  <WorkflowProgressBar 
-                    currentStage={
-                      isChatMode ? (adsExist ? 2 : 1) :
-                      isAdCreativesMode ? 2 :
-                      isLaunchMonitorMode ? 3 : 3
-                    } 
-                    pulseStageId={
-                      isChatMode ? (adsExist ? 2 : (hasTemplateData ? 2 : undefined)) : undefined
-                    }
-                    projectId={currentProjectId}
-                    websiteDeployed={websiteDeployed}
-                    adsExist={adsExist}
-                    onStageClick={(stageId) => {
-                      if (stageId === 1 && currentProjectId) {
-                        // Navigate to website creation
-                        window.location.href = `/chat/${currentProjectId}`;
-                      } else if (stageId === 2 && currentProjectId) {
-                        // Navigate to ads creation
-                        window.location.href = `/ad-creatives/${currentProjectId}`;
-                      } else if (stageId === 3 && currentProjectId) {
-                        // Navigate to launch and monitor page
-                        window.location.href = `/launch/${currentProjectId}`;
+                  <div className="flex items-center space-x-4 flex-nowrap">
+                    <WorkflowProgressBar 
+                      currentStage={
+                        isChatMode ? (adsExist ? 2 : 1) :
+                        isAdCreativesMode ? 2 :
+                        isLaunchMonitorMode ? 3 : 3
+                      } 
+                      pulseStageId={
+                        isChatMode ? (adsExist ? 2 : (hasTemplateData ? 2 : undefined)) : undefined
                       }
-                    }}
-                  />
+                      projectId={currentProjectId}
+                      websiteDeployed={websiteDeployed}
+                      adsExist={adsExist}
+                      onStageClick={(stageId) => {
+                        if (stageId === 1 && currentProjectId) {
+                          // Navigate to website creation
+                          window.location.href = `/chat/${currentProjectId}`;
+                        } else if (stageId === 2 && currentProjectId) {
+                          // Navigate to ads creation
+                          window.location.href = `/ad-creatives/${currentProjectId}`;
+                        } else if (stageId === 3 && currentProjectId) {
+                          // Navigate to launch and monitor page
+                          window.location.href = `/launch/${currentProjectId}`;
+                        }
+                      }}
+                    />
+                    
+                    {/* Data Analytics button - Show on all project pages */}
+                    <button
+                      onClick={() => {
+                        try {
+                          const pid = localStorage.getItem('jetsy_current_project_id') || '1';
+                          window.location.href = `/data_analytics/project_${pid}`;
+                        } catch (_) {
+                          window.location.href = `/data_analytics/project_1`;
+                        }
+                      }}
+                      className="px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700 inline-flex items-center gap-2 whitespace-nowrap flex-shrink-0"
+                    >
+                      <span>Data Analytics</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-gray-500">
+                        <path d="M5 3a1 1 0 0 1 1 1v14h12a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2V4a1 1 0 0 1 1-1h1Zm4.5 5a1 1 0 0 1 1 1v7h-2v-7a1 1 0 0 1 1-1Zm4 -2a1 1 0 0 1 1 1v9h-2V7a1 1 0 0 1 1-1Zm4 4a1 1 0 0 1 1 1v5h-2v-5a1 1 0 0 1 1-1Z" />
+                      </svg>
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -315,26 +335,6 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
               {/* Chat mode header content */}
               {isChatMode ? (
                 <div className="flex items-center space-x-1 sm:space-x-2 lg:space-x-3 overflow-hidden min-w-0">
-                  {/* Data Analytics button - Hidden on mobile to save space */}
-                  {!isMobile && (
-                    <button
-                      onClick={() => {
-                        try {
-                          const pid = localStorage.getItem('jetsy_current_project_id') || '1';
-                          window.location.href = `/data_analytics/project_${pid}`;
-                        } catch (_) {
-                          window.location.href = `/data_analytics/project_1`;
-                        }
-                      }}
-                      className="px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700 inline-flex items-center gap-2"
-                    >
-                      <span>Data Analytics</span>
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-gray-500">
-                        <path d="M5 3a1 1 0 0 1 1 1v14h12a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2V4a1 1 0 0 1 1-1h1Zm4.5 5a1 1 0 0 1 1 1v7h-2v-7a1 1 0 0 1 1-1Zm4 -2a1 1 0 0 1 1 1v9h-2V7a1 1 0 0 1 1-1Zm4 4a1 1 0 0 1 1 1v5h-2v-5a1 1 0 0 1 1-1Z" />
-                      </svg>
-                    </button>
-                  )}
-                  
                   {/* Mobile: Project Name Dropdown in Center */}
                   {isMobile && (
                     <div className="flex-1 flex justify-center">
