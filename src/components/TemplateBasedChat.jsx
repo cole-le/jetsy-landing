@@ -3,6 +3,7 @@ import ProjectSelector from './ProjectSelector';
 import ExceptionalTemplate from './ExceptionalTemplate';
 import DeploymentButton from './DeploymentButton';
 import { getVercelApiBaseUrl } from '../config/environment';
+import { useAuth } from './auth/AuthProvider';
 
 import { getApiBaseUrl } from '../config/environment';
 
@@ -296,6 +297,7 @@ export const DEFAULT_TEMPLATE_DATA = {
 };
 
 const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode = 'desktop', initialProjectId }, ref) => {
+  const { session } = useAuth();
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -507,9 +509,14 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       if (!currentProject?.id) return;
       
       try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+        
         const response = await fetch(`${getApiBaseUrl()}/api/projects/${currentProject.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             template_data: templateData
           })
@@ -524,7 +531,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         }
       } catch (error) {
         console.error('Error saving template data:', error);
-        alert('Error saving changes. Please try again.');
+        alert('Failed to save changes. Please try again.');
       }
     }
   }));
@@ -566,9 +573,14 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       
       const saveTemplateData = async () => {
         try {
+          const headers = { 'Content-Type': 'application/json' };
+          if (session?.access_token) {
+            headers['Authorization'] = `Bearer ${session.access_token}`;
+          }
+          
           const response = await fetch(`${getApiBaseUrl()}/api/projects/${currentProject.id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({
               template_data: templateData
             })
@@ -594,15 +606,20 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       
       return () => clearTimeout(timeoutId);
     }
-  }, [templateData, currentProject?.id, isEditorMode]);
+  }, [templateData, currentProject?.id, isEditorMode, session]);
 
   const handleRegenerateBusinessName = async () => {
     if (!currentProject?.id || isRegeneratingBusinessName) return;
     try {
       setIsRegeneratingBusinessName(true);
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
       const resp = await fetch(`${getApiBaseUrl()}/api/generate-business-name`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ projectId: currentProject.id, currentName: (templateData.businessName || '').trim() })
       });
       if (!resp.ok) throw new Error('Failed to generate business name');
@@ -626,9 +643,14 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     if (!currentProject?.id || isRegeneratingHeroBg) return;
     try {
       setIsRegeneratingHeroBg(true);
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
       const resp = await fetch(`${getApiBaseUrl()}/api/generate-image`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           project_id: currentProject.id,
           prompt: `Ultra-relevant background image for ${templateData.businessName || 'Your Business'} hero section. 16:9 cinematic background, photographic or high-quality illustration, darker tones or strong contrast to support overlay text readability. No text of any kind: no words, no lettering, no logos, no watermarks. Avoid brand names and copyrighted content.`,
@@ -657,9 +679,14 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     if (!currentProject?.id || isRegeneratingAboutBg) return;
     try {
       setIsRegeneratingAboutBg(true);
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
       const resp = await fetch(`${getApiBaseUrl()}/api/generate-image`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           project_id: currentProject.id,
           prompt: `Ultra-relevant background image for ${templateData.businessName || 'Your Business'} about section. 16:9 cinematic background, photographic or high-quality illustration, darker tones or strong contrast to support overlay text readability. No text of any kind: no words, no lettering, no logos, no watermarks. Avoid brand names and copyrighted content.`,
@@ -688,9 +715,14 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     if (!currentProject?.id || isRegeneratingLogo) return;
     try {
       setIsRegeneratingLogo(true);
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
       const response = await fetch(`${getApiBaseUrl()}/api/generate-image`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           project_id: currentProject.id,
           prompt: `Abstract, text-free logo mark for ${templateData.businessName || 'Your Business'}. Unique and memorable symbol only (no letters, no words, no typography, no text, no watermarks). Minimal modern vector emblem, clean geometric forms, balanced composition, flat scalable design, strong silhouette, 1:1 aspect ratio`,
@@ -727,7 +759,14 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       const projectIdToLoad = initialProjectId || getStoredProjectId();
       
       if (projectIdToLoad) {
-        const response = await fetch(`${getApiBaseUrl()}/api/projects/${projectIdToLoad}`);
+        const headers = {};
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+        
+        const response = await fetch(`${getApiBaseUrl()}/api/projects/${projectIdToLoad}`, {
+          headers
+        });
         if (response.ok) {
           const result = await response.json();
           const project = result.project;
@@ -773,7 +812,14 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         }
       }
 
-              const projectsResponse = await fetch(`${getApiBaseUrl()}/api/projects?user_id=1`);
+              const headers = {};
+              if (session?.access_token) {
+                headers['Authorization'] = `Bearer ${session.access_token}`;
+              }
+              
+              const projectsResponse = await fetch(`${getApiBaseUrl()}/api/projects`, {
+                headers
+              });
       if (projectsResponse.ok) {
         const result = await projectsResponse.json();
         if (result.projects && result.projects.length > 0) {
@@ -835,9 +881,14 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         // Don't include template_data for new projects - let users chat first
       };
 
+              const headers = { 'Content-Type': 'application/json' };
+              if (session?.access_token) {
+                headers['Authorization'] = `Bearer ${session.access_token}`;
+              }
+              
               const response = await fetch(`${getApiBaseUrl()}/api/projects`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(projectData)
       });
 
@@ -858,7 +909,14 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
 
   const loadChatMessages = async (projectId) => {
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/chat_messages?project_id=${projectId}`);
+      const headers = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
+      const response = await fetch(`${getApiBaseUrl()}/api/chat_messages?project_id=${projectId}`, {
+        headers
+      });
       if (response.ok) {
         const result = await response.json();
         const messages = result.messages || [];
@@ -972,9 +1030,14 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
 
     try {
       // Add user message to chat history
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
       await fetch(`${getApiBaseUrl()}/api/chat_messages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           project_id: currentProject.id,
           role: 'user',
@@ -986,7 +1049,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       // Call AI to generate template content IMMEDIATELY (this is the fix!)
       const aiResponse = await fetch(`${getApiBaseUrl()}/api/template-generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           project_id: currentProject.id,
           user_message: inputMessage,
@@ -1004,15 +1067,15 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         if (result.template_data) {
           setTemplateData(result.template_data);
           
-          // Save the AI-generated template data to database
-          try {
-            const saveResponse = await fetch(`${getApiBaseUrl()}/api/projects/${currentProject.id}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                template_data: result.template_data
-              })
-            });
+                      // Save the AI-generated template data to database
+            try {
+              const saveResponse = await fetch(`${getApiBaseUrl()}/api/projects/${currentProject.id}`, {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify({
+                  template_data: result.template_data
+                })
+              });
             
             if (saveResponse.ok) {
               console.log('AI-generated template data saved successfully');
@@ -1029,7 +1092,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
           try {
             const updateNameResponse = await fetch(`${getApiBaseUrl()}/api/projects/${currentProject.id}`, {
               method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
+              headers,
               body: JSON.stringify({
                 project_name: result.suggested_project_name
               })
@@ -1589,7 +1652,16 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                               formData.append('project_id', currentProject.id);
                               formData.append('file', file);
                               try {
-                                const res = await fetch(`${getApiBaseUrl()}/api/upload-image`, { method: 'POST', body: formData });
+                                const headers = {};
+                                if (session?.access_token) {
+                                  headers['Authorization'] = `Bearer ${session.access_token}`;
+                                }
+                                
+                                const res = await fetch(`${getApiBaseUrl()}/api/upload-image`, { 
+                                  method: 'POST', 
+                                  headers,
+                                  body: formData 
+                                });
                                 if (res.ok) {
                                   const data = await res.json();
                                   setTemplateData(prev => ({ ...prev, businessLogoUrl: data.url }));
@@ -1747,7 +1819,16 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                           formData.append('project_id', currentProject.id);
                           formData.append('file', file);
                           try {
-                            const res = await fetch(`${getApiBaseUrl()}/api/upload-image`, { method: 'POST', body: formData });
+                            const headers = {};
+                            if (session?.access_token) {
+                              headers['Authorization'] = `Bearer ${session.access_token}`;
+                            }
+                            
+                            const res = await fetch(`${getApiBaseUrl()}/api/upload-image`, { 
+                              method: 'POST', 
+                              headers,
+                              body: formData 
+                            });
                             if (res.ok) {
                               const data = await res.json();
                               setTemplateData(prev => ({ ...prev, heroBackgroundImage: data.url }));
@@ -2042,7 +2123,16 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                           formData.append('project_id', currentProject.id);
                           formData.append('file', file);
                           try {
-                            const res = await fetch(`${getApiBaseUrl()}/api/upload-image`, { method: 'POST', body: formData });
+                            const headers = {};
+                            if (session?.access_token) {
+                              headers['Authorization'] = `Bearer ${session.access_token}`;
+                            }
+                            
+                            const res = await fetch(`${getApiBaseUrl()}/api/upload-image`, { 
+                              method: 'POST', 
+                              headers,
+                              body: formData 
+                            });
                             if (res.ok) {
                               const data = await res.json();
                               setTemplateData(prev => ({ ...prev, aboutBackgroundImage: data.url }));
