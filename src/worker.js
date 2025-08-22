@@ -820,11 +820,23 @@ async function getProjectScore(projectId, env, corsHeaders) {
     const pricingClicks = m.pricingClicksTotal || 0;
     const leads = m.leads || 0;
 
+    // Get latest test run for CPC calculation
+    const testRunResp = await getLatestTestRun(projectId, env, corsHeaders);
+    let cpc = null;
+    if (testRunResp.ok) {
+      const testRun = await testRunResp.json();
+      if (testRun && testRun.ad_spend_cents && testRun.clicks && testRun.clicks > 0) {
+        cpc = testRun.ad_spend_cents / 100 / testRun.clicks; // Convert cents to dollars
+      }
+    }
+
     // Benchmarks
     const trafficFull = 100;
     const engageRateFull = 0.08;
     const leadRateFull = 0.02;
-    // Weights
+    const cpcBenchmark = 2.0; // $2.00 is considered a good benchmark CPC
+    
+    // Weights - adjusted to include CPC in Intent component
     const wTraffic = 30;
     const wEngage = 40;
     const wIntent = 30;
@@ -834,14 +846,33 @@ async function getProjectScore(projectId, env, corsHeaders) {
 
     const trafficScore = Math.max(0, Math.min(1, visitors / trafficFull)) * wTraffic;
     const engageScore = Math.max(0, Math.min(1, engageRate / engageRateFull)) * wEngage;
-    const intentScore = Math.max(0, Math.min(1, leadRate / leadRateFull)) * wIntent;
+    
+    // Intent score now includes both lead rate and CPC efficiency
+    let intentScore = Math.max(0, Math.min(1, leadRate / leadRateFull)) * wIntent;
+    
+    // Adjust intent score based on CPC efficiency (lower CPC = better score)
+    if (cpc !== null && cpc > 0) {
+      const cpcEfficiency = Math.max(0, Math.min(1, cpcBenchmark / cpc)); // Lower CPC = higher efficiency
+      const cpcBonus = cpcEfficiency * 5; // Up to 5 bonus points for good CPC
+      intentScore = Math.min(wIntent, intentScore + cpcBonus);
+    }
+
     const total = Math.round(trafficScore + engageScore + intentScore);
 
     let verdict = 'Weak signal — iterate offer, headline, or audience.';
     if (total >= 70) verdict = 'Strong signal — consider deeper tests and more budget.';
     else if (total >= 40) verdict = 'Promising but inconclusive — refine and retest.';
 
-    return new Response(JSON.stringify({ total, verdict, breakdown: { traffic: Math.round(trafficScore), engagement: Math.round(engageScore), intent: Math.round(intentScore) } }), { headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    return new Response(JSON.stringify({ 
+      total, 
+      verdict, 
+      breakdown: { 
+        traffic: Math.round(trafficScore), 
+        engagement: Math.round(engageScore), 
+        intent: Math.round(intentScore) 
+      },
+      cpc: cpc ? Math.round(cpc * 100) / 100 : null // Include CPC in response
+    }), { headers: { 'Content-Type': 'application/json', ...corsHeaders } });
   } catch (e) {
     return new Response(JSON.stringify({ error: 'Failed to compute score' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
   }
