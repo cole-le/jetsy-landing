@@ -29,6 +29,15 @@ const ChatPage = ({ onBackToHome }) => {
     }
   }, [session, authLoading]);
 
+  // Dispatch project name update event when currentProject changes
+  useEffect(() => {
+    if (currentProject?.project_name) {
+      window.dispatchEvent(new CustomEvent('project-name-update', { 
+        detail: { projectName: currentProject.project_name } 
+      }));
+    }
+  }, [currentProject?.project_name]);
+
   // Clear stored project ID when user changes
   useEffect(() => {
     if (user?.id) {
@@ -108,12 +117,18 @@ const ChatPage = ({ onBackToHome }) => {
           // Verify this project belongs to the current user by checking if it has template_data
           // If it's a valid project for this user, it should have been loaded with proper auth
           if (project && project.project_name) {
-            setCurrentProject({
-              id: project.id,
-              project_name: project.project_name,
-              files: JSON.parse(project.files)
-            });
-            await loadChatMessages(project.id);
+                      setCurrentProject({
+            id: project.id,
+            project_name: project.project_name,
+            files: JSON.parse(project.files)
+          });
+          
+          // Dispatch project name update event
+          window.dispatchEvent(new CustomEvent('project-name-update', { 
+            detail: { projectName: project.project_name } 
+          }));
+          
+          await loadChatMessages(project.id);
             
             // On mobile, switch back to chat view when loading a project
             if (window.innerWidth < 1024) {
@@ -161,6 +176,12 @@ const ChatPage = ({ onBackToHome }) => {
               files: JSON.parse(mostRecent.files)
             });
             setStoredProjectId(mostRecent.id);
+            
+            // Dispatch project name update event
+            window.dispatchEvent(new CustomEvent('project-name-update', { 
+              detail: { projectName: mostRecent.project_name } 
+            }));
+            
             await loadChatMessages(mostRecent.id);
             
             // On mobile, switch back to chat view when loading the most recent project
@@ -228,6 +249,12 @@ const ChatPage = ({ onBackToHome }) => {
         const newProject = { id: result.project_id, ...projectData };
         setCurrentProject(newProject);
         setStoredProjectId(result.project_id);
+        
+        // Dispatch project name update event
+        window.dispatchEvent(new CustomEvent('project-name-update', { 
+          detail: { projectName: newProject.project_name } 
+        }));
+        
         await loadChatMessages(result.project_id);
         
         // On mobile, switch back to chat view when creating a default project
@@ -252,6 +279,12 @@ const ChatPage = ({ onBackToHome }) => {
       files: typeof project.files === 'string' ? JSON.parse(project.files) : project.files
     });
     setStoredProjectId(project.id);
+    
+    // Dispatch project name update event
+    window.dispatchEvent(new CustomEvent('project-name-update', { 
+      detail: { projectName: project.project_name } 
+    }));
+    
     await loadChatMessages(project.id);
     setShowProjectPanel(false);
     

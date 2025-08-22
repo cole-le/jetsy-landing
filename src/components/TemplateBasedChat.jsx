@@ -541,6 +541,57 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     loadOrRestoreProject();
   }, []);
 
+  // Dispatch project name update event when currentProject changes
+  useEffect(() => {
+    if (currentProject?.project_name) {
+      window.dispatchEvent(new CustomEvent('project-name-update', { 
+        detail: { projectName: currentProject.project_name } 
+      }));
+    }
+  }, [currentProject?.project_name]);
+
+  // Dispatch project name update event when template data business name changes
+  useEffect(() => {
+    if (templateData?.businessName && templateData.businessName !== currentProject?.project_name && isEditorMode) {
+      // Update currentProject state with new business name
+      setCurrentProject(prev => ({
+        ...prev,
+        project_name: templateData.businessName
+      }));
+      
+      // Dispatch project name update event
+      window.dispatchEvent(new CustomEvent('project-name-update', { 
+        detail: { projectName: templateData.businessName } 
+      }));
+
+      // Update project name in database as well
+      if (currentProject?.id) {
+        const updateProjectName = async () => {
+          try {
+            const headers = { 'Content-Type': 'application/json' };
+            if (session?.access_token) {
+              headers['Authorization'] = `Bearer ${session.access_token}`;
+            }
+            
+            await fetch(`${getApiBaseUrl()}/api/projects/${currentProject.id}`, {
+              method: 'PUT',
+              headers,
+              body: JSON.stringify({
+                project_name: templateData.businessName
+              })
+            });
+          } catch (error) {
+            console.error('Error updating project name in database:', error);
+          }
+        };
+
+        // Debounce the database update to avoid excessive API calls
+        const timeoutId = setTimeout(updateProjectName, 2000);
+        return () => clearTimeout(timeoutId);
+      }
+    }
+  }, [templateData?.businessName, currentProject?.project_name, isEditorMode, currentProject?.id, session]);
+
   // When we have a project, load any existing custom domain mapping
 
 
@@ -628,6 +679,19 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         // Suppress the next auto-save so user must click Save
         skipAutoSaveRef.current = true;
         setTemplateData(prev => ({ ...prev, businessName: data.businessName }));
+        
+        // Update project name in currentProject state and dispatch event
+        if (currentProject?.id) {
+          setCurrentProject(prev => ({
+            ...prev,
+            project_name: data.businessName
+          }));
+          
+          // Dispatch project name update event
+          window.dispatchEvent(new CustomEvent('project-name-update', { 
+            detail: { projectName: data.businessName } 
+          }));
+        }
       } else {
         throw new Error(data.error || 'No name returned');
       }
@@ -777,6 +841,11 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             files: JSON.parse(project.files)
           });
           
+          // Dispatch project name update event
+          window.dispatchEvent(new CustomEvent('project-name-update', { 
+            detail: { projectName: project.project_name } 
+          }));
+          
           // Load saved template data if it exists
           if (project.template_data) {
             console.log('🔍 Found template_data in project:', project.template_data);
@@ -830,6 +899,11 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             project_name: mostRecent.project_name,
             files: JSON.parse(mostRecent.files)
           });
+          
+          // Dispatch project name update event
+          window.dispatchEvent(new CustomEvent('project-name-update', { 
+            detail: { projectName: mostRecent.project_name } 
+          }));
           
           // Load saved template data if it exists
           if (mostRecent.template_data) {
@@ -897,6 +971,11 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         const newProject = { id: result.project_id, ...projectData };
         setCurrentProject(newProject);
         setStoredProjectId(result.project_id);
+        
+        // Dispatch project name update event
+        window.dispatchEvent(new CustomEvent('project-name-update', { 
+          detail: { projectName: newProject.project_name } 
+        }));
         // Start in chat mode for new projects
         setIsEditorMode(false);
         setTemplateData(DEFAULT_TEMPLATE_DATA);
@@ -1106,6 +1185,11 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                 project_name: result.suggested_project_name
               }));
               
+              // Dispatch project name update event
+              window.dispatchEvent(new CustomEvent('project-name-update', { 
+                detail: { projectName: result.suggested_project_name } 
+              }));
+              
               // Add a notification message about the name update
               const nameUpdateMessage = {
                 id: Date.now() + 2,
@@ -1205,6 +1289,12 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       files: typeof project.files === 'string' ? JSON.parse(project.files) : project.files
     });
     setStoredProjectId(project.id);
+    
+    // Dispatch project name update event
+    window.dispatchEvent(new CustomEvent('project-name-update', { 
+      detail: { projectName: project.project_name } 
+    }));
+    
     await loadChatMessages(project.id);
     
     // Load saved template data if it exists

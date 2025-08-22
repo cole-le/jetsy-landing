@@ -72,6 +72,18 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
     };
   }, [currentProjectId]);
 
+  // Listen for project name updates from TemplateBasedChat
+  useEffect(() => {
+    const handleProjectNameUpdate = (event) => {
+      if (event.detail && event.detail.projectName) {
+        setCurrentProjectName(event.detail.projectName);
+      }
+    };
+
+    window.addEventListener('project-name-update', handleProjectNameUpdate);
+    return () => window.removeEventListener('project-name-update', handleProjectNameUpdate);
+  }, []);
+
   // Check if ads data exists for current project
   React.useEffect(() => {
     if (currentProjectId) {
