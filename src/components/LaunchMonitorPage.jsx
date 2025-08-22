@@ -76,7 +76,7 @@ const Step4ManualInputs = React.memo(function Step4ManualInputs({
           <span className="font-medium text-gray-900">{cpc}</span>
         </div>
         {validationMsg && <div className="text-xs text-red-600">{validationMsg}</div>}
-        <button onClick={onSave} disabled={saveStep4Loading} className={`px-3 py-2 rounded text-sm ${saveStep4Loading ? 'bg-gray-200 text-gray-500' : 'bg-gray-100 border border-gray-300'}`}>Save</button>
+                <button onClick={onSave} disabled={saveStep4Loading} className={`px-3 py-2 rounded text-sm ${saveStep4Loading ? 'bg-gray-200 text-gray-500' : 'bg-gray-100 border border-gray-300'}`}>Save</button>
       </div>
     </div>
   );
@@ -137,7 +137,7 @@ const LaunchMonitorPage = ({ projectId }) => {
   const [validationMsg, setValidationMsg] = useState(null);
   
   // Time range picker for Step 4
-  const [timeRange, setTimeRange] = useState('24h');
+  const [timeRange, setTimeRange] = useState('custom');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   
@@ -303,11 +303,9 @@ const LaunchMonitorPage = ({ projectId }) => {
     try {
       let url = `${apiBase}/api/projects/${projectId}/metrics`;
       
-      // Add time range parameters
-      if (timeRange === 'custom' && customStartDate && customEndDate) {
+      // Always use custom date range parameters
+      if (customStartDate && customEndDate) {
         url += `?startDate=${customStartDate}&endDate=${customEndDate}`;
-      } else if (timeRange !== '24h') {
-        url += `?timeRange=${timeRange}`;
       }
       
       const res = await fetch(url);
@@ -386,6 +384,14 @@ const LaunchMonitorPage = ({ projectId }) => {
     Promise.all([loadProjectData(), loadDeployment(), loadMetrics(), loadScore(), loadTestRun(), loadAdsData()]).finally(() => setLoading(false));
   }, [projectId]);
 
+  // Set default custom dates when component loads
+  useEffect(() => {
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    setCustomEndDate(now.toISOString().split('T')[0]);
+    setCustomStartDate(yesterday.toISOString().split('T')[0]);
+  }, []);
+
   // Reload metrics when time range changes
   useEffect(() => {
     if (projectId) {
@@ -421,13 +427,11 @@ const LaunchMonitorPage = ({ projectId }) => {
   const handleTimeRangeChange = async (newTimeRange) => {
     setTimeRange(newTimeRange);
     
-    // If custom date range is selected, show date inputs
-    if (newTimeRange === 'custom') {
-      const now = new Date();
-      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      setCustomEndDate(now.toISOString().split('T')[0]);
-      setCustomStartDate(yesterday.toISOString().split('T')[0]);
-    }
+    // Set default custom date range (yesterday to today)
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    setCustomEndDate(now.toISOString().split('T')[0]);
+    setCustomStartDate(yesterday.toISOString().split('T')[0]);
     
     // Reload metrics with new time range
     await loadMetrics();
@@ -571,7 +575,7 @@ const LaunchMonitorPage = ({ projectId }) => {
     };
 
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6" data-step={stepKey}>
         <div 
           className="flex items-start justify-between mb-2 cursor-pointer hover:bg-gray-50 p-2 -m-2 rounded transition-colors"
           onClick={toggleCollapse}
@@ -1210,6 +1214,81 @@ const LaunchMonitorPage = ({ projectId }) => {
               onInputBlur={handleManualInputBlur}
               containerRef={manualInputsContainerRef}
             />
+            
+            {/* Calculate Jetsy Validation Score Button */}
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <button 
+                onClick={() => {
+                  console.log('Calculate button clicked!');
+                  
+                  // Ensure Step 5 is open and visible
+                  setCollapsedSteps(prev => ({ ...prev, step5: false }));
+                  
+                  // Multiple fallback methods to find and scroll to Step 5
+                  setTimeout(() => {
+                    let step5Element = null;
+                    
+                    // Method 1: Try data-step attribute
+                    step5Element = document.querySelector('[data-step="step5"]');
+                    console.log('Method 1 - data-step:', step5Element);
+                    
+                    // Method 2: Try finding by title text
+                    if (!step5Element) {
+                      const step5ByTitle = Array.from(document.querySelectorAll('h3')).find(h3 => 
+                        h3.textContent.includes('Jetsy Validation Score')
+                      );
+                      if (step5ByTitle) {
+                        step5Element = step5ByTitle.closest('.bg-white');
+                        console.log('Method 2 - by title:', step5Element);
+                      }
+                    }
+                    
+                    // Method 3: Try finding by section content
+                    if (!step5Element) {
+                      const allSections = document.querySelectorAll('.bg-white.rounded-lg');
+                      step5Element = Array.from(allSections).find(section => 
+                        section.textContent.includes('Jetsy Validation Score')
+                      );
+                      console.log('Method 3 - by content:', step5Element);
+                    }
+                    
+                    if (step5Element) {
+                      console.log('Step 5 found, scrolling...');
+                      
+                      // Scroll to the element
+                      step5Element.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start' 
+                      });
+                      
+                      // Add a dramatic entrance effect with CSS animation
+                      step5Element.classList.add('step-entrance');
+                      
+                      // Remove the animation class after it completes to allow re-triggering
+                      setTimeout(() => {
+                        step5Element.classList.remove('step-entrance');
+                      }, 800);
+                      
+                      // Also add a subtle highlight effect to the section
+                      step5Element.style.boxShadow = '0 0 0 4px rgba(59, 130, 246, 0.3)';
+                      setTimeout(() => {
+                        step5Element.style.boxShadow = '';
+                      }, 2000);
+                    } else {
+                      console.error('Step 5 element not found with any method!');
+                      // Last resort: scroll to bottom of page
+                      window.scrollTo({
+                        top: document.body.scrollHeight,
+                        behavior: 'smooth'
+                      });
+                    }
+                  }, 100);
+                }}
+                className="w-full px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 hover:shadow-lg hover:scale-105 active:scale-95 button-pulse relative z-10"
+              >
+                🚀 Calculate the Jetsy Validation Score for my business idea
+              </button>
+            </div>
           </div>
           <div>
             <h4 className="text-sm font-semibold text-gray-800 mb-2">From Jetsy (auto)</h4>
@@ -1218,36 +1297,6 @@ const LaunchMonitorPage = ({ projectId }) => {
             <div className="mb-4">
               <label className="block text-sm text-gray-700 mb-2">Time Range</label>
               <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => handleTimeRangeChange('24h')}
-                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                    timeRange === '24h'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  24h
-                </button>
-                <button
-                  onClick={() => handleTimeRangeChange('7d')}
-                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                    timeRange === '7d'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  7 days
-                </button>
-                <button
-                  onClick={() => handleTimeRangeChange('30d')}
-                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                    timeRange === '30d'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  30 days
-                </button>
                 <button
                   onClick={() => handleTimeRangeChange('custom')}
                   className={`px-3 py-1 text-xs rounded-md transition-colors ${
@@ -1287,7 +1336,7 @@ const LaunchMonitorPage = ({ projectId }) => {
             
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-gray-50 border border-gray-200 rounded p-3 text-center">
-                <div className="text-xs text-gray-600">Visitors ({timeRange === 'custom' ? 'custom' : timeRange})</div>
+                <div className="text-xs text-gray-600">Visitors (custom)</div>
                 <div className="text-xl font-bold text-gray-900">{metrics?.visitors ?? '—'}</div>
               </div>
               <div className="bg-gray-50 border border-gray-200 rounded p-3 text-center">
@@ -1307,7 +1356,7 @@ const LaunchMonitorPage = ({ projectId }) => {
       <Section title="Step 5 — Jetsy Validation Score ⭐" stepKey="step5">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-stretch">
           {/* Total Score with animated rainbow ring, glow, and masked shine */}
-          <div className="relative rounded-2xl w-[280px]">
+          <div className="relative rounded-2xl">
             {/* Glow (soft outer halo) */}
             <div
               aria-hidden
@@ -1370,7 +1419,35 @@ const LaunchMonitorPage = ({ projectId }) => {
             <div className="text-2xl font-bold text-gray-900">{score?.breakdown ? score.breakdown.intent : '—'}</div>
           </div>
         </div>
-        <p className="text-xs text-gray-500 mt-2">Benchmarks: 8% pricing-click rate and 2% lead rate are strong early signals.</p>
+        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h4 className="text-sm font-semibold text-blue-900 mb-2">Understanding Your Jetsy Validation Score</h4>
+          <p className="text-sm text-blue-800 leading-relaxed">
+            The <strong>Jetsy Validation Score</strong> is a comprehensive metric that evaluates your business idea's market potential across three key dimensions. This score helps you determine whether to proceed with your current approach or pivot to a new strategy.
+          </p>
+          <div className="mt-3 space-y-2">
+            <div className="flex items-start">
+              <div className="w-2 h-2 bg-blue-400 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+              <div>
+                <strong className="text-blue-900">Traffic (0-30 points):</strong> Measures your ability to attract visitors to your landing page. Higher scores indicate better audience targeting and messaging effectiveness.
+              </div>
+            </div>
+            <div className="flex items-start">
+              <div className="w-2 h-2 bg-blue-400 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+              <div>
+                <strong className="text-blue-900">Engagement (0-40 points):</strong> Evaluates how well visitors interact with your offer. This includes pricing page clicks, time on site, and other engagement metrics that show genuine interest.
+              </div>
+            </div>
+            <div className="flex items-start">
+              <div className="w-2 h-2 bg-blue-400 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+              <div>
+                <strong className="text-blue-900">Intent (0-30 points):</strong> Measures conversion potential through lead submissions, contact form fills, and other actions that demonstrate buying intent.
+              </div>
+            </div>
+          </div>
+          <p className="text-sm text-blue-800 mt-3">
+            A <strong>Jetsy Validation Score of 70+ indicates strong validation</strong>, while scores below 30 suggest you may need to reconsider your target audience, messaging of your ads, pricing offer structure, or pursue another business ideas.
+          </p>
+        </div>
       </Section>
 
       {/* Step 6 */}
