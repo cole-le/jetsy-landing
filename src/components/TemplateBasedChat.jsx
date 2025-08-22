@@ -297,7 +297,7 @@ export const DEFAULT_TEMPLATE_DATA = {
 };
 
 const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode = 'desktop', initialProjectId, onNavigateToProfile, onNavigateToAdCreatives, onNavigateToDataAnalytics, onNavigateToLaunch }, ref) => {
-  const { session } = useAuth();
+  const { session, loading: authLoading } = useAuth();
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -536,10 +536,13 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     }
   }));
 
-  // Load existing project when component mounts
+  // Load existing project when auth is ready (prevents unauthenticated calls)
   useEffect(() => {
+    if (authLoading) return; // wait for auth to resolve
+    // When session changes from null->value or route param changes, (re)load
     loadOrRestoreProject();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, session?.access_token, initialProjectId]);
 
   // Dispatch project name update event when currentProject changes
   useEffect(() => {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from './auth/AuthProvider';
 import DeploymentButton from './DeploymentButton';
 import WorkflowProgressBar from './WorkflowProgressBar';
 import { getApiBaseUrl } from '../config/environment';
@@ -21,6 +22,7 @@ const Navbar = ({
   onNavigateToAdCreatives,
   onNavigateToLaunchMonitor
 }) => {
+  const { session, loading: authLoading } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [showPublishModal, setShowPublishModal] = useState(false);
@@ -230,7 +232,11 @@ const Navbar = ({
       }
       
       // Load project data
-      const res = await fetch(`${getApiBaseUrl()}/api/projects/${currentProjectId}`);
+      const headers = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      const res = await fetch(`${getApiBaseUrl()}/api/projects/${currentProjectId}`, { headers });
       if (!res.ok) return;
       const json = await res.json();
       const project = json.project;
@@ -245,7 +251,7 @@ const Navbar = ({
       
       // Check website deployment status
       try {
-        const deploymentRes = await fetch(`${getApiBaseUrl()}/api/projects/${currentProjectId}/deployment`);
+        const deploymentRes = await fetch(`${getApiBaseUrl()}/api/projects/${currentProjectId}/deployment`, { headers });
         if (deploymentRes.ok) {
           const deploymentData = await deploymentRes.json();
           setWebsiteDeployed(deploymentData.status === 'deployed' && (deploymentData.customDomain || deploymentData.vercelDomain));
