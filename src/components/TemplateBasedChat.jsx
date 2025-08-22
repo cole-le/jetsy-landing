@@ -544,6 +544,13 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   // Dispatch project name update event when currentProject changes
   useEffect(() => {
     if (currentProject?.project_name) {
+      // Cache under both global and per-project keys
+      try {
+        localStorage.setItem('jetsy_current_project_name', currentProject.project_name);
+        if (currentProject?.id) {
+          localStorage.setItem(`jetsy_project_name_${currentProject.id}`, currentProject.project_name);
+        }
+      } catch (_) {}
       window.dispatchEvent(new CustomEvent('project-name-update', { 
         detail: { projectName: currentProject.project_name } 
       }));
@@ -560,6 +567,12 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       }));
       
       // Dispatch project name update event
+      try {
+        localStorage.setItem('jetsy_current_project_name', templateData.businessName);
+        if (currentProject?.id) {
+          localStorage.setItem(`jetsy_project_name_${currentProject.id}`, templateData.businessName);
+        }
+      } catch (_) {}
       window.dispatchEvent(new CustomEvent('project-name-update', { 
         detail: { projectName: templateData.businessName } 
       }));

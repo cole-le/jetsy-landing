@@ -116,6 +116,7 @@ const copyTargetAudience = async (platform, aiTargetAudience) => {
 const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreatives }) => {
   const { session } = useAuth();
   const [project, setProject] = useState(null);
+  const [cachedProjectName, setCachedProjectName] = useState('');
   const [deployment, setDeployment] = useState(null);
   const [metrics, setMetrics] = useState(null);
   const [score, setScore] = useState(null);
@@ -173,6 +174,40 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
   });
 
   const apiBase = getApiBaseUrl();
+
+  // Persist project ID for navbar and other components on mount
+  useEffect(() => {
+    try {
+      if (projectId) {
+        localStorage.setItem('jetsy_current_project_id', String(projectId));
+      }
+    } catch (_) {}
+  }, [projectId]);
+
+  // Read cached project name for immediate UI display
+  useEffect(() => {
+    try {
+      // Prefer per-project cached name when projectId is known
+      let name = null;
+      try {
+        if (projectId) {
+          name = localStorage.getItem(`jetsy_project_name_${projectId}`);
+        }
+      } catch (_) {}
+      if (!name) name = localStorage.getItem('jetsy_current_project_name');
+      if (name) setCachedProjectName(name);
+      const onStorage = () => {
+        let newName = null;
+        try {
+          if (projectId) newName = localStorage.getItem(`jetsy_project_name_${projectId}`);
+        } catch (_) {}
+        if (!newName) newName = localStorage.getItem('jetsy_current_project_name');
+        if (newName) setCachedProjectName(newName);
+      };
+      window.addEventListener('storage', onStorage);
+      return () => window.removeEventListener('storage', onStorage);
+    } catch (_) {}
+  }, [projectId]);
 
   // Placeholder ads template data for projects with blank ads data
   const placeholderAdsData = {
@@ -394,6 +429,16 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
       const result = await res.json();
       const projectData = result.project;
       setProject(projectData);
+
+      // Cache project name for immediate navbar display on refresh, and notify navbar
+      try {
+        const projName = projectData?.project_name || 'Project';
+        localStorage.setItem('jetsy_current_project_name', projName);
+        if (projectId) {
+          localStorage.setItem(`jetsy_project_name_${projectId}`, projName);
+        }
+        window.dispatchEvent(new CustomEvent('project-name-update', { detail: { projectName: projName } }));
+      } catch (_) {}
       
       // Check website deployment status
       let isWebsiteDeployed = false;
@@ -506,7 +551,21 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
   useEffect(() => {
     setLoading(true);
     Promise.all([loadProjectData(), loadDeployment(), loadMetrics(), loadScore(), loadTestRun(), loadAdsData()]).finally(() => setLoading(false));
-  }, [projectId]);
+  }, [projectId, session?.access_token]);
+
+  // If session becomes available later (after initial 401), refetch project data
+  useEffect(() => {
+    if (projectId && session?.access_token && !project) {
+      (async () => {
+        setLoading(true);
+        try {
+          await Promise.all([loadProjectData(), loadDeployment(), loadMetrics(), loadScore(), loadTestRun(), loadAdsData()]);
+        } finally {
+          setLoading(false);
+        }
+      })();
+    }
+  }, [session?.access_token, projectId]);
 
   // Set default custom dates when component loads
   useEffect(() => {
@@ -786,7 +845,7 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
                 className="flex items-center space-x-2 text-center hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors min-w-0 relative max-w-full"
               >
                 <span className="text-sm font-medium text-gray-900 truncate max-w-[120px] sm:max-w-[160px]">
-                  {project?.project_name || 'Loading...'}
+                  {project?.project_name || cachedProjectName || 'Loading...'}
                 </span>
                 <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1019,7 +1078,18 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
           {/* Action buttons */}
           <div className="flex gap-3">
             <button
-              onClick={() => onNavigateToAdCreatives(projectId)}
+              onClick={() => {
+                try {
+                  if (typeof onNavigateToAdCreatives === 'function') {
+                    onNavigateToAdCreatives(projectId);
+                  } else {
+                    window.location.href = `/ad-creatives/${projectId}`;
+                  }
+                } catch (err) {
+                  console.error('Failed to navigate to Ad Creatives, falling back:', err);
+                  try { window.location.href = `/ad-creatives/${projectId}`; } catch (_) {}
+                }
+              }}
               className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm hover:bg-gray-200 transition-colors"
             >
               Edit Ads
@@ -1715,7 +1785,19 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
                           // Close the workflow panel
                           setShowWorkflowPanel(false);
                           // Navigate to ads creative page
-                          onNavigateToAdCreatives(projectId);
+                          try {
+                            if (typeof onNavigateToAdCreatives === 'function') {
+                              onNavigateToAdCreatives(projectId);
+                            } else {
+                              // Fallback to direct URL navigation
+                              window.location.href = `/ad-creatives/${projectId}`;
+                            }
+                          } catch (err) {
+                            console.error('Failed to navigate via callback, falling back to URL navigation:', err);
+                            try {
+                              window.location.href = `/ad-creatives/${projectId}`;
+                            } catch (_) {}
+                          }
                         }}
                         className={`text-sm font-medium px-3 py-1 rounded-lg shadow-sm transition-colors border ${
                           adsExist

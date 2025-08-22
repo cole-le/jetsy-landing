@@ -60,34 +60,81 @@ const Navbar = ({
     return () => window.removeEventListener('mobile-navbar-visibility', handleNavbarVisibility);
   }, [isChatMode, isMobile]);
 
-  // Get current project ID from localStorage
+  // Get current project ID and name from storage or URL (for hard refresh)
   React.useEffect(() => {
-    const storedProjectId = localStorage.getItem('jetsy_current_project_id');
-    if (storedProjectId) {
-      setCurrentProjectId(storedProjectId);
-    }
-    
-    // Listen for changes to localStorage
-    const handleStorageChange = () => {
-      const newProjectId = localStorage.getItem('jetsy_current_project_id');
-      setCurrentProjectId(newProjectId);
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    
-    // Also check periodically for changes (since storage event doesn't fire in same tab)
-    const interval = setInterval(() => {
-      const newProjectId = localStorage.getItem('jetsy_current_project_id');
-      if (newProjectId !== currentProjectId) {
-        setCurrentProjectId(newProjectId);
+    try {
+      let storedProjectId = localStorage.getItem('jetsy_current_project_id');
+      // Try to infer from URL if not present in localStorage
+      if (!storedProjectId && typeof window !== 'undefined') {
+        const path = window.location.pathname || '';
+        // Supported routes: /chat/:id, /ad-creatives/:id, /launch/:id
+        const match = path.match(/\/(chat|ad-creatives|launch)\/(\w[\w-]*)/);
+        if (match && match[2]) {
+          storedProjectId = match[2];
+          // persist for consistency across pages
+          try { localStorage.setItem('jetsy_current_project_id', storedProjectId); } catch (_) {}
+        }
       }
-    }, 1000);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
-    };
-  }, [currentProjectId]);
+
+      if (storedProjectId) {
+        setCurrentProjectId(storedProjectId);
+      }
+
+      // Optimistically show last known project name (cached) to avoid "Loading..."
+      let cachedName = localStorage.getItem('jetsy_current_project_name');
+      // Prefer per-project cached name when ID is known
+      try {
+        const pidForName = storedProjectId || (localStorage.getItem('jetsy_current_project_id'));
+        if (pidForName) {
+          const scoped = localStorage.getItem(`jetsy_project_name_${pidForName}`);
+          if (scoped) cachedName = scoped;
+        }
+      } catch (_) {}
+      if (cachedName) {
+        setCurrentProjectName(cachedName);
+      }
+
+      // Listen for changes to localStorage
+      const handleStorageChange = () => {
+        const newProjectId = localStorage.getItem('jetsy_current_project_id');
+        setCurrentProjectId(newProjectId);
+        // Try scoped name first
+        let newName = null;
+        try {
+          if (newProjectId) {
+            newName = localStorage.getItem(`jetsy_project_name_${newProjectId}`);
+          }
+        } catch (_) {}
+        if (!newName) newName = localStorage.getItem('jetsy_current_project_name');
+        if (newName) setCurrentProjectName(newName);
+      };
+
+      window.addEventListener('storage', handleStorageChange);
+
+      // Also check periodically for changes (since storage event doesn't fire in same tab)
+      const interval = setInterval(() => {
+        const newProjectId = localStorage.getItem('jetsy_current_project_id');
+        if (newProjectId !== currentProjectId) {
+          setCurrentProjectId(newProjectId);
+        }
+        let newName = null;
+        try {
+          if (newProjectId) newName = localStorage.getItem(`jetsy_project_name_${newProjectId}`);
+        } catch (_) {}
+        if (!newName) newName = localStorage.getItem('jetsy_current_project_name');
+        if (newName && newName !== currentProjectName) {
+          setCurrentProjectName(newName);
+        }
+      }, 1000);
+
+      return () => {
+        window.removeEventListener('storage', handleStorageChange);
+        clearInterval(interval);
+      };
+    } catch (_) {
+      // ignore
+    }
+  }, [currentProjectId, currentProjectName]);
 
   // Listen for project name updates from TemplateBasedChat
   useEffect(() => {
@@ -178,7 +225,7 @@ const Navbar = ({
         setAdsExist(false);
         setHasTemplateData(false);
         setWebsiteDeployed(false);
-        setCurrentProjectName('');
+        setCurrentProjectName(prev => prev || '');
         return;
       }
       
@@ -191,7 +238,10 @@ const Navbar = ({
       // Treat non-empty ads_data as existence
       setAdsExist(!!project?.ads_data);
       setHasTemplateData(!!project?.template_data);
-      setCurrentProjectName(project?.project_name || 'Project');
+      const projName = project?.project_name || 'Project';
+      setCurrentProjectName(projName);
+      // cache latest known project name for refreshes
+      try { localStorage.setItem('jetsy_current_project_name', projName); } catch (_) {}
       
       // Check website deployment status
       try {
