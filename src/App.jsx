@@ -77,6 +77,8 @@ function App() {
         setRouteProjectId(pid);
         setCurrentStep('chat');
       }
+    } else if (path === '/profile') {
+      setCurrentStep('profile');
     } else if (path.startsWith('/ad-creatives/')) {
       // Handle /ad-creatives/{project-id} routes
       const projectIdStr = path.slice('/ad-creatives/'.length);
@@ -218,6 +220,8 @@ function App() {
       window.history.pushState({}, '', `/chat/${routeProjectId}`);
     } else if (currentStep === 'chat' && !routeProjectId && path !== '/chat') {
       window.history.pushState({}, '', '/chat');
+    } else if (currentStep === 'profile' && path !== '/profile') {
+      window.history.pushState({}, '', '/profile');
     } else if (currentStep === 'ad-creatives' && adCreativesProjectId && path !== `/ad-creatives/${adCreativesProjectId}`) {
       window.history.pushState({}, '', `/ad-creatives/${adCreativesProjectId}`);
     } else if (currentStep === 'launch-monitor' && routeProjectId && path !== `/launch/${routeProjectId}`) {
@@ -522,6 +526,7 @@ function App() {
             setRouteProjectId(projectId);
             setCurrentStep('launch-monitor');
           }}
+          onProfileClick={() => setCurrentStep('profile')}
         />
       )}
       

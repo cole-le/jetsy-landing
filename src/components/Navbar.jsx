@@ -20,9 +20,10 @@ const Navbar = ({
   // Add navigation callbacks for workflow stages
   onNavigateToWebsiteCreation,
   onNavigateToAdCreatives,
-  onNavigateToLaunchMonitor
+  onNavigateToLaunchMonitor,
+  onProfileClick
 }) => {
-  const { session, loading: authLoading } = useAuth();
+  const { session, loading: authLoading, signOut } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [showPublishModal, setShowPublishModal] = useState(false);
@@ -34,6 +35,7 @@ const Navbar = ({
   const [currentProjectName, setCurrentProjectName] = useState('');
   const [showProjectPanel, setShowProjectPanel] = useState(false);
   const [hideNavbar, setHideNavbar] = useState(false);
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
 
   // Effect to detect mobile screen size
   useEffect(() => {
@@ -163,13 +165,16 @@ const Navbar = ({
       if (showPublishModal && !event.target.closest('.publish-modal-container')) {
         setShowPublishModal(false);
       }
+      if (showAccountMenu && !event.target.closest('.account-menu-container')) {
+        setShowAccountMenu(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showPublishModal]);
+  }, [showPublishModal, showAccountMenu]);
 
   // Sync ad-creatives loading state from page
   React.useEffect(() => {
@@ -451,7 +456,7 @@ const Navbar = ({
 
               {/* Chat mode header content */}
               {isChatMode ? (
-                <div className="flex items-center space-x-1 sm:space-x-2 lg:space-x-3 overflow-hidden min-w-0">
+                <div className="flex items-center space-x-1 sm:space-x-2 lg:space-x-3 overflow-visible min-w-0">
                   {/* Mobile: Project Name Dropdown in Center */}
                   {isMobile && (
                     <div className="flex-1 flex justify-center">
@@ -551,11 +556,76 @@ const Navbar = ({
                       )}
                     </div>
                   )}
+
+                  {/* Account avatar */}
+                  <div className="relative account-menu-container">
+                    <button
+                      onClick={() => setShowAccountMenu((v) => !v)}
+                      className="ml-1 sm:ml-2 p-2 rounded-full hover:bg-gray-100 border border-gray-200"
+                      title={session?.user?.email || 'Account'}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-gray-700">
+                        <path fillRule="evenodd" d="M12 2a5 5 0 100 10 5 5 0 000-10zm-7 17a7 7 0 1114 0v1H5v-1z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                    {showAccountMenu && (
+                      <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-[10000]">
+                        <button
+                          onClick={() => { setShowAccountMenu(false); onProfileClick && onProfileClick(); }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          Profile
+                        </button>
+                        <button
+                          onClick={async () => {
+                            setShowAccountMenu(false);
+                            try { await signOut(); } catch (_) {}
+                            window.location.href = '/';
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                        >
+                          Sign out
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : isLaunchMonitorMode ? (
                 // Launch & Monitor mode header content
-                <div className="flex-1 flex justify-end">
+                <div className="flex-1 flex justify-end items-center gap-2">
                   {/* Right side content for Launch Monitor mode */}
+                  {/* Account avatar */}
+                  <div className="relative account-menu-container">
+                    <button
+                      onClick={() => setShowAccountMenu((v) => !v)}
+                      className="p-2 rounded-full hover:bg-gray-100 border border-gray-200"
+                      title={session?.user?.email || 'Account'}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-gray-700">
+                        <path fillRule="evenodd" d="M12 2a5 5 0 100 10 5 5 0 000-10zm-7 17a7 7 0 1114 0v1H5v-1z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                    {showAccountMenu && (
+                      <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-[10000]">
+                        <button
+                          onClick={() => { setShowAccountMenu(false); onProfileClick && onProfileClick(); }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          Profile
+                        </button>
+                        <button
+                          onClick={async () => {
+                            setShowAccountMenu(false);
+                            try { await signOut(); } catch (_) {}
+                            window.location.href = '/';
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                        >
+                          Sign out
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : isAdCreativesMode ? (
                 // Ad Creatives mode header content
@@ -578,6 +648,38 @@ const Navbar = ({
                     className="px-6 py-2 bg-black hover:bg-gray-800 text-white rounded-lg transition-colors duration-200 font-semibold">
                     Save Changes
                   </button>
+                  {/* Account avatar */}
+                  <div className="relative account-menu-container">
+                    <button
+                      onClick={() => setShowAccountMenu((v) => !v)}
+                      className="p-2 rounded-full hover:bg-gray-100 border border-gray-200"
+                      title={session?.user?.email || 'Account'}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-gray-700">
+                        <path fillRule="evenodd" d="M12 2a5 5 0 100 10 5 5 0 000-10zm-7 17a7 7 0 1114 0v1H5v-1z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                    {showAccountMenu && (
+                      <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-[10000]">
+                        <button
+                          onClick={() => { setShowAccountMenu(false); onProfileClick && onProfileClick(); }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          Profile
+                        </button>
+                        <button
+                          onClick={async () => {
+                            setShowAccountMenu(false);
+                            try { await signOut(); } catch (_) {}
+                            window.location.href = '/';
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                        >
+                          Sign out
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="md:hidden">
