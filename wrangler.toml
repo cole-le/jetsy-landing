@@ -34,3 +34,24 @@ CF_ZONE_ID = "53957945e940cad5e6dd29dd7add1e0c"
 # Static assets configuration
 [site]
 bucket = "./dist" 
+
+# Development environment configuration for `--env development`
+[env.development]
+name = "jetsy-landing-dev"
+
+# Add D1 database binding for development
+[[env.development.d1_databases]]
+binding = "DB"
+database_name = "jetsy-leads"
+database_id = "682478d4-6494-4f47-93e6-be1b6397fe92"
+
+# Add R2 bucket binding for development
+[[env.development.r2_buckets]]
+binding = "IMAGES_BUCKET"
+bucket_name = "jetsy-images-prod"
+preview_bucket_name = "jetsy-images-dev"
+experimental_remote = true
+
+# Add environment variables for development
+[env.development.vars]
+CF_ZONE_ID = "53957945e940cad5e6dd29dd7add1e0c"

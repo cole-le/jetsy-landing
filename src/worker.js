@@ -104,19 +104,7 @@ export default {
         });
       }
 
-      // --- Simple password verification endpoint for /chat gating ---
-      if (path === '/api/chat-password-verify' && request.method === 'POST') {
-        const body = await request.json().catch(() => ({}));
-        const provided = String(body.password || '');
-        const expected = (env.ADMIN_CHAT_PASSWORD || '').trim();
-        if (!expected) {
-          return new Response(JSON.stringify({ ok: false, error: 'not-configured' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
-        }
-        if (provided && provided === expected) {
-          return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
-        }
-        return new Response(JSON.stringify({ ok: false }), { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
-      }
+
 
       // --- Contact Submissions API ---
       if (path === '/api/contact' && request.method === 'POST') {
@@ -596,28 +584,38 @@ async function ensureContactSubmissionsTable(db) {
 
 // Ensure tracking_events table and indexes exist
 async function ensureTrackingEventsTable(db) {
-  await db.prepare(`
-    CREATE TABLE IF NOT EXISTS tracking_events (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      event_name TEXT NOT NULL,
-      event_category TEXT,
-      event_data TEXT,
-      timestamp INTEGER,
-      user_agent TEXT,
-      url TEXT,
-      session_id TEXT,
-      page_title TEXT,
-      referrer TEXT,
-      website_id TEXT,
-      user_id TEXT,
-      jetsy_generated INTEGER DEFAULT 0,
-      created_at TEXT NOT NULL
-    );
-  `).run();
-  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_tracking_website_id ON tracking_events(website_id);`).run();
-  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_tracking_event_name ON tracking_events(event_name);`).run();
-  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_tracking_created_at ON tracking_events(created_at);`).run();
-  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_tracking_session_id ON tracking_events(session_id);`).run();
+  // Check if database is available
+  if (!db) {
+    console.warn('Database not available in ensureTrackingEventsTable');
+    return;
+  }
+  
+  try {
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS tracking_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_name TEXT NOT NULL,
+        event_category TEXT,
+        event_data TEXT,
+        timestamp INTEGER,
+        user_agent TEXT,
+        url TEXT,
+        session_id TEXT,
+        page_title TEXT,
+        referrer TEXT,
+        website_id TEXT,
+        user_id TEXT,
+        jetsy_generated INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL
+      );
+    `).run();
+    await db.prepare(`CREATE INDEX IF NOT EXISTS idx_tracking_website_id ON tracking_events(website_id);`).run();
+    await db.prepare(`CREATE INDEX IF NOT EXISTS idx_tracking_event_name ON tracking_events(event_name);`).run();
+    await db.prepare(`CREATE INDEX IF NOT EXISTS idx_tracking_created_at ON tracking_events(created_at);`).run();
+    await db.prepare(`CREATE INDEX IF NOT EXISTS idx_tracking_session_id ON tracking_events(session_id);`).run();
+  } catch (error) {
+    console.error('Error ensuring tracking events table:', error);
+  }
 }
 
 // Handle project tracking data
@@ -1413,6 +1411,21 @@ async function handleTrackingData(request, env, corsHeaders) {
     // Store tracking data in D1
     const db = env.DB;
     
+    // Check if database is available
+    if (!db) {
+      console.warn('Database not available for tracking, skipping storage');
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'Tracking data received (database not available)' 
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      });
+    }
+    
     // Ensure tracking_events table exists
     await ensureTrackingEventsTable(db);
     
@@ -1511,6 +1524,22 @@ async function handleJetsyAnalytics(request, env, corsHeaders) {
     }
 
     const db = env.DB;
+    
+    // Check if database is available
+    if (!db) {
+      console.warn('Database not available for Jetsy analytics, skipping storage');
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'Analytics data received (database not available)' 
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      });
+    }
+    
     const currentTime = new Date().toISOString();
     const ts = timestamp || Date.now();
 
@@ -1577,6 +1606,12 @@ async function handleJetsyAnalytics(request, env, corsHeaders) {
 
 // Handle session tracking
 async function handleSessionTracking(db, sessionId, websiteId, userId, currentTime) {
+  // Check if database is available
+  if (!db) {
+    console.warn('Database not available in handleSessionTracking');
+    return;
+  }
+  
   try {
     // Check if session exists
     const existingSession = await db.prepare(
@@ -1601,6 +1636,12 @@ async function handleSessionTracking(db, sessionId, websiteId, userId, currentTi
 
 // Handle funnel tracking
 async function handleFunnelTracking(db, event, data, sessionId, websiteId, timestamp, currentTime) {
+  // Check if database is available
+  if (!db) {
+    console.warn('Database not available in handleFunnelTracking');
+    return;
+  }
+  
   try {
     const funnelName = data?.funnel_name || 'general';
     const stepName = data?.step || event;
@@ -1626,6 +1667,12 @@ async function handleFunnelTracking(db, event, data, sessionId, websiteId, times
 
 // Handle performance tracking
 async function handlePerformanceTracking(db, data, websiteId, userAgent, url, timestamp, currentTime) {
+  // Check if database is available
+  if (!db) {
+    console.warn('Database not available in handlePerformanceTracking');
+    return;
+  }
+  
   try {
     if (data?.metrics && typeof data.metrics === 'object') {
       for (const [metricName, metricValue] of Object.entries(data.metrics)) {
@@ -1773,32 +1820,22 @@ async function getProjects(request, env, corsHeaders) {
     // Extract user ID from auth header (Supabase JWT token)
     const authHeader = request.headers.get('Authorization');
     console.log('🔑 Auth header:', authHeader);
-    let user_id = 1; // Default fallback
+    let user_id = null; // No default fallback for Supabase
     
     if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
         const token = authHeader.substring(7);
         // Decode JWT token to get user ID (Supabase JWT contains user info)
         const payload = JSON.parse(atob(token.split('.')[1]));
-        const supabaseUserId = payload.sub; // Supabase JWT 'sub' field contains the user ID
+        user_id = payload.sub; // Supabase JWT 'sub' field contains the user ID
         
-        // For now, we'll use a hash of the UUID to generate a consistent integer user_id
-        // This allows us to work with the existing INTEGER user_id column
-        user_id = Math.abs(supabaseUserId.split('').reduce((a, b) => {
-          a = ((a << 5) - a) + b.charCodeAt(0);
-          return a & a;
-        }, 0)) % 1000000; // Keep it within reasonable range
-        
-        console.log('Authenticated user ID (mapped):', user_id, 'from Supabase UUID:', supabaseUserId);
+        console.log('Authenticated user ID (Supabase UUID):', user_id);
       } catch (error) {
         console.error('Error decoding JWT token:', error);
-        // Fall back to default user_id = 1
+        return new Response(JSON.stringify({ error: 'Invalid authentication token' }), { status: 401, headers: corsHeaders });
       }
-    }
-    
-    // If user_id is still 1 (default), try to get from query params as fallback
-    if (user_id === 1) {
-      user_id = url.searchParams.get('user_id') || 1;
+    } else {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: corsHeaders });
     }
     
     console.log('🔍 Querying projects with user_id:', user_id);
@@ -1809,7 +1846,8 @@ async function getProjects(request, env, corsHeaders) {
     }
     return new Response(JSON.stringify({ success: true, projects: result.results }), { status: 200, headers: corsHeaders });
   } catch (error) {
-    return new Response(JSON.stringify({ error: 'Failed to fetch projects' }), { status: 500, headers: corsHeaders });
+    console.error('getProjects error:', error);
+    return new Response(JSON.stringify({ error: 'Failed to fetch projects', details: error.message }), { status: 500, headers: corsHeaders });
   }
 }
 
@@ -1821,27 +1859,22 @@ async function getProjectById(id, request, env, corsHeaders) {
     // Extract user ID from auth header (Supabase JWT token)
     const authHeader = request.headers.get('Authorization');
     console.log('🔑 Auth header in getProjectById:', authHeader);
-    let user_id = 1; // Default fallback
+    let user_id = null; // No default fallback for Supabase
     
     if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
         const token = authHeader.substring(7);
         // Decode JWT token to get user ID (Supabase JWT contains user info)
         const payload = JSON.parse(atob(token.split('.')[1]));
-        const supabaseUserId = payload.sub; // Supabase JWT 'sub' field contains the user ID
+        user_id = payload.sub; // Supabase JWT 'sub' field contains the user ID
         
-        // For now, we'll use a hash of the UUID to generate a consistent integer user_id
-        // This allows us to work with the existing INTEGER user_id column
-        user_id = Math.abs(supabaseUserId.split('').reduce((a, b) => {
-          a = ((a << 5) - a) + b.charCodeAt(0);
-          return a & a;
-        }, 0)) % 1000000; // Keep it within reasonable range
-        
-        console.log('Authenticated user ID (mapped) in getProjectById:', user_id, 'from Supabase UUID:', supabaseUserId);
+        console.log('Authenticated user ID (Supabase UUID) in getProjectById:', user_id);
       } catch (error) {
         console.error('Error decoding JWT token in getProjectById:', error);
-        // Fall back to default user_id = 1
+        return new Response(JSON.stringify({ error: 'Invalid authentication token' }), { status: 401, headers: corsHeaders });
       }
+    } else {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: corsHeaders });
     }
     
     // First get the project to check ownership
@@ -1859,12 +1892,23 @@ async function getProjectById(id, request, env, corsHeaders) {
     console.log('✅ Project access granted for user_id:', user_id);
     return new Response(JSON.stringify({ success: true, project: result }), { status: 200, headers: corsHeaders });
   } catch (error) {
-    return new Response(JSON.stringify({ error: 'Failed to fetch project' }), { status: 500, headers: corsHeaders });
+    console.error('getProjectById error:', error);
+    return new Response(JSON.stringify({ error: 'Failed to fetch project', details: error.message }), { status: 500, headers: corsHeaders });
   }
 }
 
 async function createProject(request, env, corsHeaders) {
   const db = env.DB;
+  
+  // Check if database is available
+  if (!db) {
+    console.error('Database not available in createProject');
+    return new Response(JSON.stringify({ error: 'Database not available' }), { 
+      status: 500, 
+      headers: corsHeaders 
+    });
+  }
+  
   try {
     // Ensure ads columns exist
     await ensureAdsColumns(env);
@@ -1876,27 +1920,22 @@ async function createProject(request, env, corsHeaders) {
     
     // Extract user ID from auth header (Supabase JWT token)
     const authHeader = request.headers.get('Authorization');
-    let user_id = 1; // Default fallback
+    let user_id = null; // No default fallback for Supabase
     
     if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
         const token = authHeader.substring(7);
         // Decode JWT token to get user ID (Supabase JWT contains user info)
         const payload = JSON.parse(atob(token.split('.')[1]));
-        const supabaseUserId = payload.sub; // Supabase JWT 'sub' field contains the user ID
+        user_id = payload.sub; // Supabase JWT 'sub' field contains the user ID
         
-        // For now, we'll use a hash of the UUID to generate a consistent integer user_id
-        // This allows us to work with the existing INTEGER user_id column
-        user_id = Math.abs(supabaseUserId.split('').reduce((a, b) => {
-          a = ((a << 5) - a) + b.charCodeAt(0);
-          return a & a;
-        }, 0)) % 1000000; // Keep it within reasonable range
-        
-        console.log('Creating project for authenticated user ID (mapped):', user_id, 'from Supabase UUID:', supabaseUserId);
+        console.log('Creating project for authenticated user ID (Supabase UUID):', user_id);
       } catch (error) {
         console.error('Error decoding JWT token:', error);
-        // Fall back to default user_id = 1
+        return new Response(JSON.stringify({ error: 'Invalid authentication token' }), { status: 401, headers: corsHeaders });
       }
+    } else {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: corsHeaders });
     }
     
     const now = new Date().toISOString();
@@ -2505,8 +2544,8 @@ async function ensureAdsColumns(env) {
   
   // Check if database is available
   if (!db) {
-    console.error('Database not available in ensureAdsColumns');
-    throw new Error('Database not available');
+    console.warn('Database not available in ensureAdsColumns, skipping column creation');
+    return;
   }
   
   // Add ads columns to projects table if they don't exist

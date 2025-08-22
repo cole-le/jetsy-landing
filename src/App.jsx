@@ -64,43 +64,18 @@ function App() {
     const path = window.location.pathname;
     console.log('URL pathname:', path);
     
-    const verifyChatPassword = async () => {
-      try {
-        const pw = prompt('Enter password to access /chat');
-        if (!pw) return false;
-        const resp = await fetch(`${getApiBaseUrl()}/api/chat-password-verify`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: pw })
-        });
-        if (!resp.ok) return false;
-        const j = await resp.json().catch(() => ({}));
-        return !!j?.ok;
-      } catch {
-        return false;
-      }
-    };
+
     
     if (path === '/chat') {
-      // Simple password gate for both local and production
-      (async () => {
-        const allowed = await verifyChatPassword();
-        setCurrentStep(allowed ? 'chat' : 'hero');
-      })();
+      // Only authenticated users can access chat
+      setCurrentStep('chat');
     } else if (path.startsWith('/chat/')) {
       // Handle /chat/{project-id} routes
       const projectIdStr = path.slice('/chat/'.length);
       const pid = parseInt(projectIdStr, 10);
       if (!isNaN(pid)) {
-        (async () => {
-          const allowed = await verifyChatPassword();
-          if (allowed) {
-            setRouteProjectId(pid);
-            setCurrentStep('chat');
-          } else {
-            setCurrentStep('hero');
-          }
-        })();
+        setRouteProjectId(pid);
+        setCurrentStep('chat');
       }
     } else if (path.startsWith('/ad-creatives/')) {
       // Handle /ad-creatives/{project-id} routes
@@ -260,28 +235,9 @@ function App() {
     }
   }, [currentStep, isInitialLoad, analyticsProjectId, routeProjectId, adCreativesProjectId]);
 
-  const handleChatClick = async () => {
-    const verify = async () => {
-      try {
-        const pw = prompt('Enter password to access /chat');
-        if (!pw) return false;
-        const resp = await fetch(`${getApiBaseUrl()}/api/chat-password-verify`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: pw })
-        });
-        if (!resp.ok) return false;
-        const j = await resp.json().catch(() => ({}));
-        return !!j?.ok;
-      } catch {
-        return false;
-      }
-    };
-    const allowed = await verify();
-    if (allowed) {
-      setCurrentStep('chat');
-      trackEvent('chat_page_click');
-    }
+  const handleChatClick = () => {
+    setCurrentStep('chat');
+    trackEvent('chat_page_click');
   };
 
   const handleIdeaSubmit = (idea, visibility) => {
@@ -734,6 +690,14 @@ function App() {
           previewMode={previewMode}
           initialProjectId={routeProjectId}
           onNavigateToProfile={() => setCurrentStep('profile')}
+          onNavigateToAdCreatives={(projectId) => {
+            setAdCreativesProjectId(projectId);
+            setCurrentStep('ad-creatives');
+          }}
+          onNavigateToDataAnalytics={(projectId) => {
+            setAnalyticsProjectId(projectId);
+            setCurrentStep('data-analytics');
+          }}
         />
       )}
 
@@ -744,6 +708,14 @@ function App() {
           onNavigateToChat={(projectId) => {
             setRouteProjectId(projectId);
             setCurrentStep('chat');
+          }}
+          onNavigateToLaunch={(projectId) => {
+            setRouteProjectId(projectId);
+            setCurrentStep('launch-monitor');
+          }}
+          onNavigateToDataAnalytics={(projectId) => {
+            setAnalyticsProjectId(projectId);
+            setCurrentStep('data-analytics');
           }}
         />
       )}
@@ -757,7 +729,17 @@ function App() {
 
       {/* Launch & Monitor Page */}
       {currentStep === 'launch-monitor' && routeProjectId && (
-        <LaunchMonitorPage projectId={routeProjectId} />
+        <LaunchMonitorPage 
+          projectId={routeProjectId}
+          onNavigateToChat={(projectId) => {
+            setRouteProjectId(projectId);
+            setCurrentStep('chat');
+          }}
+          onNavigateToAdCreatives={(projectId) => {
+            setAdCreativesProjectId(projectId);
+            setCurrentStep('ad-creatives');
+          }}
+        />
       )}
 
       {/* Public full-screen route */}
@@ -769,25 +751,9 @@ function App() {
       {currentStep === 'data-analytics' && analyticsProjectId && (
         <ProjectDataAnalytics 
           projectId={analyticsProjectId}
-      onBack={async () => {
+      onBack={() => {
             try { localStorage.setItem('jetsy_current_project_id', String(analyticsProjectId)); } catch {}
-            // Re-gate on returning to chat
-            try {
-              const pw = prompt('Enter password to access /chat');
-              if (!pw) { setCurrentStep('hero'); return; }
-              const resp = await fetch(`${getApiBaseUrl()}/api/chat-password-verify`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password: pw })
-              });
-              if (resp.ok) {
-                const j = await resp.json().catch(() => ({}));
-                if (j && j.ok) { setCurrentStep('chat'); return; }
-              }
-              setCurrentStep('hero');
-            } catch {
-              setCurrentStep('hero');
-            }
+            setCurrentStep('chat');
           }}
         />
       )}

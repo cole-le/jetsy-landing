@@ -296,7 +296,7 @@ export const DEFAULT_TEMPLATE_DATA = {
   showFooter: true
 };
 
-const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode = 'desktop', initialProjectId }, ref) => {
+const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode = 'desktop', initialProjectId, onNavigateToProfile, onNavigateToAdCreatives, onNavigateToDataAnalytics }, ref) => {
   const { session } = useAuth();
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -2816,12 +2816,8 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                       <button
                         type="button"
                         onClick={() => {
-                          try {
-                            if (currentProject?.id) {
-                              window.location.href = `/ad-creatives/${currentProject.id}`;
-                            }
-                          } catch (_) {
-                            // noop
+                          if (currentProject?.id && onNavigateToAdCreatives) {
+                            onNavigateToAdCreatives(currentProject.id);
                           }
                         }}
                         className="text-sm font-semibold text-gray-700 px-3 py-1 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 transition-colors cursor-pointer"
@@ -2846,7 +2842,9 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                 <button
                   onClick={() => {
                     // Navigate to data analytics page
-                    window.location.href = `/data_analytics/project_${currentProject?.id}`;
+                    if (currentProject?.id && onNavigateToDataAnalytics) {
+                      onNavigateToDataAnalytics(currentProject.id);
+                    }
                   }}
                   className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700 inline-flex items-center gap-2 justify-center mt-4"
                 >

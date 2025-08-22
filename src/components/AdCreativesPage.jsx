@@ -5,8 +5,10 @@ import LinkedInSingleImageAdPreview from './ads-template/LinkedInSingleImageAdPr
 import MetaFeedSingleImageAdPreview from './ads-template/MetaFeedSingleImageAdPreview';
 import InstagramSingleImageAdPreview from './ads-template/InstagramSingleImageAdPreview';
 import AdControls from './ads-template/AdControls';
+import { useAuth } from './auth/AuthProvider';
 
-const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
+const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNavigateToDataAnalytics }) => {
+  const { session } = useAuth();
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -134,7 +136,14 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
   const loadProjectData = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${getApiBaseUrl()}/api/projects/${projectId}`);
+      const headers = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
+      const response = await fetch(`${getApiBaseUrl()}/api/projects/${projectId}`, {
+        headers
+      });
       
       if (!response.ok) {
         throw new Error('Failed to load project data');
@@ -159,7 +168,9 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
       
       // Also check deployment status from deployment API if available
       try {
-        const deploymentResponse = await fetch(`${getApiBaseUrl()}/api/projects/${projectId}/deployment`);
+        const deploymentResponse = await fetch(`${getApiBaseUrl()}/api/projects/${projectId}/deployment`, {
+          headers
+        });
         if (deploymentResponse.ok) {
           const deploymentData = await deploymentResponse.json();
           if (deploymentData.status === 'deployed' && (deploymentData.customDomain || deploymentData.vercelDomain)) {
@@ -253,9 +264,14 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
 
   const saveAdsData = useCallback(async (adsData, imageUrl, imageId) => {
     try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
       const response = await fetch(`${getApiBaseUrl()}/api/projects/${projectId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           ads_data: JSON.stringify(adsData),
           ads_generated_at: new Date().toISOString(),
@@ -272,7 +288,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
     } catch (error) {
       console.error('Error saving ads data:', error);
     }
-  }, [projectId]);
+  }, [projectId, session]);
 
   const generateAdsWithAI = useCallback(async () => {
     if (!project) return;
@@ -282,9 +298,14 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
       try { window.dispatchEvent(new CustomEvent('ad-creatives:loading', { detail: { isGenerating: true } })); } catch {}
       
       // Call AI to generate ads content and image
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
       const response = await fetch(`${getApiBaseUrl()}/api/generate-ads-with-ai`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           projectId: projectId,
           projectData: {
@@ -365,9 +386,14 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
         instagram: { copy: instagramCopy, visual: instagramVisual }
       };
 
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
       const response = await fetch(`${getApiBaseUrl()}/api/projects/${projectId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           ads_data: JSON.stringify(currentAdsData),
           ads_generated_at: new Date().toISOString()
@@ -397,7 +423,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
       console.error('Error saving ads edits:', error);
       alert('Failed to save ads edits. Please try again.');
     }
-  }, [linkedInCopy, linkedInVisual, metaCopy, metaVisual, instagramCopy, instagramVisual, projectId]);
+  }, [linkedInCopy, linkedInVisual, metaCopy, metaVisual, instagramCopy, instagramVisual, projectId, session]);
 
   // Prevent page scroll when hovering controls: only scroll the inner controls container
   const handleControlsWheel = useCallback((e) => {
@@ -857,7 +883,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
                       <button
                         onClick={() => {
                           // Navigate to launch and monitor page
-                          window.location.href = `/launch/${projectId}`;
+                          onNavigateToLaunch(projectId);
                         }}
                         className="text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 px-2 py-1 rounded transition-colors"
                       >
@@ -872,7 +898,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat }) => {
                 <button
                   onClick={() => {
                     // Navigate to data analytics page
-                    window.location.href = `/data_analytics/project_${projectId}`;
+                    onNavigateToDataAnalytics(projectId);
                   }}
                   className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700 inline-flex items-center gap-2 justify-center mt-4"
                 >

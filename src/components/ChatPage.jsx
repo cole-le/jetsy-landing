@@ -172,7 +172,7 @@ const ChatPage = ({ onBackToHome }) => {
         } else {
           console.error('❌ Failed to load projects:', projectsResponse.status, projectsResponse.statusText);
         }
-      }
+      
 
       // If no projects exist, create a default one
       try {
@@ -760,7 +760,7 @@ const ChatPage = ({ onBackToHome }) => {
     );
   }
 
-  // Redirect to home if not authenticated
+  // Redirect to login if not authenticated
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -768,10 +768,10 @@ const ChatPage = ({ onBackToHome }) => {
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Authentication Required</h2>
           <p className="text-gray-600 mb-6">Please sign in to access the chat.</p>
           <button
-            onClick={() => window.location.href = '/'}
+            onClick={() => window.location.href = '/#login'}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
-            Go to Home
+            Sign In
           </button>
         </div>
       </div>

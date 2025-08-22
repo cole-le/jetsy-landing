@@ -4,6 +4,7 @@ import { SiLinkedin, SiFacebook, SiInstagram } from 'react-icons/si';
 import LinkedInSingleImageAdPreview from './ads-template/LinkedInSingleImageAdPreview';
 import MetaFeedSingleImageAdPreview from './ads-template/MetaFeedSingleImageAdPreview';
 import InstagramSingleImageAdPreview from './ads-template/InstagramSingleImageAdPreview';
+import { useAuth } from './auth/AuthProvider';
 
 const formatCentsToDollars = (cents) => {
   if (cents == null || isNaN(cents)) return '';
@@ -112,7 +113,8 @@ const copyTargetAudience = async (platform, aiTargetAudience) => {
   }
 };
 
-const LaunchMonitorPage = ({ projectId }) => {
+const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreatives }) => {
+  const { session } = useAuth();
   const [project, setProject] = useState(null);
   const [deployment, setDeployment] = useState(null);
   const [metrics, setMetrics] = useState(null);
@@ -266,7 +268,14 @@ const LaunchMonitorPage = ({ projectId }) => {
 
   const loadDeployment = async () => {
     try {
-      const res = await fetch(`${apiBase}/api/projects/${projectId}/deployment`);
+      const headers = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
+      const res = await fetch(`${apiBase}/api/projects/${projectId}/deployment`, {
+        headers
+      });
       const j = await res.json();
       setDeployment(j);
     } catch (e) {
@@ -283,7 +292,14 @@ const LaunchMonitorPage = ({ projectId }) => {
         url += `?startDate=${customStartDate}&endDate=${customEndDate}`;
       }
       
-      const res = await fetch(url);
+      const headers = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
+      const res = await fetch(url, {
+        headers
+      });
       if (!res.ok) throw new Error('metrics failed');
       const j = await res.json();
       setMetrics(j);
@@ -294,7 +310,14 @@ const LaunchMonitorPage = ({ projectId }) => {
 
   const loadScore = async () => {
     try {
-      const res = await fetch(`${apiBase}/api/projects/${projectId}/score`);
+      const headers = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
+      const res = await fetch(`${apiBase}/api/projects/${projectId}/score`, {
+        headers
+      });
       if (!res.ok) throw new Error('score failed');
       const j = await res.json();
       setScore(j);
@@ -305,7 +328,14 @@ const LaunchMonitorPage = ({ projectId }) => {
 
   const loadTestRun = async () => {
     try {
-      const res = await fetch(`${apiBase}/api/projects/${projectId}/testrun`);
+      const headers = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
+      const res = await fetch(`${apiBase}/api/projects/${projectId}/testrun`, {
+        headers
+      });
       const j = await res.json();
       setTestRun(j);
       setAdSpendDollars(j?.ad_spend_cents != null ? formatCentsToDollars(j.ad_spend_cents) : '');
@@ -318,7 +348,14 @@ const LaunchMonitorPage = ({ projectId }) => {
 
   const loadProjectData = async () => {
     try {
-      const res = await fetch(`${apiBase}/api/projects/${projectId}`);
+      const headers = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
+      const res = await fetch(`${apiBase}/api/projects/${projectId}`, {
+        headers
+      });
       if (!res.ok) return;
       
       const result = await res.json();
@@ -331,7 +368,14 @@ const LaunchMonitorPage = ({ projectId }) => {
 
   const loadAdsData = async () => {
     try {
-      const res = await fetch(`${apiBase}/api/projects/${projectId}`);
+      const headers = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
+      const res = await fetch(`${apiBase}/api/projects/${projectId}`, {
+        headers
+      });
       if (!res.ok) return;
       
       const result = await res.json();
@@ -377,9 +421,14 @@ const LaunchMonitorPage = ({ projectId }) => {
   const generateTargetAudience = async () => {
     try {
       setIsGeneratingAudience(true);
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
       const response = await fetch(`${apiBase}/api/generate-target-audience`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ projectId })
       });
       
@@ -493,9 +542,14 @@ const LaunchMonitorPage = ({ projectId }) => {
 
     try {
       setSaveStep4Loading(true);
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
       await fetch(`${apiBase}/api/projects/${projectId}/testrun`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           adSpendCents: spendCents,
           impressions: imp,
@@ -701,7 +755,7 @@ const LaunchMonitorPage = ({ projectId }) => {
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => (window.location.href = `/chat/${projectId}`)} className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm hover:bg-gray-200 transition-colors">Edit website</button>
+              <button onClick={() => onNavigateToChat(projectId)} className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm hover:bg-gray-200 transition-colors">Edit website</button>
             </div>
             {/* UTM helper removed */}
           </div>
@@ -709,13 +763,13 @@ const LaunchMonitorPage = ({ projectId }) => {
         {(!deployment || deployment?.status === 'not_deployed' || (!deployment.customDomain && !deployment.vercelDomain)) && (
           <div className="space-y-3">
             <div>{pill('⚠️ Not deployed', 'bg-yellow-100 text-yellow-800')}</div>
-            <button onClick={() => (window.location.href = `/chat/${projectId}`)} className="px-4 py-2 bg-blue-600 text-white rounded text-sm">Go to builder and deploy my website</button>
+            <button onClick={() => onNavigateToChat(projectId)} className="px-4 py-2 bg-blue-600 text-white rounded text-sm">Go to builder and deploy my website</button>
           </div>
         )}
         {deployment?.status === 'error' && (
           <div className="space-y-3">
             <div className="p-3 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">We could not determine deployment status. You can still deploy from the builder.</div>
-            <button onClick={() => (window.location.href = `/chat/${projectId}`)} className="px-4 py-2 bg-blue-600 text-white rounded text-sm">Go to builder and deploy my website</button>
+            <button onClick={() => onNavigateToChat(projectId)} className="px-4 py-2 bg-blue-600 text-white rounded text-sm">Go to builder and deploy my website</button>
           </div>
         )}
       </Section>
@@ -795,7 +849,7 @@ const LaunchMonitorPage = ({ projectId }) => {
           {/* Action buttons */}
           <div className="flex gap-3">
             <button
-              onClick={() => window.location.href = `/ad-creatives/${projectId}`}
+              onClick={() => onNavigateToAdCreatives(projectId)}
               className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm hover:bg-gray-200 transition-colors"
             >
               Edit Ads
