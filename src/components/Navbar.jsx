@@ -246,9 +246,41 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
         <div className="flex-1 flex justify-center">
           <div className="max-w-7xl w-full px-2 sm:px-4 lg:px-8">
             <div className="flex justify-between items-center h-16">
-              {/* Spacer to balance the layout */}
+              {/* Left side - Empty for balance when workflow bar is centered */}
               <div className="flex items-center">
                 {/* This div is intentionally empty to balance the layout */}
+              </div>
+
+              {/* Center - Workflow Progress Bar for project modes */}
+              <div className="flex items-center justify-center flex-1">
+                {/* Workflow Progress Bar - Show when there's a current project ID */}
+                {!isMobile && currentProjectId && (
+                  <WorkflowProgressBar 
+                    currentStage={
+                      isChatMode ? (adsExist ? 2 : 1) :
+                      isAdCreativesMode ? 2 :
+                      isLaunchMonitorMode ? 3 : 3
+                    } 
+                    pulseStageId={
+                      isChatMode ? (adsExist ? 2 : (hasTemplateData ? 2 : undefined)) : undefined
+                    }
+                    projectId={currentProjectId}
+                    websiteDeployed={websiteDeployed}
+                    adsExist={adsExist}
+                    onStageClick={(stageId) => {
+                      if (stageId === 1 && currentProjectId) {
+                        // Navigate to website creation
+                        window.location.href = `/chat/${currentProjectId}`;
+                      } else if (stageId === 2 && currentProjectId) {
+                        // Navigate to ads creation
+                        window.location.href = `/ad-creatives/${currentProjectId}`;
+                      } else if (stageId === 3 && currentProjectId) {
+                        // Navigate to launch and monitor page
+                        window.location.href = `/launch/${currentProjectId}`;
+                      }
+                    }}
+                  />
+                )}
               </div>
 
               {/* Desktop Navigation and Account Actions */}
@@ -283,29 +315,6 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
               {/* Chat mode header content */}
               {isChatMode ? (
                 <div className="flex items-center space-x-1 sm:space-x-2 lg:space-x-3 overflow-hidden min-w-0">
-                  {/* Workflow Progress Bar - Hidden on mobile to save space */}
-                  {!isMobile && (
-                                      <WorkflowProgressBar 
-                    currentStage={adsExist ? 2 : 1} 
-                    pulseStageId={adsExist ? 2 : (hasTemplateData ? 2 : undefined)}
-                    projectId={currentProjectId}
-                    websiteDeployed={websiteDeployed}
-                    adsExist={adsExist}
-                                          onStageClick={(stageId) => {
-                        if (stageId === 2 && currentProjectId) {
-                          // Navigate to ads creation
-                          window.location.href = `/ad-creatives/${currentProjectId}`;
-                        } else if (stageId === 1) {
-                          // Already on website creation, do nothing
-                          return;
-                        } else if (stageId === 3 && currentProjectId) {
-                          // Navigate to launch and monitor page
-                          window.location.href = `/launch/${currentProjectId}`;
-                        }
-                      }}
-                  />
-                  )}
-
                   {/* Data Analytics button - Hidden on mobile to save space */}
                   {!isMobile && (
                     <button
@@ -428,56 +437,12 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
                 </div>
               ) : isLaunchMonitorMode ? (
                 // Launch & Monitor mode header content
-                <div className="flex-1 flex justify-start">
-                  {/* Workflow Progress Bar */}
-                  <div className="ml-24">
-                    <WorkflowProgressBar 
-                      currentStage={3} 
-                      projectId={currentProjectId || undefined}
-                      websiteDeployed={websiteDeployed}
-                      adsExist={adsExist}
-                      onStageClick={(stageId) => {
-                        if (stageId === 1 && currentProjectId) {
-                          // Navigate to website creation
-                          window.location.href = `/chat/${currentProjectId}`;
-                        } else if (stageId === 2 && currentProjectId) {
-                          // Navigate to ads creation
-                          window.location.href = `/ad-creatives/${currentProjectId}`;
-                        } else if (stageId === 3) {
-                          // Already on launch and monitor, do nothing
-                          return;
-                        }
-                      }}
-                    />
-                  </div>
+                <div className="flex-1 flex justify-end">
+                  {/* Right side content for Launch Monitor mode */}
                 </div>
               ) : isAdCreativesMode ? (
                 // Ad Creatives mode header content
                 <div className="flex items-center space-x-3">
-                  {/* Workflow Progress Bar - Hidden on mobile to prevent duplicate navbar */}
-                  {!isMobile && (
-                    <div className="mr-4 md:mr-6 lg:mr-8">
-                      <WorkflowProgressBar 
-                        currentStage={2} 
-                        projectId={currentProjectId || undefined}
-                        websiteDeployed={websiteDeployed}
-                        adsExist={adsExist}
-                        onStageClick={(stageId) => {
-                          if (stageId === 1 && currentProjectId) {
-                            // Navigate to website creation
-                            window.location.href = `/chat/${currentProjectId}`;
-                          } else if (stageId === 2) {
-                            // Already on ads creation, do nothing
-                            return;
-                          } else if (stageId === 3 && currentProjectId) {
-                            // Navigate to launch and monitor page
-                            window.location.href = `/launch/${currentProjectId}`;
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
-
                   {/* Generate + Save */}
                   <button
                     onClick={() => window.dispatchEvent(new CustomEvent('ad-creatives:generate'))}

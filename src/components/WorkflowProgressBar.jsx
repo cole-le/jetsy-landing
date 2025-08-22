@@ -53,7 +53,9 @@ const WorkflowProgressBar = ({ currentStage = 1, onStageClick, projectId, pulseS
           {index < stages.length - 1 && (
             <div
               className={`w-8 h-0.5 mx-2 transition-colors duration-200 ${
-                (stage.id === 1 && websiteDeployed) || (stage.id === 2 && adsExist) ? 'bg-blue-600' : 'bg-gray-200'
+                (stage.id === 1 && websiteDeployed) || (stage.id === 2 && adsExist)
+                  ? 'bg-blue-600' 
+                  : 'bg-gray-200'
               }`}
             />
           )}

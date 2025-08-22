@@ -138,6 +138,15 @@ const ProjectDataAnalytics = ({ projectId, onBack }) => {
     loadProjectDetails();
   }, [projectId]);
 
+  // Set current project ID in localStorage for navbar workflow tracking
+  useEffect(() => {
+    try {
+      localStorage.setItem('jetsy_current_project_id', String(projectId));
+    } catch (error) {
+      console.error('Failed to set project ID in localStorage:', error);
+    }
+  }, [projectId]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-5xl mx-auto px-4 py-6 pt-8 lg:pt-20">
