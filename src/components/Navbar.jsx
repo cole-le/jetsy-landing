@@ -316,6 +316,11 @@ const Navbar = ({
   // Mobile chat-mode pulse around project name when Ads creation is the next step
   const shouldPulseProjectName = isChatMode && isMobile && hasTemplateData && !adsExist;
 
+  // Hide entire navbar on mobile for Launch & Monitor page (it has its own mobile header)
+  if (isLaunchMonitorMode && isMobile) {
+    return null;
+  }
+
   return (
     <nav className={`${hideNavbar ? 'fixed' : 'sticky'} top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 transition-all duration-300 ${hideNavbar ? 'transform -translate-y-full' : 'transform translate-y-0'}`}>
       <div className="flex items-center h-16">
