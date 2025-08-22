@@ -3,7 +3,24 @@ import DeploymentButton from './DeploymentButton';
 import WorkflowProgressBar from './WorkflowProgressBar';
 import { getApiBaseUrl } from '../config/environment';
 
-const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, onChatClick, onSaveChanges, isChatMode = false, isAdCreativesMode = false, isLaunchMonitorMode = false, previewMode = 'desktop', onPreviewModeChange, isMainPage = false }) => {
+const Navbar = ({ 
+  onPricingClick, 
+  onFAQClick, 
+  onLogoClick, 
+  onGetStartedClick, 
+  onChatClick, 
+  onSaveChanges, 
+  isChatMode = false, 
+  isAdCreativesMode = false, 
+  isLaunchMonitorMode = false, 
+  previewMode = 'desktop', 
+  onPreviewModeChange, 
+  isMainPage = false,
+  // Add navigation callbacks for workflow stages
+  onNavigateToWebsiteCreation,
+  onNavigateToAdCreatives,
+  onNavigateToLaunchMonitor
+}) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [showPublishModal, setShowPublishModal] = useState(false);
@@ -282,14 +299,29 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
                       adsExist={adsExist}
                       onStageClick={(stageId) => {
                         if (stageId === 1 && currentProjectId) {
-                          // Navigate to website creation
-                          window.location.href = `/chat/${currentProjectId}`;
+                          // Navigate to website creation using callback if available
+                          if (onNavigateToWebsiteCreation) {
+                            onNavigateToWebsiteCreation(currentProjectId);
+                          } else {
+                            // Fallback to window.location.href
+                            window.location.href = `/chat/${currentProjectId}`;
+                          }
                         } else if (stageId === 2 && currentProjectId) {
-                          // Navigate to ads creation
-                          window.location.href = `/ad-creatives/${currentProjectId}`;
+                          // Navigate to ads creation using callback if available
+                          if (onNavigateToAdCreatives) {
+                            onNavigateToAdCreatives(currentProjectId);
+                          } else {
+                            // Fallback to window.location.href
+                            window.location.href = `/ad-creatives/${currentProjectId}`;
+                          }
                         } else if (stageId === 3 && currentProjectId) {
-                          // Navigate to launch and monitor page
-                          window.location.href = `/launch/${currentProjectId}`;
+                          // Navigate to launch and monitor page using callback if available
+                          if (onNavigateToLaunchMonitor) {
+                            onNavigateToLaunchMonitor(currentProjectId);
+                          } else {
+                            // Fallback to window.location.href
+                            window.location.href = `/launch/${currentProjectId}`;
+                          }
                         }
                       }}
                     />

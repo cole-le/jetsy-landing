@@ -509,6 +509,19 @@ function App() {
           previewMode={previewMode}
           onPreviewModeChange={handlePreviewModeChange}
           isMainPage={currentStep === 'hero'}
+          // Add navigation callbacks for workflow stages
+          onNavigateToWebsiteCreation={(projectId) => {
+            setRouteProjectId(projectId);
+            setCurrentStep('chat');
+          }}
+          onNavigateToAdCreatives={(projectId) => {
+            setAdCreativesProjectId(projectId);
+            setCurrentStep('ad-creatives');
+          }}
+          onNavigateToLaunchMonitor={(projectId) => {
+            setRouteProjectId(projectId);
+            setCurrentStep('launch-monitor');
+          }}
         />
       )}
       
