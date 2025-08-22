@@ -296,7 +296,7 @@ export const DEFAULT_TEMPLATE_DATA = {
   showFooter: true
 };
 
-const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode = 'desktop', initialProjectId, onNavigateToProfile, onNavigateToAdCreatives, onNavigateToDataAnalytics }, ref) => {
+const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode = 'desktop', initialProjectId, onNavigateToProfile, onNavigateToAdCreatives, onNavigateToDataAnalytics, onNavigateToLaunch }, ref) => {
   const { session } = useAuth();
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -2935,7 +2935,18 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                       <div className="flex-shrink-0 w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-gray-600">
                         <span className="text-lg">🚀</span>
                       </div>
-                      <span className="text-sm font-medium text-gray-500">Launch and monitor</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (currentProject?.id && onNavigateToLaunch) {
+                            onNavigateToLaunch(currentProject.id);
+                          }
+                        }}
+                        className="text-sm font-semibold text-gray-700 px-3 py-1 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 transition-colors cursor-pointer"
+                        aria-label="Go to Launch and Monitor"
+                      >
+                        Launch and monitor
+                      </button>
                     </div>
                     
                   </div>

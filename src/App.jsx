@@ -711,6 +711,10 @@ function App() {
             setAnalyticsProjectId(projectId);
             setCurrentStep('data-analytics');
           }}
+          onNavigateToLaunch={(projectId) => {
+            setRouteProjectId(projectId);
+            setCurrentStep('launch-monitor');
+          }}
         />
       )}
 
