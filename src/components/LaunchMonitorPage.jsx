@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { getApiBaseUrl } from '../config/environment';
 import { SiLinkedin, SiFacebook, SiInstagram } from 'react-icons/si';
 import LinkedInSingleImageAdPreview from './ads-template/LinkedInSingleImageAdPreview';
@@ -9,6 +9,78 @@ const formatCentsToDollars = (cents) => {
   if (cents == null || isNaN(cents)) return '';
   return (Number(cents) / 100).toFixed(2);
 };
+
+// Memoized child to isolate Step 4 manual inputs from parent re-renders
+const Step4ManualInputs = React.memo(function Step4ManualInputs({
+  adSpendDollars,
+  impressions,
+  clicks,
+  cpc,
+  validationMsg,
+  saveStep4Loading,
+  onSpendChange,
+  onImpressionsChange,
+  onClicksChange,
+  onSave,
+  spendRef,
+  impressionsRef,
+  clicksRef,
+  onInputFocus,
+  onInputBlur,
+  containerRef,
+}) {
+  return (
+    <div ref={containerRef}>
+      <h4 className="text-sm font-semibold text-gray-800 mb-2">From Ads (manual)</h4>
+      <div className="space-y-3">
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">Spend (USD)</label>
+          <input 
+            ref={spendRef}
+            value={adSpendDollars} 
+            onChange={onSpendChange}
+            onFocus={onInputFocus}
+            onBlur={onInputBlur}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" 
+            placeholder="e.g., 50" 
+          />
+        </div>
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">Impressions</label>
+          <input 
+            ref={impressionsRef}
+            type="number" 
+            value={impressions} 
+            onChange={onImpressionsChange}
+            onFocus={onInputFocus}
+            onBlur={onInputBlur}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" 
+            placeholder="e.g., 7500" 
+          />
+        </div>
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">Clicks</label>
+          <input 
+            ref={clicksRef}
+            type="number" 
+            value={clicks} 
+            onChange={onClicksChange}
+            onFocus={onInputFocus}
+            onBlur={onInputBlur}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" 
+            placeholder="e.g., 120" 
+          />
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-700">CPC</span>
+          <span className="font-medium text-gray-900">{cpc}</span>
+        </div>
+        {validationMsg && <div className="text-xs text-red-600">{validationMsg}</div>}
+        <button onClick={onSave} disabled={saveStep4Loading} className={`px-3 py-2 rounded text-sm ${saveStep4Loading ? 'bg-gray-200 text-gray-500' : 'bg-gray-100 border border-gray-300'}`}>Save</button>
+      </div>
+    </div>
+  );
+});
 
 const dollarsToCents = (dollarsStr) => {
   const n = parseFloat(String(dollarsStr || '').replace(/[^0-9.\-]/g, ''));
@@ -139,6 +211,7 @@ const LaunchMonitorPage = ({ projectId }) => {
     },
   };
 
+
   // Fallback image URLs for demo purposes
   const fallbackImages = {
     linkedIn: '/ferrari.jpg',
@@ -156,6 +229,9 @@ const LaunchMonitorPage = ({ projectId }) => {
   // UTM helper removed per request
 
   const cpc = useMemo(() => {
+    // Only calculate if both values are present and valid
+    if (!adSpendDollars || !clicks) return '—';
+    
     const cents = dollarsToCents(adSpendDollars);
     const c = parseInt(clicks || '0', 10) || 0;
     if (!cents || !c || c <= 0) return '—';
@@ -186,6 +262,8 @@ const LaunchMonitorPage = ({ projectId }) => {
 
   // Cycle encouragement/warning copy when incomplete (header card)
   const [cycleIdx, setCycleIdx] = useState(0);
+  // Pause cycles when user is typing in Step 4 inputs
+  const [manualInputsFocused, setManualInputsFocused] = useState(false);
   const cycleMessages = useMemo(
     () => [
       'Awesome business idea — you should build it! 🚀',
@@ -203,13 +281,13 @@ const LaunchMonitorPage = ({ projectId }) => {
   useEffect(() => {
     const mq = typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
     const reduce = mq?.matches;
-    if (isIncomplete && !reduce) {
+    if (isIncomplete && !reduce && !manualInputsFocused) {
       const id = setInterval(() => {
         setCycleIdx((i) => (i + 1) % cycleMessages.length);
       }, 3500);
       return () => clearInterval(id);
     }
-  }, [isIncomplete, cycleMessages.length]);
+  }, [isIncomplete, cycleMessages.length, manualInputsFocused]);
 
   const loadDeployment = async () => {
     try {
@@ -354,6 +432,81 @@ const LaunchMonitorPage = ({ projectId }) => {
     // Reload metrics with new time range
     await loadMetrics();
   };
+
+  // Refs to keep focus stable across re-renders
+  const spendInputRef = useRef(null);
+  const impressionsInputRef = useRef(null);
+  const clicksInputRef = useRef(null);
+  const manualInputsContainerRef = useRef(null);
+
+  // Memoized input change handlers with focus restore to avoid blur after re-render
+  const handleAdSpendChange = useCallback((e) => {
+    const el = spendInputRef.current;
+    const selStart = el ? el.selectionStart : null;
+    const selEnd = el ? el.selectionEnd : null;
+    setAdSpendDollars(e.target.value);
+    // Restore focus and selection at next paint
+    requestAnimationFrame(() => {
+      if (spendInputRef.current) {
+        spendInputRef.current.focus();
+        // Put cursor back where it was if possible
+        try {
+          if (selStart != null && selEnd != null) {
+            spendInputRef.current.setSelectionRange(selStart, selEnd);
+          }
+        } catch {}
+      }
+    });
+  }, []);
+
+  const handleImpressionsChange = useCallback((e) => {
+    const el = impressionsInputRef.current;
+    const selStart = el ? el.selectionStart : null;
+    const selEnd = el ? el.selectionEnd : null;
+    setImpressions(e.target.value);
+    requestAnimationFrame(() => {
+      if (impressionsInputRef.current) {
+        impressionsInputRef.current.focus();
+        try {
+          if (selStart != null && selEnd != null) {
+            impressionsInputRef.current.setSelectionRange(selStart, selEnd);
+          }
+        } catch {}
+      }
+    });
+  }, []);
+
+  const handleClicksChange = useCallback((e) => {
+    const el = clicksInputRef.current;
+    const selStart = el ? el.selectionStart : null;
+    const selEnd = el ? el.selectionEnd : null;
+    setClicks(e.target.value);
+    requestAnimationFrame(() => {
+      if (clicksInputRef.current) {
+        clicksInputRef.current.focus();
+        try {
+          if (selStart != null && selEnd != null) {
+            clicksInputRef.current.setSelectionRange(selStart, selEnd);
+          }
+        } catch {}
+      }
+    });
+  }, []);
+
+  // Focus guards for Step 4 inputs
+  const handleManualInputFocus = useCallback(() => {
+    setManualInputsFocused(true);
+  }, []);
+  const handleManualInputBlur = useCallback(() => {
+    // Allow switching between inputs without toggling off
+    requestAnimationFrame(() => {
+      const container = manualInputsContainerRef.current;
+      const ae = document.activeElement;
+      if (!container || !ae || !container.contains(ae)) {
+        setManualInputsFocused(false);
+      }
+    });
+  }, []);
 
   const saveStep4 = async () => {
     // Validate non-negative numbers
@@ -1039,27 +1192,24 @@ const LaunchMonitorPage = ({ projectId }) => {
       <Section title="Step 4 — Monitor Key Metrics 📊" stepKey="step4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h4 className="text-sm font-semibold text-gray-800 mb-2">From Ads (manual)</h4>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">Spend (USD)</label>
-                <input value={adSpendDollars} onChange={(e) => setAdSpendDollars(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="e.g., 50" />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">Impressions</label>
-                <input type="number" value={impressions} onChange={(e) => setImpressions(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="e.g., 7500" />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">Clicks</label>
-                <input type="number" value={clicks} onChange={(e) => setClicks(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="e.g., 120" />
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-700">CPC</span>
-                <span className="font-medium text-gray-900">{cpc}</span>
-              </div>
-              {validationMsg && <div className="text-xs text-red-600">{validationMsg}</div>}
-              <button onClick={saveStep4} disabled={saveStep4Loading} className={`px-3 py-2 rounded text-sm ${saveStep4Loading ? 'bg-gray-200 text-gray-500' : 'bg-gray-100 border border-gray-300'}`}>Save</button>
-            </div>
+            <Step4ManualInputs
+              adSpendDollars={adSpendDollars}
+              impressions={impressions}
+              clicks={clicks}
+              cpc={cpc}
+              validationMsg={validationMsg}
+              saveStep4Loading={saveStep4Loading}
+              onSpendChange={handleAdSpendChange}
+              onImpressionsChange={handleImpressionsChange}
+              onClicksChange={handleClicksChange}
+              onSave={saveStep4}
+              spendRef={spendInputRef}
+              impressionsRef={impressionsInputRef}
+              clicksRef={clicksInputRef}
+              onInputFocus={handleManualInputFocus}
+              onInputBlur={handleManualInputBlur}
+              containerRef={manualInputsContainerRef}
+            />
           </div>
           <div>
             <h4 className="text-sm font-semibold text-gray-800 mb-2">From Jetsy (auto)</h4>
