@@ -868,9 +868,9 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
                       </span>
                     </div>
                     
-                    {/* Connector line between steps */}
+                    {/* Connector line between steps (hidden on mobile to avoid stray blue line) */}
                     <div className="flex justify-center">
-                      <div className={`w-0.5 h-6 transition-colors duration-200 ${
+                      <div className={`hidden w-0.5 h-6 transition-colors duration-200 ${
                         websiteDeployed && adsExist ? 'bg-blue-600' : 'bg-gray-200'
                       }`}></div>
                     </div>
@@ -885,7 +885,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
                           // Navigate to launch and monitor page
                           onNavigateToLaunch(projectId);
                         }}
-                        className="text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 px-2 py-1 rounded transition-colors"
+                        className="text-sm font-medium px-3 py-1 rounded-lg shadow-sm transition-colors border bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
                       >
                         Launch and monitor
                       </button>

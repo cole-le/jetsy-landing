@@ -1810,9 +1810,9 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
                       </button>
                     </div>
                     
-                    {/* Connector line between steps */}
+                    {/* Connector line between steps (hidden on mobile to avoid stray blue line) */}
                     <div className="flex justify-center">
-                      <div className={`w-0.5 h-6 transition-colors duration-200 ${
+                      <div className={`hidden w-0.5 h-6 transition-colors duration-200 ${
                         websiteDeployed && adsExist ? 'bg-blue-600' : 'bg-gray-200'
                       }`}></div>
                     </div>
