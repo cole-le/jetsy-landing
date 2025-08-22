@@ -24,6 +24,7 @@ import LaunchMonitorPage from './components/LaunchMonitorPage'
 import { AuthProvider } from './components/auth/AuthProvider'
 import SignUpForm from './components/auth/SignUpForm'
 import ProfilePage from './components/auth/ProfilePage'
+import { getCurrentSession } from './config/supabase'
 
 function App() {
   const [currentStep, setCurrentStep] = useState('hero') // hero, faq, pricing, lead-capture, onboarding, login, signup, demo-booking, demo-thankyou, chat, profile
@@ -197,9 +198,21 @@ function App() {
         })();
         return; // avoid marking initial load twice below
       } else {
-        // This is jetsy.dev or localhost - show the normal Jetsy interface
-        setCurrentStep('hero');
-        setIsInitialLoad(false);
+        // This is jetsy.dev or localhost - if already logged in, go to chat, else show hero
+        (async () => {
+          try {
+            const session = await getCurrentSession();
+            if (session && session.user) {
+              setCurrentStep('chat');
+              setIsInitialLoad(false);
+              return;
+            }
+          } catch (e) {
+            console.error('Error checking auth session on home:', e);
+          }
+          setCurrentStep('hero');
+          setIsInitialLoad(false);
+        })();
       }
     }
     
