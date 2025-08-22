@@ -481,8 +481,8 @@ function App() {
   }
 
   const handleGetStartedClick = () => {
-    setExpandChat(true);
-    setTimeout(() => setExpandChat(false), 1000); // expand for 1s
+    // Route to signup page instead of highlighting chat form
+    setCurrentStep('signup');
   };
 
   const handleSaveChanges = async () => {
@@ -506,6 +506,7 @@ function App() {
           onLogoClick={handleLogoClick} 
           onGetStartedClick={handleGetStartedClick}
           onChatClick={handleChatClick}
+          onLoginClick={handleShowLogin}
           onSaveChanges={handleSaveChanges}
           isChatMode={currentStep === 'chat'}
           isAdCreativesMode={currentStep === 'ad-creatives'}
@@ -513,6 +514,7 @@ function App() {
           previewMode={previewMode}
           onPreviewModeChange={handlePreviewModeChange}
           isMainPage={currentStep === 'hero'}
+          hideWorkflowAndAnalytics={currentStep === 'login' || currentStep === 'signup' || currentStep === 'faq'}
           // Add navigation callbacks for workflow stages
           onNavigateToWebsiteCreation={(projectId) => {
             setRouteProjectId(projectId);

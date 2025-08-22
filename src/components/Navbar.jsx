@@ -10,6 +10,7 @@ const Navbar = ({
   onLogoClick, 
   onGetStartedClick, 
   onChatClick, 
+  onLoginClick,
   onSaveChanges, 
   isChatMode = false, 
   isAdCreativesMode = false, 
@@ -17,6 +18,7 @@ const Navbar = ({
   previewMode = 'desktop', 
   onPreviewModeChange, 
   isMainPage = false,
+  hideWorkflowAndAnalytics = false,
   // Add navigation callbacks for workflow stages
   onNavigateToWebsiteCreation,
   onNavigateToAdCreatives,
@@ -360,8 +362,8 @@ const Navbar = ({
 
               {/* Center - Workflow Progress Bar for project modes */}
               <div className="flex items-center justify-center flex-1">
-                {/* Workflow Progress Bar - Show when there's a current project ID and not on main page */}
-                {!isMobile && currentProjectId && !isMainPage && (
+                {/* Workflow Progress Bar - only in project modes (chat/ad-creatives/launch-monitor), not on main page, and not hidden */}
+                {!isMobile && currentProjectId && (isChatMode || isAdCreativesMode || isLaunchMonitorMode) && !isMainPage && !hideWorkflowAndAnalytics && (
                   <div className="flex items-center space-x-4 flex-nowrap">
                     <WorkflowProgressBar 
                       currentStage={
@@ -404,7 +406,7 @@ const Navbar = ({
                       }}
                     />
                     
-                    {/* Data Analytics button - Show on all project pages */}
+                    {/* Data Analytics button - Show on all project pages (unless hidden) */}
                     <button
                       onClick={() => {
                         try {
@@ -441,10 +443,10 @@ const Navbar = ({
                     Pricing
                   </button>
                   <button
-                    onClick={onChatClick}
-                    className="text-gray-600 hover:text-gray-900 transition-colors"
+                    onClick={onLoginClick}
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg transition-colors duration-200 font-medium"
                   >
-                    Chat
+                    Log in
                   </button>
                   <button 
                     onClick={handleGetStartedClick}
@@ -719,10 +721,10 @@ const Navbar = ({
               FAQ
             </button>
             <button 
-              onClick={onChatClick}
-              className="block w-full text-left px-3 py-2 text-text hover:text-accent transition-colors duration-200 font-medium"
+              onClick={onLoginClick}
+              className="block w-full text-left px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg transition-colors duration-200 font-medium"
             >
-              Chat
+              Log in
             </button>
             <button 
               onClick={handleGetStartedClick}
