@@ -68,6 +68,9 @@ const LaunchMonitorPage = ({ projectId }) => {
   const [timeRange, setTimeRange] = useState('24h');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  
+  // Download state
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Ads-related state
   const [activePlatform, setActivePlatform] = useState('linkedin');
@@ -683,17 +686,261 @@ const LaunchMonitorPage = ({ projectId }) => {
       {/* Step 3 */}
       <Section title="Step 3 — Launch ads for 24 hours 🚀" stepKey="step3">
         <div className="space-y-4">
-          <div className="flex flex-wrap gap-3">
-            <a href="https://www.linkedin.com/campaignmanager" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm flex items-center gap-2 hover:bg-gray-200 transition-colors">
-              <SiLinkedin className="w-4 h-4 text-blue-600" />
-              <span>LinkedIn Ads Manager</span>
-            </a>
-            <a href="https://business.facebook.com/adsmanager" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm flex items-center gap-2 hover:bg-gray-200 transition-colors">
-              <SiFacebook className="w-4 h-4 text-blue-600" />
-              <SiInstagram className="w-4 h-4 text-pink-500" />
-              <span>Meta and Instagram Ads Manager</span>
-            </a>
+          {/* Smart Testing Strategy moved to top */}
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              💡 <strong>Smart Testing Strategy:</strong> You don't need to spend much on ads to test your business idea. Just $17 is enough to get around 380+ impressions on your ads. From this, you can see how many people click on your ads and interact with your website. Based on these metrics, you'll know if your idea has potential or needs refinement.
+            </p>
           </div>
+          
+          <div>
+            <p className="text-sm text-gray-700 mb-3">Click these buttons to go and launch your ad:</p>
+            <div className="flex flex-wrap gap-3">
+              <a href="https://www.linkedin.com/campaignmanager" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm flex items-center gap-2 hover:bg-gray-200 transition-colors">
+                <SiLinkedin className="w-4 h-4 text-blue-600" />
+                <span>LinkedIn Ads Manager</span>
+              </a>
+              <a href="https://business.facebook.com/adsmanager" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm flex items-center gap-2 hover:bg-gray-200 transition-colors">
+                <SiFacebook className="w-4 h-4 text-blue-600" />
+                <SiInstagram className="w-4 h-4 text-pink-500" />
+                <span>Meta and Instagram Ads Manager</span>
+              </a>
+            </div>
+          </div>
+
+          {/* Download Ads Image and Copy All Text */}
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <h4 className="text-sm font-semibold text-gray-800 mb-3">Ad Assets & Copy</h4>
+            
+            {/* Status indicator for ad images */}
+            <div className="mb-3">
+              {adsData?.linkedIn?.visual?.imageUrl || adsData?.meta?.visual?.imageUrl || adsData?.instagram?.visual?.imageUrl ? (
+                <div className="text-xs text-green-600 bg-green-50 border border-green-200 rounded px-2 py-1 inline-block">
+                  ✅ Custom ad images available
+                </div>
+              ) : (
+                <div className="text-xs text-yellow-600 bg-yellow-50 border border-yellow-200 rounded px-2 py-1 inline-block">
+                  ⚠️ Using placeholder images - create custom ads first
+                </div>
+              )}
+            </div>
+            
+            <div className="flex flex-wrap gap-3 mb-4">
+              <button
+                onClick={async () => {
+                  if (isDownloading) return; // Prevent multiple clicks
+                  
+                  try {
+                    setIsDownloading(true);
+                    
+                    // Get the actual ad images from the project data
+                    const actualImages = [];
+                    
+                    if (adsData?.linkedIn?.visual?.imageUrl) {
+                      actualImages.push({ url: adsData.linkedIn.visual.imageUrl, name: 'linkedin-ad' });
+                    }
+                    if (adsData?.meta?.visual?.imageUrl) {
+                      actualImages.push({ url: adsData.meta.visual.imageUrl, name: 'meta-ad' });
+                    }
+                    if (adsData?.instagram?.visual?.imageUrl) {
+                      actualImages.push({ url: adsData.instagram.visual.imageUrl, name: 'instagram-ad' });
+                    }
+                    if (adsData?.linkedIn?.visual?.logoUrl) {
+                      actualImages.push({ url: adsData.linkedIn.visual.logoUrl, name: 'logo' });
+                    }
+                    
+                    if (actualImages.length > 0) {
+                      // Fetch the image data and create a downloadable blob
+                      const imageToDownload = actualImages[0];
+                      const response = await fetch(imageToDownload.url);
+                      const blob = await response.blob();
+                      
+                      // Create download link
+                      const url = window.URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = `${project?.project_name || 'project'}-${imageToDownload.name}.jpg`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      window.URL.revokeObjectURL(url);
+                    } else {
+                      // Fallback to placeholder if no actual images
+                      const link = document.createElement('a');
+                      link.href = fallbackImages.linkedIn;
+                      link.download = `${project?.project_name || 'project'}-ad-image.jpg`;
+                      link.click();
+                    }
+                  } catch (error) {
+                    console.error('Download failed:', error);
+                    // Fallback: open fallback image in new tab
+                    window.open(fallbackImages.linkedIn, '_blank');
+                  } finally {
+                    setIsDownloading(false);
+                  }
+                }}
+                disabled={isDownloading}
+                className={`px-4 py-2 rounded text-sm transition-colors flex items-center gap-2 ${
+                  isDownloading 
+                    ? 'bg-gray-400 text-white cursor-not-allowed' 
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
+                {isDownloading ? (
+                  <>
+                    <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+                    Downloading...
+                  </>
+                ) : (
+                  `📥 ${adsData?.linkedIn?.visual?.imageUrl || adsData?.meta?.visual?.imageUrl || adsData?.instagram?.visual?.imageUrl ? 'Download Ad Image' : 'Download Placeholder Image'}`
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  // Open actual ad images if available, otherwise fallback to placeholders
+                  const imagesToOpen = [];
+                  
+                  if (adsData?.linkedIn?.visual?.imageUrl) {
+                    imagesToOpen.push(adsData.linkedIn.visual.imageUrl);
+                  } else {
+                    imagesToOpen.push(fallbackImages.linkedIn);
+                  }
+                  
+                  if (adsData?.meta?.visual?.imageUrl) {
+                    imagesToOpen.push(adsData.meta.visual.imageUrl);
+                  } else {
+                    imagesToOpen.push(fallbackImages.meta);
+                  }
+                  
+                  if (adsData?.instagram?.visual?.imageUrl) {
+                    imagesToOpen.push(adsData.instagram.visual.imageUrl);
+                  } else {
+                    imagesToOpen.push(fallbackImages.instagram);
+                  }
+                  
+                  if (adsData?.linkedIn?.visual?.logoUrl) {
+                    imagesToOpen.push(adsData.linkedIn.visual.logoUrl);
+                  } else {
+                    imagesToOpen.push(fallbackImages.logo);
+                  }
+                  
+                  // Open all images in new tabs
+                  imagesToOpen.forEach(imageUrl => {
+                    window.open(imageUrl, '_blank');
+                  });
+                }}
+                className="px-4 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors flex items-center gap-2"
+              >
+                🔗 Open All Images
+              </button>
+            </div>
+            
+            {/* Copy All Ad Copy Texts */}
+            <div className="space-y-3">
+              <div className="bg-white border border-gray-200 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <SiLinkedin className="w-4 h-4 text-blue-600" />
+                    LinkedIn - All Copy Text
+                  </label>
+                  <button
+                    onClick={() => {
+                      const linkedInCopy = getAdsDataWithFallback('linkedIn');
+                      const fullText = `Headline: ${linkedInCopy.copy.headline}\n\nPrimary Text: ${linkedInCopy.copy.primaryText}\n\nDescription: ${linkedInCopy.copy.description}\n\nCTA: ${linkedInCopy.copy.cta}\n\nBrand: ${linkedInCopy.visual.brandName}`;
+                      copyToClipboard(fullText);
+                      // Show success message
+                      const button = document.getElementById('copy-all-linkedin');
+                      const originalText = button.textContent;
+                      button.textContent = 'Copied!';
+                      setTimeout(() => {
+                        button.textContent = originalText;
+                      }, 2000);
+                    }}
+                    id="copy-all-linkedin"
+                    className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                  >
+                    Copy All
+                  </button>
+                </div>
+                <div className="text-xs text-gray-600 space-y-1">
+                  <div><strong>Headline:</strong> {getAdsDataWithFallback('linkedIn').copy.headline}</div>
+                  <div><strong>Primary Text:</strong> {getAdsDataWithFallback('linkedIn').copy.primaryText}</div>
+                  <div><strong>Description:</strong> {getAdsDataWithFallback('linkedIn').copy.description}</div>
+                  <div><strong>CTA:</strong> {getAdsDataWithFallback('linkedIn').copy.cta}</div>
+                  <div><strong>Brand:</strong> {getAdsDataWithFallback('linkedIn').visual.brandName}</div>
+                </div>
+              </div>
+
+              <div className="bg-white border border-gray-200 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <SiFacebook className="w-4 h-4 text-blue-600" />
+                    Meta (Facebook) - All Copy Text
+                  </label>
+                  <button
+                    onClick={() => {
+                      const metaCopy = getAdsDataWithFallback('meta');
+                      const fullText = `Headline: ${metaCopy.copy.headline}\n\nPrimary Text: ${metaCopy.copy.primaryText}\n\nDescription: ${metaCopy.copy.description}\n\nCTA: ${metaCopy.copy.cta}\n\nBrand: ${metaCopy.visual.brandName}`;
+                      copyToClipboard(fullText);
+                      // Show success message
+                      const button = document.getElementById('copy-all-meta');
+                      const originalText = button.textContent;
+                      button.textContent = 'Copied!';
+                      setTimeout(() => {
+                        button.textContent = originalText;
+                      }, 2000);
+                    }}
+                    id="copy-all-meta"
+                    className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                  >
+                    Copy All
+                  </button>
+                </div>
+                <div className="text-xs text-gray-600 space-y-1">
+                  <div><strong>Headline:</strong> {getAdsDataWithFallback('meta').copy.headline}</div>
+                  <div><strong>Primary Text:</strong> {getAdsDataWithFallback('meta').copy.primaryText}</div>
+                  <div><strong>Description:</strong> {getAdsDataWithFallback('meta').copy.description}</div>
+                  <div><strong>CTA:</strong> {getAdsDataWithFallback('meta').copy.cta}</div>
+                  <div><strong>Brand:</strong> {getAdsDataWithFallback('meta').visual.brandName}</div>
+                </div>
+              </div>
+
+              <div className="bg-white border border-gray-200 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <SiInstagram className="w-4 h-4 text-pink-500" />
+                    Instagram - All Copy Text
+                  </label>
+                  <button
+                    onClick={() => {
+                      const instagramCopy = getAdsDataWithFallback('instagram');
+                      const fullText = `Headline: ${instagramCopy.copy.headline}\n\nPrimary Text: ${instagramCopy.copy.primaryText}\n\nDescription: ${instagramCopy.copy.description}\n\nCTA: ${instagramCopy.copy.cta}\n\nBrand: ${instagramCopy.visual.brandName}`;
+                      copyToClipboard(fullText);
+                      // Show success message
+                      const button = document.getElementById('copy-all-instagram');
+                      const originalText = button.textContent;
+                      button.textContent = 'Copied!';
+                      setTimeout(() => {
+                        button.textContent = originalText;
+                      }, 2000);
+                    }}
+                    id="copy-all-instagram"
+                    className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                  >
+                    Copy All
+                  </button>
+                </div>
+                <div className="text-xs text-gray-600 space-y-1">
+                  <div><strong>Headline:</strong> {getAdsDataWithFallback('instagram').copy.headline}</div>
+                  <div><strong>Primary Text:</strong> {getAdsDataWithFallback('instagram').copy.primaryText}</div>
+                  <div><strong>Description:</strong> {getAdsDataWithFallback('instagram').copy.description}</div>
+                  <div><strong>CTA:</strong> {getAdsDataWithFallback('instagram').copy.cta}</div>
+                  <div><strong>Brand:</strong> {getAdsDataWithFallback('instagram').visual.brandName}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div>
             <div className="flex items-center justify-between mb-3">
               <label className="block text-sm font-medium text-gray-700">AI-Generated Target Audience</label>
@@ -784,11 +1031,6 @@ const LaunchMonitorPage = ({ projectId }) => {
               </div>
             )}
             
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800">
-                💡 <strong>Smart Testing Strategy:</strong> You don't need to spend much on ads to test your business idea. Just $17 is enough to get around 380+ impressions on your ads. From this, you can see how many people click on your ads and interact with your website. Based on these metrics, you'll know if your idea has potential or needs refinement.
-              </p>
-            </div>
           </div>
         </div>
       </Section>
