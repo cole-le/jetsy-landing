@@ -159,6 +159,18 @@ const Navbar = ({
     return () => window.removeEventListener('ad-creatives:workflow-status', handleWorkflowStatus);
   }, []);
 
+  // Listen for workflow status updates from LaunchMonitorPage
+  React.useEffect(() => {
+    const handleWorkflowStatus = (event) => {
+      const { websiteDeployed: newWebsiteDeployed, adsExist: newAdsExist } = event.detail;
+      setWebsiteDeployed(newWebsiteDeployed);
+      setAdsExist(newAdsExist);
+    };
+    
+    window.addEventListener('launch-monitor:workflow-status', handleWorkflowStatus);
+    return () => window.removeEventListener('launch-monitor:workflow-status', handleWorkflowStatus);
+  }, []);
+
   // Function to load ads state (extracted for reuse)
   const loadAdsState = async () => {
     try {

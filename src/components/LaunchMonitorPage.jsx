@@ -123,6 +123,14 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Mobile responsiveness state
+  const [isMobile, setIsMobile] = useState(false);
+  const [showWorkflowPanel, setShowWorkflowPanel] = useState(false);
+
+  // Workflow status state for navbar progress bar
+  const [websiteDeployed, setWebsiteDeployed] = useState(false);
+  const [adsExist, setAdsExist] = useState(false);
+
   // Step 3 inputs
   const [aiTargetAudience, setAiTargetAudience] = useState({
     linkedin: '',
@@ -278,6 +286,22 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
       });
       const j = await res.json();
       setDeployment(j);
+      
+      // Update website deployment status for workflow
+      const isDeployed = j.status === 'deployed' && (j.customDomain || j.vercelDomain);
+      setWebsiteDeployed(isDeployed);
+      
+      // Dispatch workflow status update
+      try {
+        window.dispatchEvent(new CustomEvent('launch-monitor:workflow-status', {
+          detail: {
+            websiteDeployed: isDeployed,
+            adsExist: adsExist
+          }
+        }));
+      } catch (error) {
+        console.error('Error dispatching workflow status event:', error);
+      }
     } catch (e) {
       setDeployment({ status: 'error', customDomain: null, vercelDomain: null, lastDeployedAt: null, notes: e.message });
     }
@@ -353,16 +377,82 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
         headers['Authorization'] = `Bearer ${session.access_token}`;
       }
       
+      console.log('Loading project data for:', projectId, 'with session:', !!session?.access_token);
+      
       const res = await fetch(`${apiBase}/api/projects/${projectId}`, {
         headers
       });
-      if (!res.ok) return;
+      
+      if (!res.ok) {
+        console.error('Failed to load project data:', res.status, res.statusText);
+        if (res.status === 401) {
+          console.error('Authentication failed - session may be expired');
+        }
+        return;
+      }
       
       const result = await res.json();
       const projectData = result.project;
       setProject(projectData);
+      
+      // Check website deployment status
+      let isWebsiteDeployed = false;
+      if (projectData.template_data) {
+        try {
+          const templateData = JSON.parse(projectData.template_data);
+          // Check if template data exists and has content
+          isWebsiteDeployed = !!(templateData && Object.keys(templateData).length > 0);
+        } catch (error) {
+          console.error('Error parsing template data:', error);
+        }
+      }
+      
+      // Also check deployment status from deployment API if available
+      try {
+        const deploymentRes = await fetch(`${apiBase}/api/projects/${projectId}/deployment`, {
+          headers
+        });
+        if (deploymentRes.ok) {
+          const deploymentData = await deploymentRes.json();
+          if (deploymentData.status === 'deployed' && (deploymentData.customDomain || deploymentData.vercelDomain)) {
+            isWebsiteDeployed = true;
+          }
+        }
+      } catch (error) {
+        // Ignore deployment check errors, fall back to template data check
+        console.log('Deployment status check failed, using template data:', error);
+      }
+      
+      // Check ads existence
+      let hasAds = false;
+      if (projectData.ads_data) {
+        try {
+          const adsData = JSON.parse(projectData.ads_data);
+          hasAds = !!(adsData && (adsData.linkedIn || adsData.meta || adsData.instagram));
+        } catch (error) {
+          console.error('Error parsing ads data:', error);
+        }
+      }
+      
+      // Update workflow status state
+      setWebsiteDeployed(isWebsiteDeployed);
+      setAdsExist(hasAds);
+      
+      console.log('Workflow status updated:', { websiteDeployed: isWebsiteDeployed, adsExist: hasAds });
+      
+      // Dispatch custom event to update navbar workflow progress bar
+      try {
+        window.dispatchEvent(new CustomEvent('launch-monitor:workflow-status', {
+          detail: {
+            websiteDeployed: isWebsiteDeployed,
+            adsExist: hasAds
+          }
+        }));
+      } catch (error) {
+        console.error('Error dispatching workflow status event:', error);
+      }
     } catch (e) {
-      // ignore
+      console.error('Error in loadProjectData:', e);
     }
   };
 
@@ -386,12 +476,27 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
           const parsedAdsData = JSON.parse(projectData.ads_data);
           setAdsData(parsedAdsData);
           setAdsCreated(true);
+          setAdsExist(true);
         } catch (error) {
           console.error('Error parsing ads data:', error);
+          setAdsExist(false);
         }
       } else {
         setAdsData(placeholderAdsData);
         setAdsCreated(false);
+        setAdsExist(false);
+      }
+      
+      // Dispatch workflow status update
+      try {
+        window.dispatchEvent(new CustomEvent('launch-monitor:workflow-status', {
+          detail: {
+            websiteDeployed: websiteDeployed,
+            adsExist: adsExist
+          }
+        }));
+      } catch (error) {
+        console.error('Error dispatching workflow status event:', error);
       }
     } catch (e) {
       // ignore
@@ -410,6 +515,31 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
     setCustomEndDate(now.toISOString().split('T')[0]);
     setCustomStartDate(yesterday.toISOString().split('T')[0]);
   }, []);
+
+  // Effect to detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Close workflow panel when clicking outside on mobile
+  useEffect(() => {
+    if (!showWorkflowPanel || !isMobile) return;
+    
+    const handleClickOutside = (event) => {
+      if (showWorkflowPanel && !event.target.closest('.workflow-panel-container')) {
+        setShowWorkflowPanel(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showWorkflowPanel, isMobile]);
 
   // Reload metrics when time range changes
   useEffect(() => {
@@ -529,6 +659,11 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
     // Blur handler for Step 4 inputs
   }, []);
 
+  const handleNavigateToWebsiteCreation = () => {
+    setShowWorkflowPanel(false);
+    onNavigateToChat(projectId);
+  };
+
   const saveStep4 = async () => {
     // Validate non-negative numbers
     const spendCents = dollarsToCents(adSpendDollars);
@@ -630,7 +765,43 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className={`max-w-6xl mx-auto px-4 py-8 ${isMobile ? 'pt-24' : ''}`}>
+      {/* Mobile Header - Only show on mobile screens */}
+      {isMobile && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
+          <div className="flex items-center h-16 px-4 w-full max-w-full overflow-hidden">
+            {/* Logo - positioned at far left */}
+            <div className="flex items-center flex-shrink-0">
+              <img 
+                src="/jetsy_colorful_transparent_horizontal.png" 
+                alt="Jetsy" 
+                className="h-8 w-auto max-w-[80px]"
+              />
+            </div>
+
+            {/* Centered Project Name Button */}
+            <div className="flex-1 flex justify-center min-w-0 px-2">
+              <button
+                onClick={() => setShowWorkflowPanel(true)}
+                className="flex items-center space-x-2 text-center hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors min-w-0 relative max-w-full"
+              >
+                <span className="text-sm font-medium text-gray-900 truncate max-w-[120px] sm:max-w-[160px]">
+                  {project?.project_name || 'Loading...'}
+                </span>
+                <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Right side - empty for balance */}
+            <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+              {/* This div is intentionally empty to balance the layout */}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
@@ -1477,6 +1648,129 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
           </a>
         </div>
       </Section>
+
+      {/* Workflow Panel */}
+      {showWorkflowPanel && (
+        <div className={`workflow-panel-container ${isMobile ? 'fixed inset-0 bg-black bg-opacity-50 z-50' : 'border-b border-gray-200 bg-gray-50'}`}>
+          <div className={`${isMobile ? 'fixed bottom-0 left-0 right-0 bg-white rounded-t-lg shadow-xl max-h-[80vh] overflow-y-auto' : 'p-4'}`}>
+            <div className="space-y-4">
+              {/* Mobile Header */}
+              {isMobile && (
+                <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900">Project Details</h3>
+                  <button
+                    onClick={() => setShowWorkflowPanel(false)}
+                    className="text-gray-400 hover:text-gray-600 p-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+              
+              <div className={`${isMobile ? 'p-4' : ''}`}>
+                {/* Workflow Progress */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 mb-3">Website Creation Progress</h3>
+                  <div className="space-y-3">
+                    {/* Step 1: Website Creation */}
+                    <div className="flex items-center space-x-3">
+                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 ${
+                        websiteDeployed 
+                          ? 'bg-blue-600 text-white shadow-md' 
+                          : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        <span className="text-lg">🌐</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Navigate back to website creation
+                          handleNavigateToWebsiteCreation();
+                        }}
+                        className={`text-sm font-medium px-3 py-1 rounded-lg shadow-sm transition-colors border ${
+                          websiteDeployed
+                            ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                            : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'
+                        }`}
+                        aria-label="Go to Website creation"
+                      >
+                        Website creation
+                      </button>
+                    </div>
+                    
+                    {/* Step 2: Ads Creation */}
+                    <div className="flex items-center space-x-3">
+                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 ${
+                        adsExist 
+                          ? 'bg-blue-600 text-white shadow-md' 
+                          : 'bg-blue-500 text-white shadow-md shadow-blue-300/50'
+                        }`}>
+                        <span className="text-lg">📢</span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          console.log('Ads creation button clicked, navigating to project:', projectId);
+                          // Close the workflow panel
+                          setShowWorkflowPanel(false);
+                          // Navigate to ads creative page
+                          onNavigateToAdCreatives(projectId);
+                        }}
+                        className={`text-sm font-medium px-3 py-1 rounded-lg shadow-sm transition-colors border ${
+                          adsExist
+                            ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                            : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'
+                        }`}
+                        aria-label="Go to Ads creation"
+                      >
+                        Ads creation
+                      </button>
+                    </div>
+                    
+                    {/* Connector line between steps */}
+                    <div className="flex justify-center">
+                      <div className={`w-0.5 h-6 transition-colors duration-200 ${
+                        websiteDeployed && adsExist ? 'bg-blue-600' : 'bg-gray-200'
+                      }`}></div>
+                    </div>
+                    
+                    {/* Step 3: Launch and Monitor */}
+                    <div className="flex items-center space-x-3">
+                      <div className="flex-shrink-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-md">
+                        <span className="text-lg">🚀</span>
+                      </div>
+                      <span className="text-sm font-semibold px-3 py-1 rounded-lg border bg-blue-50 text-blue-700 border-blue-200">
+                        Launch and monitor
+                      </span>
+                    </div>
+                    
+                  </div>
+                </div>
+                
+                {/* Data Analytics Button */}
+                <button
+                  onClick={() => {
+                    // Navigate to data analytics page
+                    try {
+                      const pid = localStorage.getItem('jetsy_current_project_id') || '1';
+                      window.location.href = `/data_analytics/project_${pid}`;
+                    } catch (_) {
+                      window.location.href = `/data_analytics/project_1`;
+                    }
+                  }}
+                  className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700 inline-flex items-center gap-2 justify-center mt-4"
+                >
+                  <span>Data Analytics</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-gray-500">
+                    <path d="M5 3a1 1 0 0 1 1 1v14h12a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2V4a1 1 0 0 1 1-1h1Zm4.5 5a1 1 0 0 1 1 1v7h-2v-7a1 1 0 0 1 1-1Zm4 -2a1 1 0 0 1 1 1v9h-2V7a1 1 0 0 1 1-1Zm4 4a1 1 0 0 1 1 1v5h-2v-5a1 1 0 0 1 1-1Z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
