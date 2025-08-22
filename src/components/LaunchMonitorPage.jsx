@@ -730,7 +730,6 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
             <div className="text-xs font-medium text-gray-500 mb-2">Jetsy Validation Score</div>
             <div className="text-3xl font-extrabold text-gray-900">{displayTotal}</div>
             <div className="text-xs text-gray-500 mt-1">/100</div>
-            <div className="text-xs text-gray-600 mt-2 min-h-[20px]">{verdictCopy || 'Complete your test to see results'}</div>
           </div>
         </div>
       </div>
@@ -1376,9 +1375,6 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
               <div className="text-xs font-medium text-gray-500 mb-2">Jetsy Validation Score</div>
               <div className="text-3xl font-extrabold text-gray-900">{displayTotal}</div>
               <div className="text-xs text-gray-500 mt-1">/100</div>
-              <div className="text-xs text-gray-600 mt-2 min-h-[20px]">
-                {verdictCopy || 'Complete your test to see results'}
-              </div>
             </div>
           </div>
 
