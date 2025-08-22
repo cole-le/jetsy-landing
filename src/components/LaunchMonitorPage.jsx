@@ -260,34 +260,9 @@ const LaunchMonitorPage = ({ projectId }) => {
     return 'Weak signal — consider a new business idea 🧪';
   }, [score]);
 
-  // Cycle encouragement/warning copy when incomplete (header card)
-  const [cycleIdx, setCycleIdx] = useState(0);
-  // Pause cycles when user is typing in Step 4 inputs
-  const [manualInputsFocused, setManualInputsFocused] = useState(false);
-  const cycleMessages = useMemo(
-    () => [
-      'Awesome business idea — you should build it! 🚀',
-      'This could be the next big thing! 💡',
-      'Market validation time — let\'s see! 📊',
-      'Not a good business idea — pursue another one! ❌',
-      'Maybe pivot the business concept? 🔄',
-      'Test different business angles first! 🎯',
-      'Great business potential here! ⭐',
-      'Needs more business validation! 🔍',
-    ],
-    []
-  );
 
-  useEffect(() => {
-    const mq = typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
-    const reduce = mq?.matches;
-    if (isIncomplete && !reduce && !manualInputsFocused) {
-      const id = setInterval(() => {
-        setCycleIdx((i) => (i + 1) % cycleMessages.length);
-      }, 3500);
-      return () => clearInterval(id);
-    }
-  }, [isIncomplete, cycleMessages.length, manualInputsFocused]);
+
+
 
   const loadDeployment = async () => {
     try {
@@ -499,17 +474,10 @@ const LaunchMonitorPage = ({ projectId }) => {
 
   // Focus guards for Step 4 inputs
   const handleManualInputFocus = useCallback(() => {
-    setManualInputsFocused(true);
+    // Focus handler for Step 4 inputs
   }, []);
   const handleManualInputBlur = useCallback(() => {
-    // Allow switching between inputs without toggling off
-    requestAnimationFrame(() => {
-      const container = manualInputsContainerRef.current;
-      const ae = document.activeElement;
-      if (!container || !ae || !container.contains(ae)) {
-        setManualInputsFocused(false);
-      }
-    });
+    // Blur handler for Step 4 inputs
   }, []);
 
   const saveStep4 = async () => {
@@ -708,11 +676,7 @@ const LaunchMonitorPage = ({ projectId }) => {
             <div className="text-xs font-medium text-gray-500 mb-2">Jetsy Validation Score</div>
             <div className="text-3xl font-extrabold text-gray-900">{displayTotal}</div>
             <div className="text-xs text-gray-500 mt-1">/100</div>
-            {isIncomplete && !testRun?.ad_spend_cents && !testRun?.impressions && !testRun?.clicks ? (
-              <div className="text-xs text-gray-500 mt-2 animate-pulse min-h-[20px]">{cycleMessages[cycleIdx]}</div>
-            ) : (
-              <div className="text-xs text-gray-600 mt-2 min-h-[20px]">{verdictCopy || 'Complete your test to see results'}</div>
-            )}
+            <div className="text-xs text-gray-600 mt-2 min-h-[20px]">{verdictCopy || 'Complete your test to see results'}</div>
           </div>
         </div>
       </div>
@@ -1398,31 +1362,11 @@ const LaunchMonitorPage = ({ projectId }) => {
               <div className="text-3xl font-extrabold text-gray-900">{displayTotal}</div>
               <div className="text-xs text-gray-500 mt-1">/100</div>
               <div className="text-xs text-gray-600 mt-2 min-h-[20px]">
-                {isIncomplete && !testRun?.ad_spend_cents && !testRun?.impressions && !testRun?.clicks ? (
-                  <span className="animate-pulse">{cycleMessages[cycleIdx]}</span>
-                ) : (
-                  verdictCopy || 'Complete your test to see results'
-                )}
+                {verdictCopy || 'Complete your test to see results'}
               </div>
             </div>
           </div>
-          <div className="bg-gray-50 border border-gray-200 rounded p-4 text-center">
-            <div className="text-xs text-gray-600 mb-1">Traffic /30</div>
-            <div className="text-2xl font-bold text-gray-900">{score?.breakdown ? score.breakdown.traffic : '—'}</div>
-          </div>
-          <div className="bg-gray-50 border border-gray-200 rounded p-4 text-center">
-            <div className="text-xs text-gray-600 mb-1">Engagement /40</div>
-            <div className="text-2xl font-bold text-gray-900">{score?.breakdown ? score.breakdown.engagement : '—'}</div>
-          </div>
-          <div className="bg-gray-50 border border-gray-200 rounded p-4 text-center">
-            <div className="text-xs text-gray-600 mb-1">Intent /30</div>
-            <div className="text-2xl font-bold text-gray-900">{score?.breakdown ? score.breakdown.intent : '—'}</div>
-            {score?.cpc && (
-              <div className="text-xs text-gray-500 mt-1">
-                CPC: ${score.cpc}
-              </div>
-            )}
-          </div>
+
         </div>
         <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <h4 className="text-sm font-semibold text-blue-900 mb-2">Understanding Your Jetsy Validation Score</h4>
@@ -1453,81 +1397,56 @@ const LaunchMonitorPage = ({ projectId }) => {
           <p className="text-sm text-blue-800 leading-relaxed">
             The <strong>Jetsy Validation Score</strong> is a comprehensive metric that evaluates your business idea's market potential across three key dimensions. This score helps you determine whether to proceed with your current approach or pivot to a new strategy.
           </p>
-          <div className="mt-3 space-y-2">
-            <div className="flex items-start">
-              <div className="w-2 h-2 bg-blue-400 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-              <div>
-                <strong className="text-blue-900">Traffic (0-30 points):</strong> Measures your ability to attract visitors to your landing page. Higher scores indicate better audience targeting and messaging effectiveness.
-              </div>
-            </div>
-            <div className="flex items-start">
-              <div className="w-2 h-2 bg-blue-400 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-              <div>
-                <strong className="text-blue-900">Engagement (0-40 points):</strong> Evaluates how well visitors interact with your offer. This includes pricing page clicks, time on site, and other engagement metrics that show genuine interest.
-              </div>
-            </div>
-            <div className="flex items-start">
-              <div className="w-2 h-2 bg-blue-400 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-              <div>
-                <strong className="text-blue-900">Intent (0-30 points):</strong> Measures conversion potential through lead submissions, contact form fills, and other actions that demonstrate buying intent. <strong>Now includes CPC efficiency</strong> - lower cost-per-click improves your score by up to 5 bonus points.
-              </div>
-            </div>
-          </div>
-          
-          {/* Scoring Formula Explanation */}
-          <div className="mt-4 p-3 bg-white rounded border border-blue-200">
-            <h5 className="text-sm font-semibold text-blue-900 mb-2">How Your Score is Calculated:</h5>
-            <div className="space-y-3 text-sm text-blue-800">
-              <div>
-                <strong>Total Score = Traffic Score + Engagement Score + Intent Score</strong>
-              </div>
-              
-              <div className="space-y-2">
-                <div><strong>Traffic Score (0-30 points):</strong></div>
-                <div className="ml-4 text-xs">
-                  • Formula: min(1, visitors ÷ 100) × 30<br/>
-                  • 100+ visitors = 30 points<br/>
-                  • 50 visitors = 15 points<br/>
-                  • 25 visitors = 7.5 points
+
+          {/* Actual Calculation Data */}
+          {score && (
+            <div className="mt-4 p-3 bg-white rounded border border-blue-200">
+              <h5 className="text-sm font-semibold text-blue-900 mb-2">Your Score Calculation:</h5>
+              <div className="space-y-3 text-sm text-blue-800">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <div className="font-semibold mb-2">Traffic Score (0-30 points):</div>
+                    <div className="text-xs space-y-1">
+                      <div>• Visitors: {metrics?.visitors || 0}</div>
+                      <div>• Formula: min(1, {metrics?.visitors || 0} ÷ 100) × 30</div>
+                      <div>• Result: {score?.breakdown?.traffic || 0} points</div>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="font-semibold mb-2">Engagement Score (0-40 points):</div>
+                    <div className="text-xs space-y-1">
+                      <div>• Pricing Clicks: {metrics?.pricingClicksTotal || 0}</div>
+                      <div>• Engagement Rate: {metrics?.visitors ? ((metrics.pricingClicksTotal || 0) / metrics.visitors * 100).toFixed(2) : 0}%</div>
+                      <div>• Formula: min(1, {metrics?.visitors ? ((metrics.pricingClicksTotal || 0) / metrics.visitors).toFixed(4) : 0} ÷ 0.08) × 40</div>
+                      <div>• Result: {score?.breakdown?.engagement || 0} points</div>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div className="font-semibold mb-2">Intent Score (0-30 points):</div>
+                  <div className="text-xs space-y-1">
+                    <div>• Leads: {metrics?.leads || 0}</div>
+                    <div>• Lead Rate: {metrics?.visitors ? ((metrics.leads || 0) / metrics.visitors * 100).toFixed(2) : 0}%</div>
+                    <div>• Base Formula: min(1, {metrics?.visitors ? ((metrics.leads || 0) / metrics.visitors).toFixed(4) : 0} ÷ 0.02) × 30</div>
+                    <div>• Base Result: {score?.breakdown?.intent || 0} points</div>
+                    {testRun?.clicks && testRun?.ad_spend_cents && (
+                      <>
+                        <div>• CPC: ${(testRun.ad_spend_cents / 100 / testRun.clicks).toFixed(2)}</div>
+                        <div>• CPC Bonus: min(1, $2.00 ÷ ${(testRun.ad_spend_cents / 100 / testRun.clicks).toFixed(2)}) × 5</div>
+                        <div>• CPC Bonus Points: {Math.min(1, 2.00 / (testRun.ad_spend_cents / 100 / testRun.clicks)) * 5} points</div>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-blue-200">
+                  <div className="font-semibold text-blue-900">
+                    Total Score: {score?.total || 0} / 100
+                  </div>
                 </div>
               </div>
-              
-              <div className="space-y-2">
-                <div><strong>Engagement Score (0-40 points):</strong></div>
-                <div className="ml-4 text-xs">
-                  • Formula: min(1, engagement_rate ÷ 0.08) × 40<br/>
-                  • Engagement Rate = pricing_clicks ÷ visitors<br/>
-                  • 8%+ engagement = 40 points<br/>
-                  • 4% engagement = 20 points<br/>
-                  • 2% engagement = 10 points
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <div><strong>Intent Score (0-30 points):</strong></div>
-                <div className="ml-4 text-xs">
-                  • Base Formula: min(1, lead_rate ÷ 0.02) × 30<br/>
-                  • Lead Rate = leads ÷ visitors<br/>
-                  • 2%+ lead rate = 30 points<br/>
-                  • 1% lead rate = 15 points<br/>
-                  • 0.5% lead rate = 7.5 points<br/>
-                  • <strong>CPC Bonus:</strong> Up to 5 additional points for cost-efficient advertising<br/>
-                  • CPC Efficiency = min(1, $2.00 ÷ your_cpc) × 5<br/>
-                  • $1.00 CPC = 5 bonus points<br/>
-                  • $2.00 CPC = 2.5 bonus points<br/>
-                  • $4.00+ CPC = 0 bonus points
-                </div>
-              </div>
-              
-              <div className="mt-3 p-2 bg-blue-100 rounded text-xs">
-                <strong>Example:</strong> If you have 80 visitors, 6 pricing clicks (7.5% engagement), 2 leads (2.5% lead rate), and $1.50 CPC:<br/>
-                • Traffic: min(1, 80÷100) × 30 = 24 points<br/>
-                • Engagement: min(1, 0.075÷0.08) × 40 = 37.5 points<br/>
-                • Intent: min(1, 0.025÷0.02) × 30 + min(1, 2.00÷1.50) × 5 = 30 + 3.33 = 33.33 points<br/>
-                • <strong>Total: 24 + 37.5 + 33.33 = 94.83 points</strong>
-              </div>
             </div>
-          </div>
+          )}
+
         </div>
       </Section>
 
