@@ -535,6 +535,7 @@ function App() {
           isLaunchMonitorMode={currentStep === 'launch-monitor'}
           previewMode={previewMode}
           onPreviewModeChange={handlePreviewModeChange}
+          isMainPage={currentStep === 'hero'}
         />
       )}
       

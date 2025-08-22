@@ -3,7 +3,7 @@ import DeploymentButton from './DeploymentButton';
 import WorkflowProgressBar from './WorkflowProgressBar';
 import { getApiBaseUrl } from '../config/environment';
 
-const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, onChatClick, onSaveChanges, isChatMode = false, isAdCreativesMode = false, isLaunchMonitorMode = false, previewMode = 'desktop', onPreviewModeChange }) => {
+const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, onChatClick, onSaveChanges, isChatMode = false, isAdCreativesMode = false, isLaunchMonitorMode = false, previewMode = 'desktop', onPreviewModeChange, isMainPage = false }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [showPublishModal, setShowPublishModal] = useState(false);
@@ -253,8 +253,8 @@ const Navbar = ({ onPricingClick, onFAQClick, onLogoClick, onGetStartedClick, on
 
               {/* Center - Workflow Progress Bar for project modes */}
               <div className="flex items-center justify-center flex-1">
-                {/* Workflow Progress Bar - Show when there's a current project ID */}
-                {!isMobile && currentProjectId && (
+                {/* Workflow Progress Bar - Show when there's a current project ID and not on main page */}
+                {!isMobile && currentProjectId && !isMainPage && (
                   <div className="flex items-center space-x-4 flex-nowrap">
                     <WorkflowProgressBar 
                       currentStage={
