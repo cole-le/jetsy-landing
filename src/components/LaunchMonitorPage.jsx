@@ -1533,17 +1533,20 @@ const LaunchMonitorPage = ({ projectId }) => {
 
       {/* Step 6 */}
       <Section title="Step 6 — Next Actions 🔮" stepKey="step6">
-        <div className="flex flex-wrap gap-3">
-          <button onClick={() => (window.location.href = `/chat/${projectId}`)} className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm">Regenerate offer</button>
-          <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="px-4 py-2 bg-gray-100 border border-gray-300 rounded text-sm">Try new audience</button>
-          <a href="https://calendly.com/jetsy/intro-15" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-blue-600 text-white rounded text-sm">Book 15-min with Jetsy</a>
+        <div className="text-center">
+          <p className="text-sm text-gray-700 mb-4 leading-relaxed">
+            Validated your business idea with Jetsy? Book a free 15-minute consultation with Cole to build your website or app in just 1 week.
+          </p>
+          <a 
+            href="https://calendly.com/colele208/15-minutes-meeting-with-cole-le" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors duration-200"
+          >
+            Book 15-min with Cole Le 🗓️
+          </a>
         </div>
       </Section>
-
-      {/* Overview banner at bottom for context */}
-      <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded">
-        <p className="text-sm text-blue-900">Run a 24-hour smoke test to measure demand. Budget: $25–$100. We’ll track visits, pricing clicks, and lead submissions for you.</p>
-      </div>
     </div>
   );
 };
