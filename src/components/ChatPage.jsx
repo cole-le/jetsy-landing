@@ -3,8 +3,10 @@ import DeploymentButton from './DeploymentButton';
 import ProjectSelector from './ProjectSelector';
 import { DEFAULT_TEMPLATE_DATA } from './TemplateBasedChat';
 import { getApiBaseUrl, getVercelApiBaseUrl } from '../config/environment';
+import { useAuth } from './auth/AuthProvider';
 
 const ChatPage = ({ onBackToHome }) => {
+  const { user, session, isAuthenticated, loading: authLoading } = useAuth();
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -19,10 +21,21 @@ const ChatPage = ({ onBackToHome }) => {
   const [showPublishPanel, setShowPublishPanel] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
 
-  // Load existing chat history when component mounts
+  // Load existing chat history when component mounts and session is available
   useEffect(() => {
-    loadOrRestoreProject();
-  }, []);
+    if (session && !authLoading) {
+      console.log('🚀 Session available, loading/restoring project...');
+      loadOrRestoreProject();
+    }
+  }, [session, authLoading]);
+
+  // Clear stored project ID when user changes
+  useEffect(() => {
+    if (user?.id) {
+      console.log('👤 User changed, clearing stored project ID to ensure fresh start');
+      clearStoredProjectId();
+    }
+  }, [user?.id]);
 
   // Detect mobile screen and set default view
   useEffect(() => {
@@ -51,56 +64,122 @@ const ChatPage = ({ onBackToHome }) => {
     localStorage.setItem('jetsy_current_project_id', projectId);
   };
 
+  const clearStoredProjectId = () => {
+    localStorage.removeItem('jetsy_current_project_id');
+    console.log('🗑️ Cleared stored project ID from localStorage');
+  };
+
   const loadOrRestoreProject = async () => {
     try {
+      console.log('🔍 loadOrRestoreProject called');
+      console.log('👤 Current user:', user);
+      console.log('🔑 Current session:', session);
+      console.log('🎫 Access token available:', !!session?.access_token);
+      
+      // Ensure we have a valid session before proceeding
+      if (!session?.access_token) {
+        console.log('⚠️ No valid session available, cannot load projects');
+        // Clear any stored project ID since we can't verify ownership
+        clearStoredProjectId();
+        return;
+      }
+      
       // First, try to restore from session storage
       const storedProjectId = getStoredProjectId();
+      console.log('💾 Stored project ID:', storedProjectId);
       
       if (storedProjectId) {
-        // Try to load the stored project
-        const response = await fetch(`${getApiBaseUrl()}/api/projects/${storedProjectId}`);
+        // Try to load the stored project with auth headers to verify ownership
+        console.log('📁 Loading stored project:', storedProjectId);
+        const headers = {};
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+        
+        const response = await fetch(`${getApiBaseUrl()}/api/projects/${storedProjectId}`, {
+          headers
+        });
+        
         if (response.ok) {
           const result = await response.json();
           const project = result.project;
-          setCurrentProject({
-            id: project.id,
-            project_name: project.project_name,
-            files: JSON.parse(project.files)
-          });
-          await loadChatMessages(project.id);
+          console.log('✅ Stored project loaded:', project);
           
-          // On mobile, switch back to chat view when loading a project
-          if (window.innerWidth < 1024) {
-            setMobileView('chat');
+          // Verify this project belongs to the current user by checking if it has template_data
+          // If it's a valid project for this user, it should have been loaded with proper auth
+          if (project && project.project_name) {
+            setCurrentProject({
+              id: project.id,
+              project_name: project.project_name,
+              files: JSON.parse(project.files)
+            });
+            await loadChatMessages(project.id);
+            
+            // On mobile, switch back to chat view when loading a project
+            if (window.innerWidth < 1024) {
+              setMobileView('chat');
+            }
+            return;
+          } else {
+            console.log('⚠️ Stored project is invalid or belongs to another user, clearing storage');
+            // Clear the invalid stored project ID
+            clearStoredProjectId();
           }
-          return;
+        } else {
+          console.log('⚠️ Failed to load stored project, clearing storage');
+          // Clear the invalid stored project ID
+          clearStoredProjectId();
         }
       }
 
       // If no stored project or it doesn't exist, load the most recent project
-      const projectsResponse = await fetch(`${getApiBaseUrl()}/api/projects?user_id=1`);
-      if (projectsResponse.ok) {
-        const result = await projectsResponse.json();
-        if (result.projects && result.projects.length > 0) {
-          const mostRecent = result.projects[0];
-          setCurrentProject({
-            id: mostRecent.id,
-            project_name: mostRecent.project_name,
-            files: JSON.parse(mostRecent.files)
-          });
-          setStoredProjectId(mostRecent.id);
-          await loadChatMessages(mostRecent.id);
-          
-          // On mobile, switch back to chat view when loading the most recent project
-          if (window.innerWidth < 1024) {
-            setMobileView('chat');
+      console.log('🔄 No stored project, loading most recent project...');
+      
+      // Ensure user is authenticated
+      if (!user?.id) {
+        console.log('⚠️ No authenticated user, cannot load projects');
+        return;
+      }
+      
+      console.log('👤 User authenticated, preparing auth headers');
+      const projectsResponse = await fetch(`${getApiBaseUrl()}/api/projects`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+      
+      console.log('📡 Projects API response status:', projectsResponse.status);
+        if (projectsResponse.ok) {
+          const result = await projectsResponse.json();
+          console.log('📋 Projects API result:', result);
+          if (result.projects && result.projects.length > 0) {
+            const mostRecent = result.projects[0];
+            console.log('🎯 Most recent project:', mostRecent);
+            setCurrentProject({
+              id: mostRecent.id,
+              project_name: mostRecent.project_name,
+              files: JSON.parse(mostRecent.files)
+            });
+            setStoredProjectId(mostRecent.id);
+            await loadChatMessages(mostRecent.id);
+            
+            // On mobile, switch back to chat view when loading the most recent project
+            if (window.innerWidth < 1024) {
+              setMobileView('chat');
+            }
+            return;
           }
-          return;
+        } else {
+          console.error('❌ Failed to load projects:', projectsResponse.status, projectsResponse.statusText);
         }
       }
 
       // If no projects exist, create a default one
-      await createDefaultProject();
+      try {
+        await createDefaultProject();
+      } catch (error) {
+        console.error('Error creating default project:', error);
+      }
     } catch (error) {
       console.error('Error loading/restoring project:', error);
       // Fallback to creating a default project
@@ -115,19 +194,32 @@ const ChatPage = ({ onBackToHome }) => {
 
   const createDefaultProject = async () => {
     try {
+      console.log('🏗️ createDefaultProject called');
+      console.log('👤 Current user:', user);
+      console.log('🔑 Current session:', session);
+      console.log('🎫 Access token available:', !!session?.access_token);
+      
       const projectData = {
         project_name: "New Project",
-        user_id: 1,
         files: {
-          "src/App.jsx": `import React from 'react';\nimport './index.css';\nfunction App() {\n  return (\n    <div className=\"min-h-screen bg-gray-50\">\n      <div className=\"container mx-auto px-4 py-8\">\n        <h1 className=\"text-4xl font-bold text-center text-gray-900 mb-8\">Welcome to Your Landing Page</h1>\n        <p className=\"text-center text-gray-600 mb-8\">This is a placeholder. Start chatting to customize your landing page!</p>\n      </div>\n    </div>\n  );\n}\nexport default App;`,
+          "src/App.jsx": `import React from 'react';\nimport './index.css';\nfunction App() {\n  return (\n    <div className=\"min-h-screen bg-gray-50\">\n      <div className=\"container mx-auto px-8\">\n        <h1 className=\"text-4xl font-bold text-center text-gray-900 mb-8\">Welcome to Your Landing Page</h1>\n        <p className=\"text-center text-gray-600 mb-8\">This is a placeholder. Start chatting to customize your landing page!</p>\n      </div>\n    </div>\n  );\n}\nexport default App;`,
           "src/index.css": `@tailwind base;\n@tailwind components;\n@tailwind utilities;`
-        }
+        },
         // Don't include template_data for new projects - let users chat first
       };
 
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+        console.log('🔐 Auth header added to request');
+      } else {
+        console.log('⚠️ No auth token available');
+      }
+
+      console.log('📡 Creating project with headers:', headers);
       const response = await fetch(`${getApiBaseUrl()}/api/projects`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(projectData)
       });
 
@@ -184,7 +276,14 @@ const ChatPage = ({ onBackToHome }) => {
 
   const loadChatMessages = async (projectId) => {
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/chat_messages?project_id=${projectId}`);
+      const headers = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
+      const response = await fetch(`${getApiBaseUrl()}/api/chat_messages?project_id=${projectId}`, {
+        headers
+      });
       if (response.ok) {
         const result = await response.json();
         setMessages(result.messages || []);
@@ -220,9 +319,14 @@ const ChatPage = ({ onBackToHome }) => {
       // Check if this is the first message for this project
       const isInitialMessage = messages.length === 0;
       
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
       await fetch(`${getApiBaseUrl()}/api/chat_messages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           project_id: currentProject.id,
           role: 'user',
@@ -238,7 +342,7 @@ const ChatPage = ({ onBackToHome }) => {
         console.log('🎨 Using template-based orchestration for initial message');
         llmResponse = await fetch(`${getApiBaseUrl()}/api/llm-orchestrate-template`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             project_id: currentProject.id,
             user_message: inputMessage,
@@ -251,7 +355,7 @@ const ChatPage = ({ onBackToHome }) => {
         console.log('🤖 Using regular LLM orchestration for follow-up message');
         llmResponse = await fetch(`${getApiBaseUrl()}/api/llm-orchestrate`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             project_id: currentProject.id,
             user_message: inputMessage,
@@ -287,7 +391,7 @@ const ChatPage = ({ onBackToHome }) => {
           
           await fetch(`${getApiBaseUrl()}/api/chat_messages`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({
               project_id: currentProject.id,
               role: 'assistant',
@@ -644,6 +748,36 @@ const ChatPage = ({ onBackToHome }) => {
 </html>`;
   };
 
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect to home if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Authentication Required</h2>
+          <p className="text-gray-600 mb-6">Please sign in to access the chat.</p>
+          <button
+            onClick={() => window.location.href = '/'}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Go to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
 
@@ -694,12 +828,25 @@ const ChatPage = ({ onBackToHome }) => {
                     {mobileView === 'chat' ? 'Chat' : 'Preview'}
                   </span>
                 </div>
-                <button
-                  onClick={() => setShowProjectPanel(true)}
-                  className="text-xs text-blue-600 hover:text-blue-800 underline flex-shrink-0 ml-2"
-                >
-                  Switch
-                </button>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setShowProjectPanel(true)}
+                    className="text-xs text-blue-600 hover:text-blue-800 underline flex-shrink-0"
+                  >
+                    Switch
+                  </button>
+                  {/* Profile Icon */}
+                  <button
+                    onClick={() => window.location.href = '/profile'}
+                    className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition-colors flex-shrink-0"
+                    title="View Profile"
+                  >
+                    {/* Note: This uses window.location.href since ChatPage is not currently integrated with the main App routing */}
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -958,25 +1105,4 @@ const ChatPage = ({ onBackToHome }) => {
   );
 };
 
-export default ChatPage; 
-
-// Internal helper to detect published state when opening bottom sheet
-const PublishStateLoaderInternal = ({ projectId, onChange }) => {
-  React.useEffect(() => {
-    let cancelled = false;
-    const check = async () => {
-      try {
-        const res = await fetch(`${getVercelApiBaseUrl()}/api/vercel/status/${projectId}`);
-        const json = await res.json();
-        if (!cancelled) {
-          onChange(!!(json?.success && json.deployment && json.deployment.status === 'READY'));
-        }
-      } catch (_) {
-        if (!cancelled) onChange(false);
-      }
-    };
-    check();
-    return () => { cancelled = true; };
-  }, [projectId, onChange]);
-  return null;
-};
+export default ChatPage;

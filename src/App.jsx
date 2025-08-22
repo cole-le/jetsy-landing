@@ -21,9 +21,12 @@ import PublicRouteView from './components/PublicRouteView'
 import AdCreativesPage from './components/AdCreativesPage'
 import AdsTemplatePage from './components/AdsTemplatePage'
 import LaunchMonitorPage from './components/LaunchMonitorPage'
+import { AuthProvider } from './components/auth/AuthProvider'
+import SignUpForm from './components/auth/SignUpForm'
+import ProfilePage from './components/auth/ProfilePage'
 
 function App() {
-  const [currentStep, setCurrentStep] = useState('hero') // hero, faq, pricing, lead-capture, onboarding, login, demo-booking, demo-thankyou, chat
+  const [currentStep, setCurrentStep] = useState('hero') // hero, faq, pricing, lead-capture, onboarding, login, signup, demo-booking, demo-thankyou, chat, profile
   const [startupIdea, setStartupIdea] = useState('')
   const [visibility, setVisibility] = useState('public')
   const [selectedPlan, setSelectedPlan] = useState(null)
@@ -291,9 +294,9 @@ function App() {
       visibility: visibility 
     })
 
-    // If user has already seen pricing modal, go directly to lead capture
+    // If user has already seen pricing modal, go directly to signup
     if (hasSeenPricing) {
-      setCurrentStep('lead-capture')
+      setCurrentStep('signup')
     } else {
       // Show pricing modal for the first time
       setShowPricingModal(true)
@@ -304,7 +307,7 @@ function App() {
     setSelectedPlan(plan)
     setShowPricingModal(false)
     setHasSeenPricing(true)
-    setCurrentStep('lead-capture')
+    setCurrentStep('signup')
     
     trackEvent('pricing_plan_select', { plan: plan.type })
   }
@@ -333,7 +336,7 @@ function App() {
     setSelectedPlan(plan)
     setShowNavbarPricingModal(false)
     setHasSeenPricing(true)
-    setCurrentStep('lead-capture')
+    setCurrentStep('signup')
     trackEvent('pricing_plan_select', { plan: plan.type })
   }
 
@@ -343,8 +346,22 @@ function App() {
   }
 
   const handleBackToSignup = () => {
-    setCurrentStep('lead-capture')
+    setCurrentStep('signup')
     trackEvent('back_to_signup_form')
+  }
+
+  const handleAuthSuccess = (user) => {
+    console.log('Authentication successful:', user)
+    // Redirect to chat page after successful auth
+    setCurrentStep('chat')
+  }
+
+  const handleShowSignup = () => {
+    setCurrentStep('signup')
+  }
+
+  const handleBackToChat = () => {
+    setCurrentStep('chat')
   }
 
   const handleLeadSubmit = async (email, phone) => {
@@ -614,6 +631,22 @@ function App() {
       {currentStep === 'login' && (
         <LoginForm 
           onBackToSignup={handleBackToSignup}
+          onSuccess={handleAuthSuccess}
+        />
+      )}
+
+      {/* Sign Up Form */}
+      {currentStep === 'signup' && (
+        <SignUpForm 
+          onShowLogin={handleShowLogin}
+          onSuccess={handleAuthSuccess}
+        />
+      )}
+
+      {/* Profile Page */}
+      {currentStep === 'profile' && (
+        <ProfilePage 
+          onBackToChat={handleBackToChat}
         />
       )}
 
@@ -700,6 +733,7 @@ function App() {
           onSaveChanges={handleSaveChanges}
           previewMode={previewMode}
           initialProjectId={routeProjectId}
+          onNavigateToProfile={() => setCurrentStep('profile')}
         />
       )}
 

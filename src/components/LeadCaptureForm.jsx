@@ -124,14 +124,20 @@ const LeadCaptureForm = ({ onSubmit, startupIdea, selectedPlan, onReset, onShowL
           </button>
         </form>
 
-        {/* Login Link */}
-        <div className="text-center mt-6">
+        {/* Auth Links */}
+        <div className="text-center mt-6 space-y-2">
           <button
             onClick={onShowLogin}
-            className="text-mutedText hover:text-text transition-colors duration-200 text-sm"
+            className="text-mutedText hover:text-text transition-colors duration-200 text-sm block w-full"
           >
             Already have an account? Log in
           </button>
+          <div className="text-xs text-gray-500">
+            By creating an account, you agree to our{' '}
+            <a href="#" className="text-blue-600 hover:underline">Terms of Service</a>
+            {' '}and{' '}
+            <a href="#" className="text-blue-600 hover:underline">Privacy Policy</a>
+          </div>
         </div>
       </div>
     </div>

@@ -25,4 +25,6 @@ bucket_name = "jetsy-images-prod"
 # Environment variables
 [vars]
 CF_ZONE_ID = "53957945e940cad5e6dd29dd7add1e0c"
+SUPABASE_URL = ""  # This will be populated from the secret
+SUPABASE_ANON_KEY = ""  # This will be populated from the secret
 

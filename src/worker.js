@@ -158,7 +158,7 @@ export default {
         }
         if (request.method === 'GET' && projectIdMatch) {
           // GET /api/projects/:id
-          return await getProjectById(projectIdMatch[1], env, corsHeaders);
+          return await getProjectById(projectIdMatch[1], request, env, corsHeaders);
         }
         if (request.method === 'POST' && path === '/api/projects') {
           // POST /api/projects
@@ -1765,23 +1765,98 @@ async function getAnalytics(request, env, corsHeaders) {
 async function getProjects(request, env, corsHeaders) {
   const db = env.DB;
   try {
-    const url = new URL(request.url);
-    const user_id = url.searchParams.get('user_id') || 1; // Default to user_id 1 for now
+    console.log('🔍 getProjects called');
+    console.log('📡 Request headers:', Object.fromEntries(request.headers.entries()));
     
+    const url = new URL(request.url);
+    
+    // Extract user ID from auth header (Supabase JWT token)
+    const authHeader = request.headers.get('Authorization');
+    console.log('🔑 Auth header:', authHeader);
+    let user_id = 1; // Default fallback
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.substring(7);
+        // Decode JWT token to get user ID (Supabase JWT contains user info)
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const supabaseUserId = payload.sub; // Supabase JWT 'sub' field contains the user ID
+        
+        // For now, we'll use a hash of the UUID to generate a consistent integer user_id
+        // This allows us to work with the existing INTEGER user_id column
+        user_id = Math.abs(supabaseUserId.split('').reduce((a, b) => {
+          a = ((a << 5) - a) + b.charCodeAt(0);
+          return a & a;
+        }, 0)) % 1000000; // Keep it within reasonable range
+        
+        console.log('Authenticated user ID (mapped):', user_id, 'from Supabase UUID:', supabaseUserId);
+      } catch (error) {
+        console.error('Error decoding JWT token:', error);
+        // Fall back to default user_id = 1
+      }
+    }
+    
+    // If user_id is still 1 (default), try to get from query params as fallback
+    if (user_id === 1) {
+      user_id = url.searchParams.get('user_id') || 1;
+    }
+    
+    console.log('🔍 Querying projects with user_id:', user_id);
     const result = await db.prepare('SELECT * FROM projects WHERE user_id = ? ORDER BY updated_at DESC').bind(user_id).all();
+    console.log('📊 Found projects:', result.results?.length || 0);
+    if (result.results && result.results.length > 0) {
+      console.log('🎯 First project user_id:', result.results[0].user_id);
+    }
     return new Response(JSON.stringify({ success: true, projects: result.results }), { status: 200, headers: corsHeaders });
   } catch (error) {
     return new Response(JSON.stringify({ error: 'Failed to fetch projects' }), { status: 500, headers: corsHeaders });
   }
 }
 
-async function getProjectById(id, env, corsHeaders) {
+async function getProjectById(id, request, env, corsHeaders) {
   const db = env.DB;
   try {
+    console.log('🔍 getProjectById called for project ID:', id);
+    
+    // Extract user ID from auth header (Supabase JWT token)
+    const authHeader = request.headers.get('Authorization');
+    console.log('🔑 Auth header in getProjectById:', authHeader);
+    let user_id = 1; // Default fallback
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.substring(7);
+        // Decode JWT token to get user ID (Supabase JWT contains user info)
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const supabaseUserId = payload.sub; // Supabase JWT 'sub' field contains the user ID
+        
+        // For now, we'll use a hash of the UUID to generate a consistent integer user_id
+        // This allows us to work with the existing INTEGER user_id column
+        user_id = Math.abs(supabaseUserId.split('').reduce((a, b) => {
+          a = ((a << 5) - a) + b.charCodeAt(0);
+          return a & a;
+        }, 0)) % 1000000; // Keep it within reasonable range
+        
+        console.log('Authenticated user ID (mapped) in getProjectById:', user_id, 'from Supabase UUID:', supabaseUserId);
+      } catch (error) {
+        console.error('Error decoding JWT token in getProjectById:', error);
+        // Fall back to default user_id = 1
+      }
+    }
+    
+    // First get the project to check ownership
     const result = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(id).first();
     if (!result) {
       return new Response(JSON.stringify({ error: 'Project not found' }), { status: 404, headers: corsHeaders });
     }
+    
+    // Check if the project belongs to the authenticated user
+    if (result.user_id !== user_id) {
+      console.log('❌ Access denied: Project user_id:', result.user_id, 'Requested user_id:', user_id);
+      return new Response(JSON.stringify({ error: 'Access denied' }), { status: 403, headers: corsHeaders });
+    }
+    
+    console.log('✅ Project access granted for user_id:', user_id);
     return new Response(JSON.stringify({ success: true, project: result }), { status: 200, headers: corsHeaders });
   } catch (error) {
     return new Response(JSON.stringify({ error: 'Failed to fetch project' }), { status: 500, headers: corsHeaders });
@@ -1794,10 +1869,36 @@ async function createProject(request, env, corsHeaders) {
     // Ensure ads columns exist
     await ensureAdsColumns(env);
     
-    const { project_name, files, user_id = 1, template_data } = await request.json();
+    const { project_name, files, template_data } = await request.json();
     if (!project_name || !files) {
       return new Response(JSON.stringify({ error: 'project_name and files are required' }), { status: 400, headers: corsHeaders });
     }
+    
+    // Extract user ID from auth header (Supabase JWT token)
+    const authHeader = request.headers.get('Authorization');
+    let user_id = 1; // Default fallback
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.substring(7);
+        // Decode JWT token to get user ID (Supabase JWT contains user info)
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const supabaseUserId = payload.sub; // Supabase JWT 'sub' field contains the user ID
+        
+        // For now, we'll use a hash of the UUID to generate a consistent integer user_id
+        // This allows us to work with the existing INTEGER user_id column
+        user_id = Math.abs(supabaseUserId.split('').reduce((a, b) => {
+          a = ((a << 5) - a) + b.charCodeAt(0);
+          return a & a;
+        }, 0)) % 1000000; // Keep it within reasonable range
+        
+        console.log('Creating project for authenticated user ID (mapped):', user_id, 'from Supabase UUID:', supabaseUserId);
+      } catch (error) {
+        console.error('Error decoding JWT token:', error);
+        // Fall back to default user_id = 1
+      }
+    }
+    
     const now = new Date().toISOString();
     
     let query, params;

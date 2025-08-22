@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { DEFAULT_TEMPLATE_DATA } from './TemplateBasedChat';
 import { getApiBaseUrl } from '../config/environment';
+import { useAuth } from './auth/AuthProvider';
 
 const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDeleted }) => {
+  const { session } = useAuth();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showRenameModal, setShowRenameModal] = useState(false);
@@ -19,25 +21,47 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
   const loadProjects = async () => {
     try {
       setLoading(true);
-      console.log('Loading projects...');
-      const response = await fetch(`${getApiBaseUrl()}/api/projects?user_id=1`);
-      console.log('Projects response:', response);
+      console.log('🔍 ProjectSelector: Loading projects...');
+      console.log('👤 Current session:', session);
+      console.log('🎫 Access token available:', !!session?.access_token);
+      
+      // Prepare headers with auth token if available
+      const headers = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+        console.log('🔐 Auth header added to request');
+      } else {
+        console.log('⚠️ No auth token available in ProjectSelector');
+      }
+      
+      console.log('📡 ProjectSelector: Making request with headers:', headers);
+      const response = await fetch(`${getApiBaseUrl()}/api/projects`, {
+        headers
+      });
+      console.log('📡 ProjectSelector: Response status:', response.status);
+      console.log('📡 ProjectSelector: Response headers:', Object.fromEntries(response.headers.entries()));
+      
       if (response.ok) {
         const result = await response.json();
-        console.log('Projects result:', result);
+        console.log('📋 ProjectSelector: Projects result:', result);
+        console.log('📊 ProjectSelector: Number of projects:', result.projects?.length || 0);
+        if (result.projects && result.projects.length > 0) {
+          console.log('🎯 ProjectSelector: First project user_id:', result.projects[0].user_id);
+        }
         setProjects(result.projects || []);
         
         // If no current project is selected, select the most recent one
         if (!currentProjectId && result.projects && result.projects.length > 0) {
           const mostRecent = result.projects[0];
+          console.log('🎯 ProjectSelector: Selecting most recent project:', mostRecent);
           onProjectSelect(mostRecent);
         }
       } else {
-        console.error('Failed to load projects:', response.status, response.statusText);
+        console.error('❌ ProjectSelector: Failed to load projects:', response.status, response.statusText);
         setError('Failed to load projects');
       }
     } catch (error) {
-      console.error('Error loading projects:', error);
+      console.error('❌ ProjectSelector: Error loading projects:', error);
       setError('Failed to load projects');
     } finally {
       setLoading(false);

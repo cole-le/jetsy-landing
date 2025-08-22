@@ -31,7 +31,7 @@ const Step4ManualInputs = React.memo(function Step4ManualInputs({
 }) {
   return (
     <div ref={containerRef}>
-      <h4 className="text-sm font-semibold text-gray-800 mb-2">From Ads (manual)</h4>
+      <h4 className="text-sm font-semibold text-gray-800 mb-2">Data from your Ads</h4>
       <div className="space-y-3">
         <div>
           <label className="block text-sm text-gray-700 mb-1">Spend (USD)</label>
@@ -1255,48 +1255,9 @@ const LaunchMonitorPage = ({ projectId }) => {
             </div>
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-gray-800 mb-2">From Jetsy (auto)</h4>
+            <h4 className="text-sm font-semibold text-gray-800 mb-2">Data from Jetsy for your website</h4>
             
-            {/* Time Range Picker */}
-            <div className="mb-4">
-              <label className="block text-sm text-gray-700 mb-2">Time Range</label>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => handleTimeRangeChange('custom')}
-                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                    timeRange === 'custom'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  Custom
-                </button>
-              </div>
-              
-              {/* Custom Date Range Inputs */}
-              {timeRange === 'custom' && (
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Start Date</label>
-                    <input
-                      type="date"
-                      value={customStartDate}
-                      onChange={(e) => setCustomStartDate(e.target.value)}
-                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">End Date</label>
-                    <input
-                      type="date"
-                      value={customEndDate}
-                      onChange={(e) => setCustomEndDate(e.target.value)}
-                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
+
             
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-gray-50 border border-gray-200 rounded p-3 text-center">

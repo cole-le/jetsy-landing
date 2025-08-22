@@ -20,11 +20,12 @@ export async function onRequestGet(context) {
     const db = env.DB;
 
     // Get leads count from leads table for this project
+    // Handle both cases: leads with project_id and leads without (default to project 1)
     const leadsResult = await db.prepare(`
       SELECT COUNT(*) as count
       FROM leads
-      WHERE project_id = ?
-    `).bind(parseInt(projectId, 10)).first();
+      WHERE (project_id = ? OR (project_id IS NULL AND ? = 1))
+    `).bind(parseInt(projectId, 10), parseInt(projectId, 10)).first();
 
     // Get event counts by type from tracking_events
     const eventCounts = await db.prepare(`
@@ -42,7 +43,6 @@ export async function onRequestGet(context) {
         DATE(created_at) as date,
         COUNT(*) as total_events,
         COUNT(CASE WHEN event_name = 'page_view' THEN 1 END) as page_views,
-        COUNT(CASE WHEN event_name = 'lead_form_submit' THEN 1 END) as leads,
         COUNT(CASE WHEN event_name = 'pricing_plan_select' THEN 1 END) as pricing_clicks
       FROM tracking_events
       WHERE JSON_EXTRACT(event_data, '$.project_id') = ?
@@ -61,7 +61,7 @@ export async function onRequestGet(context) {
 
     eventCounts.results?.forEach(row => {
       if (row.event_name === 'page_view') totals.page_views = row.count;
-      if (row.event_name === 'lead_form_submit') totals.leads = row.count; // Use event count instead of leads table
+      // Don't override leads count - keep it from leads table
       if (row.event_name === 'pricing_plan_select') totals.pricing_clicks = row.count;
       totals.total_events += row.count;
     });
