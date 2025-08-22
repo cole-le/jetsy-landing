@@ -114,7 +114,7 @@ const copyTargetAudience = async (platform, aiTargetAudience) => {
 };
 
 const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreatives }) => {
-  const { session } = useAuth();
+  const { session, signOut } = useAuth();
   const [project, setProject] = useState(null);
   const [cachedProjectName, setCachedProjectName] = useState('');
   const [deployment, setDeployment] = useState(null);
@@ -127,6 +127,7 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
   // Mobile responsiveness state
   const [isMobile, setIsMobile] = useState(false);
   const [showWorkflowPanel, setShowWorkflowPanel] = useState(false);
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
 
   // Workflow status state for navbar progress bar
   const [websiteDeployed, setWebsiteDeployed] = useState(false);
@@ -600,6 +601,18 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showWorkflowPanel, isMobile]);
 
+  // Close account menu when clicking outside
+  useEffect(() => {
+    if (!showAccountMenu) return;
+    const handleClickOutside = (event) => {
+      if (showAccountMenu && !event.target.closest('.account-menu-container')) {
+        setShowAccountMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showAccountMenu]);
+
   // Reload metrics when time range changes
   useEffect(() => {
     if (projectId) {
@@ -828,7 +841,7 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
       {/* Mobile Header - Only show on mobile screens */}
       {isMobile && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
-          <div className="flex items-center h-16 px-4 w-full max-w-full overflow-hidden">
+          <div className="flex items-center h-16 px-4 w-full max-w-full overflow-visible">
             {/* Logo - positioned at far left */}
             <div className="flex items-center flex-shrink-0">
               <img 
@@ -853,9 +866,39 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
               </button>
             </div>
 
-            {/* Right side - empty for balance */}
+            {/* Right side - Account avatar */}
             <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
-              {/* This div is intentionally empty to balance the layout */}
+              <div className="relative account-menu-container">
+                <button
+                  onClick={() => setShowAccountMenu((v) => !v)}
+                  className="p-2 rounded-full hover:bg-gray-100 border border-gray-200"
+                  title={session?.user?.email || 'Account'}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-gray-700">
+                    <path fillRule="evenodd" d="M12 2a5 5 0 100 10 5 5 0 000-10zm-7 17a7 7 0 1114 0v1H5v-1z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                {showAccountMenu && (
+                  <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-[10000]">
+                    <button
+                      onClick={() => { setShowAccountMenu(false); try { window.location.href = '/profile'; } catch (_) {} }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      Profile
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setShowAccountMenu(false);
+                        try { await signOut?.(); } catch (_) {}
+                        window.location.href = '/';
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
