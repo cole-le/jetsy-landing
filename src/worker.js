@@ -140,9 +140,14 @@ export default {
         const scoreMatch = path.match(/^\/api\/projects\/(\d+)\/score$/);
         const testrunMatch = path.match(/^\/api\/projects\/(\d+)\/testrun$/);
         const deploymentMatch = path.match(/^\/api\/projects\/(\d+)\/deployment$/);
+        const visibilityMatch = path.match(/^\/api\/projects\/(\d+)\/visibility$/);
         if (request.method === 'GET' && path === '/api/projects') {
           // GET /api/projects - list all projects for user
           return await getProjects(request, env, corsHeaders);
+        }
+        if (request.method === 'GET' && path === '/api/projects/public') {
+          // GET /api/projects/public - list all public projects
+          return await getPublicProjects(request, env, corsHeaders);
         }
         if (request.method === 'GET' && projectIdMatch) {
           // GET /api/projects/:id
@@ -189,6 +194,26 @@ export default {
         if (request.method === 'GET' && deploymentMatch) {
           return await getProjectDeploymentStatus(deploymentMatch[1], env, corsHeaders);
         }
+
+        // --- Project Visibility API ---
+        if (visibilityMatch) {
+          const pid = visibilityMatch[1];
+          if (request.method === 'PUT') {
+            // PUT /api/projects/:id/visibility - update project visibility
+            return await updateProjectVisibility(pid, request, env, corsHeaders);
+          }
+          if (request.method === 'GET') {
+            // GET /api/projects/:id/visibility - get project visibility
+            return await getProjectVisibility(pid, env, corsHeaders);
+          }
+        }
+
+        // --- Project Remix API ---
+        if (request.method === 'POST' && path.match(/^\/api\/projects\/(\d+)\/remix$/)) {
+          const remixMatch = path.match(/^\/api\/projects\/(\d+)\/remix$/);
+          return await remixProject(remixMatch[1], request, env, corsHeaders);
+        }
+
         if (request.method === 'OPTIONS') {
           return new Response(null, { status: 200, headers: corsHeaders });
         }
@@ -1838,6 +1863,8 @@ async function getProjects(request, env, corsHeaders) {
       return new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: corsHeaders });
     }
     
+    await ensureVisibilityColumn(env);
+    
     console.log('🔍 Querying projects with user_id:', user_id);
     const result = await db.prepare('SELECT * FROM projects WHERE user_id = ? ORDER BY updated_at DESC').bind(user_id).all();
     console.log('📊 Found projects:', result.results?.length || 0);
@@ -1910,8 +1937,9 @@ async function createProject(request, env, corsHeaders) {
   }
   
   try {
-    // Ensure ads columns exist
+    // Ensure ads columns and visibility column exist
     await ensureAdsColumns(env);
+    await ensureVisibilityColumn(env);
     
     const { project_name, files, template_data } = await request.json();
     if (!project_name || !files) {
@@ -1942,11 +1970,11 @@ async function createProject(request, env, corsHeaders) {
     
     let query, params;
     if (template_data) {
-      query = 'INSERT INTO projects (user_id, project_name, files, template_data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)';
-      params = [user_id, project_name, JSON.stringify(files), JSON.stringify(template_data), now, now];
+      query = 'INSERT INTO projects (user_id, project_name, files, template_data, visibility, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)';
+      params = [user_id, project_name, JSON.stringify(files), JSON.stringify(template_data), 'public', now, now];
     } else {
-      query = 'INSERT INTO projects (user_id, project_name, files, created_at, updated_at) VALUES (?, ?, ?, ?, ?)';
-      params = [user_id, project_name, JSON.stringify(files), now, now];
+      query = 'INSERT INTO projects (user_id, project_name, files, visibility, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)';
+      params = [user_id, project_name, JSON.stringify(files), 'public', now, now];
     }
     
     const result = await db.prepare(query).bind(...params).run();
@@ -2042,6 +2070,182 @@ async function deleteProject(id, env, corsHeaders) {
   } catch (error) {
     console.error('❌ Error deleting project:', error);
     return new Response(JSON.stringify({ error: 'Failed to delete project' }), { status: 500, headers: corsHeaders });
+  }
+}
+
+// --- Project Visibility Handlers ---
+async function getPublicProjects(request, env, corsHeaders) {
+  const db = env.DB;
+  try {
+    await ensureVisibilityColumn(env);
+    
+    const url = new URL(request.url);
+    const limit = parseInt(url.searchParams.get('limit')) || 20;
+    const offset = parseInt(url.searchParams.get('offset')) || 0;
+    
+    console.log('🔍 Fetching public projects');
+    const result = await db.prepare(`
+      SELECT id, project_name, template_data, created_at, updated_at, user_id, visibility 
+      FROM projects 
+      WHERE visibility = 'public' 
+      ORDER BY updated_at DESC 
+      LIMIT ? OFFSET ?
+    `).bind(limit, offset).all();
+    
+    console.log('📊 Found public projects:', result.results?.length || 0);
+    return new Response(JSON.stringify({ 
+      success: true, 
+      projects: result.results,
+      pagination: { limit, offset, count: result.results?.length || 0 }
+    }), { status: 200, headers: corsHeaders });
+  } catch (error) {
+    console.error('getPublicProjects error:', error);
+    return new Response(JSON.stringify({ error: 'Failed to fetch public projects', details: error.message }), { status: 500, headers: corsHeaders });
+  }
+}
+
+async function updateProjectVisibility(projectId, request, env, corsHeaders) {
+  const db = env.DB;
+  try {
+    await ensureVisibilityColumn(env);
+    
+    const { visibility } = await request.json();
+    
+    if (!visibility || !['public', 'private'].includes(visibility)) {
+      return new Response(JSON.stringify({ 
+        error: 'Invalid visibility value. Must be "public" or "private"' 
+      }), { status: 400, headers: corsHeaders });
+    }
+    
+    // Extract user ID from auth header
+    const authHeader = request.headers.get('Authorization');
+    let user_id = null;
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.substring(7);
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        user_id = payload.sub;
+      } catch (error) {
+        return new Response(JSON.stringify({ error: 'Invalid authentication token' }), { status: 401, headers: corsHeaders });
+      }
+    } else {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: corsHeaders });
+    }
+    
+    // Check if project exists and user owns it
+    const project = await db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').bind(projectId, user_id).first();
+    if (!project) {
+      return new Response(JSON.stringify({ error: 'Project not found or access denied' }), { status: 404, headers: corsHeaders });
+    }
+    
+    // Update project visibility
+    const result = await db.prepare('UPDATE projects SET visibility = ?, updated_at = ? WHERE id = ?')
+      .bind(visibility, new Date().toISOString(), projectId).run();
+    
+    if (!result.success) {
+      throw new Error('Failed to update project visibility');
+    }
+    
+    console.log(`✅ Project ${projectId} visibility updated to ${visibility}`);
+    return new Response(JSON.stringify({ 
+      success: true, 
+      visibility,
+      message: `Project visibility updated to ${visibility}` 
+    }), { status: 200, headers: corsHeaders });
+  } catch (error) {
+    console.error('updateProjectVisibility error:', error);
+    return new Response(JSON.stringify({ error: 'Failed to update project visibility', details: error.message }), { status: 500, headers: corsHeaders });
+  }
+}
+
+async function getProjectVisibility(projectId, env, corsHeaders) {
+  const db = env.DB;
+  try {
+    await ensureVisibilityColumn(env);
+    
+    const project = await db.prepare('SELECT visibility FROM projects WHERE id = ?').bind(projectId).first();
+    if (!project) {
+      return new Response(JSON.stringify({ error: 'Project not found' }), { status: 404, headers: corsHeaders });
+    }
+    
+    return new Response(JSON.stringify({ 
+      success: true, 
+      visibility: project.visibility || 'private' 
+    }), { status: 200, headers: corsHeaders });
+  } catch (error) {
+    console.error('getProjectVisibility error:', error);
+    return new Response(JSON.stringify({ error: 'Failed to get project visibility', details: error.message }), { status: 500, headers: corsHeaders });
+  }
+}
+
+async function remixProject(sourceProjectId, request, env, corsHeaders) {
+  const db = env.DB;
+  try {
+    await ensureVisibilityColumn(env);
+    
+    // Extract user ID from auth header
+    const authHeader = request.headers.get('Authorization');
+    let user_id = null;
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.substring(7);
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        user_id = payload.sub;
+      } catch (error) {
+        return new Response(JSON.stringify({ error: 'Invalid authentication token' }), { status: 401, headers: corsHeaders });
+      }
+    } else {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: corsHeaders });
+    }
+    
+    // Get the source project - must be public or owned by user
+    const sourceProject = await db.prepare(`
+      SELECT * FROM projects 
+      WHERE id = ? AND (visibility = 'public' OR user_id = ?)
+    `).bind(sourceProjectId, user_id).first();
+    
+    if (!sourceProject) {
+      return new Response(JSON.stringify({ error: 'Project not found or not accessible for remixing' }), { status: 404, headers: corsHeaders });
+    }
+    
+    // Create a new project based on the source
+    const now = new Date().toISOString();
+    const remixedName = `${sourceProject.project_name} (Remix)`;
+    
+    const result = await db.prepare(`
+      INSERT INTO projects (user_id, project_name, files, template_data, visibility, created_at, updated_at) 
+      VALUES (?, ?, ?, ?, 'public', ?, ?)
+    `).bind(
+      user_id,
+      remixedName,
+      sourceProject.files,
+      sourceProject.template_data,
+      now,
+      now
+    ).run();
+    
+    if (!result.success) {
+      throw new Error('Failed to create remixed project');
+    }
+    
+    const newProjectId = result.meta.last_row_id;
+    console.log(`✅ Project ${sourceProjectId} remixed as new project ${newProjectId}`);
+    
+    return new Response(JSON.stringify({ 
+      success: true, 
+      projectId: newProjectId,
+      message: 'Project remixed successfully',
+      project: {
+        id: newProjectId,
+        project_name: remixedName,
+        visibility: 'public'
+      }
+    }), { status: 201, headers: corsHeaders });
+  } catch (error) {
+    console.error('remixProject error:', error);
+    return new Response(JSON.stringify({ error: 'Failed to remix project', details: error.message }), { status: 500, headers: corsHeaders });
   }
 }
 
@@ -2571,6 +2775,39 @@ async function ensureAdsColumns(env) {
     await db.prepare(`ALTER TABLE projects ADD COLUMN ads_image_id TEXT`).run();
   } catch (e) {
     // Column probably already exists
+  }
+}
+
+// Helper function to ensure visibility column exists in projects table
+async function ensureVisibilityColumn(env) {
+  const db = env.DB;
+  
+  // Check if database is available
+  if (!db) {
+    console.warn('Database not available in ensureVisibilityColumn, skipping column creation');
+    return;
+  }
+  
+  // Add visibility column to projects table if it doesn't exist
+  try {
+    await db.prepare(`ALTER TABLE projects ADD COLUMN visibility TEXT DEFAULT 'private' CHECK (visibility IN ('public', 'private'))`).run();
+    console.log('Added visibility column to projects table');
+  } catch (e) {
+    // Column probably already exists
+  }
+  
+  // Create index for better query performance
+  try {
+    await db.prepare(`CREATE INDEX IF NOT EXISTS idx_projects_visibility ON projects(visibility)`).run();
+  } catch (e) {
+    // Index probably already exists
+  }
+  
+  // Update existing projects to have 'private' visibility by default
+  try {
+    await db.prepare(`UPDATE projects SET visibility = 'private' WHERE visibility IS NULL`).run();
+  } catch (e) {
+    // May fail if column doesn't exist yet, which is fine
   }
 }
 async function handleGeneratePlatformAdCopy(request, env, corsHeaders) {

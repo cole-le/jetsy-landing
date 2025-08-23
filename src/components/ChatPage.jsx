@@ -4,6 +4,7 @@ import ProjectSelector from './ProjectSelector';
 import { DEFAULT_TEMPLATE_DATA } from './TemplateBasedChat';
 import { getApiBaseUrl, getVercelApiBaseUrl } from '../config/environment';
 import { useAuth } from './auth/AuthProvider';
+import VisibilityToggle from './VisibilityToggle';
 
 const ChatPage = ({ onBackToHome }) => {
   const { user, session, isAuthenticated, loading: authLoading } = useAuth();
@@ -53,6 +54,13 @@ const ChatPage = ({ onBackToHome }) => {
         setMobileView('chat'); // Default to chat view on mobile
       }
     };
+
+  // Update current project visibility when toggled in header
+  const handleProjectVisibilityChange = (projectId, newVisibility) => {
+    if (currentProject?.id === projectId) {
+      setCurrentProject(prev => ({ ...prev, visibility: newVisibility }));
+    }
+  };
 
     // Set initial view
     handleResize();
@@ -117,11 +125,12 @@ const ChatPage = ({ onBackToHome }) => {
           // Verify this project belongs to the current user by checking if it has template_data
           // If it's a valid project for this user, it should have been loaded with proper auth
           if (project && project.project_name) {
-                      setCurrentProject({
-            id: project.id,
-            project_name: project.project_name,
-            files: JSON.parse(project.files)
-          });
+            setCurrentProject({
+              id: project.id,
+              project_name: project.project_name,
+              files: JSON.parse(project.files),
+              visibility: project.visibility
+            });
           
           // Dispatch project name update event
           window.dispatchEvent(new CustomEvent('project-name-update', { 
@@ -173,7 +182,8 @@ const ChatPage = ({ onBackToHome }) => {
             setCurrentProject({
               id: mostRecent.id,
               project_name: mostRecent.project_name,
-              files: JSON.parse(mostRecent.files)
+              files: JSON.parse(mostRecent.files),
+              visibility: mostRecent.visibility
             });
             setStoredProjectId(mostRecent.id);
             
@@ -246,7 +256,7 @@ const ChatPage = ({ onBackToHome }) => {
 
       if (response.ok) {
         const result = await response.json();
-        const newProject = { id: result.project_id, ...projectData };
+        const newProject = { id: result.project_id, visibility: 'public', ...projectData };
         setCurrentProject(newProject);
         setStoredProjectId(result.project_id);
         
@@ -276,7 +286,8 @@ const ChatPage = ({ onBackToHome }) => {
     setCurrentProject({
       id: project.id,
       project_name: project.project_name,
-      files: typeof project.files === 'string' ? JSON.parse(project.files) : project.files
+      files: typeof project.files === 'string' ? JSON.parse(project.files) : project.files,
+      visibility: project.visibility
     });
     setStoredProjectId(project.id);
     
@@ -862,11 +873,18 @@ const ChatPage = ({ onBackToHome }) => {
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
+                  {currentProject && (
+                    <VisibilityToggle
+                      project={currentProject}
+                      onVisibilityChange={handleProjectVisibilityChange}
+                      className="hidden lg:inline-flex"
+                    />
+                  )}
                   <button
                     onClick={() => setShowProjectPanel(true)}
                     className="text-xs text-blue-600 hover:text-blue-800 underline flex-shrink-0"
                   >
-                    Switch
+                    Projects
                   </button>
                   {/* Profile Icon */}
                   <button

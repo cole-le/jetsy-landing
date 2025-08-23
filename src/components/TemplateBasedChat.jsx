@@ -4,6 +4,7 @@ import ExceptionalTemplate from './ExceptionalTemplate';
 import DeploymentButton from './DeploymentButton';
 import { getVercelApiBaseUrl } from '../config/environment';
 import { useAuth } from './auth/AuthProvider';
+import VisibilityToggle from './VisibilityToggle';
 
 import { getApiBaseUrl } from '../config/environment';
 
@@ -875,7 +876,8 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             id: project.id,
             user_id: project.user_id,
             project_name: project.project_name,
-            files: JSON.parse(project.files)
+            files: JSON.parse(project.files),
+            visibility: project.visibility
           });
           
           // Dispatch project name update event
@@ -957,7 +959,8 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             id: mostRecent.id,
             user_id: mostRecent.user_id,
             project_name: mostRecent.project_name,
-            files: JSON.parse(mostRecent.files)
+            files: JSON.parse(mostRecent.files),
+            visibility: mostRecent.visibility
           });
           
           // Dispatch project name update event
@@ -1367,7 +1370,8 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       id: project.id,
       user_id: project.user_id,
       project_name: project.project_name,
-      files: typeof project.files === 'string' ? JSON.parse(project.files) : project.files
+      files: typeof project.files === 'string' ? JSON.parse(project.files) : project.files,
+      visibility: project.visibility
     });
     setStoredProjectId(project.id);
     
@@ -1406,6 +1410,14 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     setShowProjectPanel(false);
   };
 
+  // Update local state when visibility changes via toggle
+  const handleVisibilityChange = (projectId, newVisibility) => {
+    setCurrentProject((prev) => {
+      if (!prev || prev.id !== projectId) return prev;
+      return { ...prev, visibility: newVisibility };
+    });
+  };
+
   const handleAllProjectsDeleted = async () => {
     setCurrentProject(null);
     setMessages([]);
@@ -1437,6 +1449,14 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
               
               {/* Right: Projects Button */}
               <div className="flex items-center space-x-2 flex-shrink-0">
+                {/* Visibility Toggle - to the left of Projects button on desktop */}
+                {currentProject && (
+                  <VisibilityToggle 
+                    project={currentProject} 
+                    onVisibilityChange={handleVisibilityChange}
+                    className="mr-1"
+                  />
+                )}
                 <button
                   onClick={() => {
                     console.log('Toggling project panel, current state:', showProjectPanel);

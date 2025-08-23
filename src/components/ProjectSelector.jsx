@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DEFAULT_TEMPLATE_DATA } from './TemplateBasedChat';
 import { getApiBaseUrl } from '../config/environment';
 import { useAuth } from './auth/AuthProvider';
+import VisibilityToggle from './VisibilityToggle';
 
 const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDeleted }) => {
   const { session } = useAuth();
@@ -11,6 +12,7 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
   const [newProjectName, setNewProjectName] = useState('');
   const [editingProject, setEditingProject] = useState(null);
   const [error, setError] = useState('');
+  
 
   // Load projects on component mount
   useEffect(() => {
@@ -134,6 +136,15 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
     }
   };
 
+  // Handle visibility change
+  const handleVisibilityChange = (projectId, newVisibility) => {
+    setProjects(prev => prev.map(p => 
+      p.id === projectId 
+        ? { ...p, visibility: newVisibility }
+        : p
+    ));
+  };
+
   // Delete project
   const deleteProject = async (projectId) => {
     if (!confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
@@ -181,6 +192,8 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
     }
   };
 
+  
+
   // Open rename modal
   const openRenameModal = (project) => {
     setEditingProject(project);
@@ -203,12 +216,14 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
       <div className="px-4 py-3 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-medium text-gray-900">Your Projects</h3>
-          <button
-            onClick={createNewProject}
-            className="bg-blue-600 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            + New
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={createNewProject}
+              className="bg-blue-600 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              + New
+            </button>
+          </div>
         </div>
       </div>
 
@@ -251,10 +266,26 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
                           Active
                         </span>
                       )}
+                      {/* Desktop visibility toggle */}
+                      <div className="hidden sm:block">
+                        <VisibilityToggle 
+                          project={project} 
+                          onVisibilityChange={handleVisibilityChange}
+                        />
+                      </div>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Updated {new Date(project.updated_at).toLocaleDateString()}
-                    </p>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-xs text-gray-500">
+                        Updated {new Date(project.updated_at).toLocaleDateString()}
+                      </p>
+                      {/* Mobile visibility toggle */}
+                      <div className="sm:hidden">
+                        <VisibilityToggle 
+                          project={project} 
+                          onVisibilityChange={handleVisibilityChange}
+                        />
+                      </div>
+                    </div>
                   </div>
                   <div className="flex items-center space-x-1 ml-2">
                     <button
@@ -335,6 +366,8 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
           </div>
         </div>
       )}
+
+      
     </div>
   );
 };
