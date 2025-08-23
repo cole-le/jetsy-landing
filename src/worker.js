@@ -2010,7 +2010,7 @@ async function getProjectById(id, request, env, corsHeaders) {
 
     // Try to extract user ID from auth header (optional for public projects)
     const authHeader = request.headers.get('Authorization');
-    console.log('🔑 Auth header in getProjectById:', authHeader);
+    
     let user_id = null;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
