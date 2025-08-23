@@ -82,8 +82,9 @@ const SignUpForm = ({ onShowLogin, onSuccess }) => {
           setErrors({ general: msg });
         }
       } else {
-        // Redirect to verify email instruction page
-        window.location.href = '/verify_email';
+        // Redirect to verify email instruction page with email parameter
+        const emailParam = encodeURIComponent(formData.email);
+        window.location.href = `/verify_email?email=${emailParam}`;
         if (onSuccess && data?.user) {
           onSuccess(data.user);
         }
