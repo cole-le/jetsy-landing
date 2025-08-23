@@ -17,12 +17,12 @@ const HeroSection = ({ onIdeaSubmit, onPricingShown, expandChat }) => {
   }
 
   return (
-    <section className="min-h-screen flex items-start justify-center px-4 pt-20 pb-12 relative lovable-gradient">
+    <section className="min-h-screen flex items-start justify-center px-4 pt-8 md:pt-12 pb-12 relative lovable-gradient">
       <div className="max-w-screen-xl mx-auto text-center relative z-10">
 
 
         {/* Headline */}
-        <h1 className={`text-3xl md:text-5xl font-bold mb-6 mt-12 md:mt-24 transition-all duration-1000 delay-200 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+        <h1 className={`text-3xl md:text-5xl font-bold mb-6 mt-2 md:mt-6 transition-all duration-1000 delay-200 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
           <img
             src="/jetsy_colorful_transparent_horizontal.png"
             alt="Jetsy logo"

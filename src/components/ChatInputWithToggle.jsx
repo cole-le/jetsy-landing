@@ -129,7 +129,7 @@ const ChatInputWithToggle = ({ onSubmit, onPricingShown, expandChat }) => {
   return (
     <div className={`max-w-4xl mx-auto transition-transform duration-500 ${expandChat ? 'scale-105 shadow-2xl' : 'scale-100'} `} style={{ zIndex: expandChat ? 50 : 'auto' }}>
       <form onSubmit={handleSubmit} className="relative">
-        <div className={`bg-white border border-gray-200 rounded-2xl shadow-lg p-6 relative transition-all duration-500 ${expandChat ? 'ring-4 ring-accent' : ''}` }>
+        <div className={`bg-white border border-gray-200 rounded-2xl shadow-lg p-3 relative transition-all duration-500 ${expandChat ? 'ring-4 ring-accent' : ''}` }>
           {/* Main Input Area */}
           <div className="flex items-start gap-4">
             {/* Chat Input */}
@@ -138,8 +138,8 @@ const ChatInputWithToggle = ({ onSubmit, onPricingShown, expandChat }) => {
                 value={idea}
                 onChange={(e) => setIdea(e.target.value)}
                 placeholder={currentPlaceholder}
-                className="w-full px-4 py-3 bg-transparent border-none outline-none resize-none text-text placeholder-mutedText text-lg leading-relaxed min-h-[80px] md:min-h-[60px] max-h-[400px] md:max-h-[200px]"
-                rows={4}
+                className="w-full px-4 py-2 bg-transparent border-none outline-none resize-none text-text placeholder-mutedText text-lg leading-normal min-h-[48px] md:min-h-[44px] max-h-[400px] md:max-h-[200px]"
+                rows={3}
                 style={{ fontFamily: 'inherit' }}
               />
             </div>
@@ -149,7 +149,7 @@ const ChatInputWithToggle = ({ onSubmit, onPricingShown, expandChat }) => {
           <button
             type="submit"
             disabled={!idea.trim()}
-            className={`absolute bottom-6 right-6 p-3 rounded-full transition-colors duration-200 flex-shrink-0 ${
+            className={`absolute bottom-3 right-3 p-2 rounded-full transition-colors duration-200 flex-shrink-0 ${
               idea.trim() 
                 ? 'bg-black hover:bg-gray-800' 
                 : 'bg-gray-300 cursor-not-allowed'
@@ -162,7 +162,7 @@ const ChatInputWithToggle = ({ onSubmit, onPricingShown, expandChat }) => {
           </button>
 
           {/* Bottom Controls */}
-          <div className="flex items-center justify-between pt-4">
+          <div className="flex items-center justify-between pt-1">
             <div className="flex items-center gap-4">
               {/* Visibility Toggle */}
               <div className="relative">
