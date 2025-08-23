@@ -1,0 +1,147 @@
+import React, { useEffect, useState } from 'react';
+import { getApiBaseUrl } from '../config/environment';
+
+// Utility: attempt to extract a preview image URL from a project's template_data
+function extractPreviewImage(project) {
+  try {
+    const td = project.template_data ? JSON.parse(project.template_data) : null;
+    const candidates = [
+      td?.previewImage,
+      td?.preview_image,
+      td?.preview,
+      td?.screenshotUrl,
+      td?.screenshot_url,
+      td?.heroImage,
+      td?.images?.[0],
+    ].filter(Boolean);
+    if (candidates.length) return candidates[0];
+  } catch {}
+  return null;
+}
+
+function extractProjectTitle(project) {
+  try {
+    const td = project.template_data ? JSON.parse(project.template_data) : null;
+    return td?.businessName || project.project_name || 'Untitled Project';
+  } catch {
+    return project.project_name || 'Untitled Project';
+  }
+}
+
+function formatRemixCount(count) {
+  if (count == null) return '0 Remixes';
+  const n = Number(count) || 0;
+  if (n >= 1000) return `${Math.floor(n / 1000)}k Remixes`;
+  return `${n} Remixes`;
+}
+
+const Avatar = ({ name }) => {
+  const initials = (name || 'User')
+    .split(/\s+/)
+    .map((s) => s[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+  return (
+    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 text-white flex items-center justify-center text-xs font-semibold shadow-sm" title={name}>
+      {initials}
+    </div>
+  );
+};
+
+const ProjectCard = ({ project, onRemixClick }) => {
+  const title = extractProjectTitle(project);
+  const preview = extractPreviewImage(project);
+  const remixCount = project.remix_count ?? project.remixCount;
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-all">
+      <div className="aspect-[16/10] bg-gray-100 relative">
+        {preview ? (
+          <img src={preview} alt={title} className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-gray-400">No Preview</div>
+        )}
+      </div>
+      <div className="p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Avatar name={project.owner_name || 'Community'} />
+          <div className="truncate">
+            <div className="text-sm font-semibold text-gray-900 truncate">{title}</div>
+            <div className="text-xs text-gray-500">{formatRemixCount(remixCount)}</div>
+          </div>
+        </div>
+        <button
+          onClick={() => onRemixClick(project)}
+          className="w-full text-sm font-medium px-3 py-2 rounded-lg border border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors"
+        >
+          Remix
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const CommunityShowcase = () => {
+  const [projects, setProjects] = useState([]);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(`${getApiBaseUrl()}/api/projects/public?limit=24`);
+        if (!res.ok) throw new Error('Failed to load public projects');
+        const data = await res.json();
+        if (mounted) setProjects(data.projects || []);
+      } catch (e) {
+        if (mounted) setError(e.message || 'Failed to load');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleRemixClick = (project) => {
+    try {
+      localStorage.setItem('jetsy_pending_remix_project_id', String(project.id));
+    } catch {}
+    // Redirect to signup. App will detect the query and show signup, then perform remix post-auth.
+    const url = new URL(window.location.href);
+    url.searchParams.set('signup', '1');
+    window.location.href = url.pathname + url.search;
+  };
+
+  return (
+    <section className="py-12 md:py-16 bg-white">
+      <div className="max-w-screen-xl mx-auto px-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900">From the Community</h2>
+          {/* Placeholder for filters or View All */}
+          <a href="#" className="text-sm text-blue-600 hover:underline">View All</a>
+        </div>
+        {loading && (
+          <div className="text-gray-500 text-sm">Loading public projects…</div>
+        )}
+        {error && (
+          <div className="text-red-600 text-sm mb-3">{error}</div>
+        )}
+        {!loading && projects.length === 0 && (
+          <div className="text-gray-500 text-sm">No public projects yet.</div>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {projects.map((p) => (
+            <ProjectCard key={p.id} project={p} onRemixClick={handleRemixClick} />)
+          )}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+export default CommunityShowcase;

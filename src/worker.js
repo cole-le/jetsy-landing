@@ -504,6 +504,31 @@ async function handleContactSubmission(request, env, corsHeaders) {
   }
 }
 
+// Helper function to ensure remix_count column exists in projects table
+async function ensureRemixCountColumn(env) {
+  const db = env.DB;
+  if (!db) {
+    console.warn('Database not available in ensureRemixCountColumn, skipping');
+    return;
+  }
+  try {
+    await db.prepare(`ALTER TABLE projects ADD COLUMN remix_count INTEGER DEFAULT 0`).run();
+    console.log('Added remix_count column to projects table');
+  } catch (e) {
+    // Column probably already exists
+  }
+  try {
+    await db.prepare(`UPDATE projects SET remix_count = 0 WHERE remix_count IS NULL`).run();
+  } catch (e) {
+    // Ignore
+  }
+  try {
+    await db.prepare(`CREATE INDEX IF NOT EXISTS idx_projects_remix_count ON projects(remix_count)`).run();
+  } catch (e) {
+    // Ignore
+  }
+}
+
 // Generate a new ads image only (no DB saves) and return the URL/imageId
 async function handleGenerateAdsImageOnly(request, env, corsHeaders) {
   try {
@@ -1882,40 +1907,44 @@ async function getProjectById(id, request, env, corsHeaders) {
   const db = env.DB;
   try {
     console.log('🔍 getProjectById called for project ID:', id);
-    
-    // Extract user ID from auth header (Supabase JWT token)
-    const authHeader = request.headers.get('Authorization');
-    console.log('🔑 Auth header in getProjectById:', authHeader);
-    let user_id = null; // No default fallback for Supabase
-    
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      try {
-        const token = authHeader.substring(7);
-        // Decode JWT token to get user ID (Supabase JWT contains user info)
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        user_id = payload.sub; // Supabase JWT 'sub' field contains the user ID
-        
-        console.log('Authenticated user ID (Supabase UUID) in getProjectById:', user_id);
-      } catch (error) {
-        console.error('Error decoding JWT token in getProjectById:', error);
-        return new Response(JSON.stringify({ error: 'Invalid authentication token' }), { status: 401, headers: corsHeaders });
-      }
-    } else {
-      return new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: corsHeaders });
-    }
-    
-    // First get the project to check ownership
+    // First get the project to check visibility/ownership
     const result = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(id).first();
     if (!result) {
       return new Response(JSON.stringify({ error: 'Project not found' }), { status: 404, headers: corsHeaders });
     }
-    
-    // Check if the project belongs to the authenticated user
+
+    // Try to extract user ID from auth header (optional for public projects)
+    const authHeader = request.headers.get('Authorization');
+    console.log('🔑 Auth header in getProjectById:', authHeader);
+    let user_id = null;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.substring(7);
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        user_id = payload.sub;
+        console.log('Authenticated user ID (Supabase UUID) in getProjectById:', user_id);
+      } catch (error) {
+        console.error('Error decoding JWT token in getProjectById:', error);
+        // If token is bad, treat as unauthenticated but do not block public access
+        user_id = null;
+      }
+    }
+
+    // If the project is public, allow access without authentication
+    if ((result.visibility || 'public') === 'public') {
+      console.log('🌐 Public project access allowed');
+      return new Response(JSON.stringify({ success: true, project: result }), { status: 200, headers: corsHeaders });
+    }
+
+    // Private projects require authentication and ownership
+    if (!user_id) {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: corsHeaders });
+    }
     if (result.user_id !== user_id) {
       console.log('❌ Access denied: Project user_id:', result.user_id, 'Requested user_id:', user_id);
       return new Response(JSON.stringify({ error: 'Access denied' }), { status: 403, headers: corsHeaders });
     }
-    
+
     console.log('✅ Project access granted for user_id:', user_id);
     return new Response(JSON.stringify({ success: true, project: result }), { status: 200, headers: corsHeaders });
   } catch (error) {
@@ -2078,6 +2107,7 @@ async function getPublicProjects(request, env, corsHeaders) {
   const db = env.DB;
   try {
     await ensureVisibilityColumn(env);
+    await ensureRemixCountColumn(env);
     
     const url = new URL(request.url);
     const limit = parseInt(url.searchParams.get('limit')) || 20;
@@ -2085,7 +2115,7 @@ async function getPublicProjects(request, env, corsHeaders) {
     
     console.log('🔍 Fetching public projects');
     const result = await db.prepare(`
-      SELECT id, project_name, template_data, created_at, updated_at, user_id, visibility 
+      SELECT id, project_name, template_data, created_at, updated_at, user_id, visibility, remix_count 
       FROM projects 
       WHERE visibility = 'public' 
       ORDER BY updated_at DESC 
@@ -2183,6 +2213,7 @@ async function remixProject(sourceProjectId, request, env, corsHeaders) {
   const db = env.DB;
   try {
     await ensureVisibilityColumn(env);
+    await ensureRemixCountColumn(env);
     
     // Extract user ID from auth header
     const authHeader = request.headers.get('Authorization');
@@ -2232,6 +2263,15 @@ async function remixProject(sourceProjectId, request, env, corsHeaders) {
     
     const newProjectId = result.meta.last_row_id;
     console.log(`✅ Project ${sourceProjectId} remixed as new project ${newProjectId}`);
+
+    // Increment remix_count on source project
+    try {
+      await db.prepare(`UPDATE projects SET remix_count = COALESCE(remix_count, 0) + 1, updated_at = ? WHERE id = ?`)
+        .bind(now, sourceProjectId)
+        .run();
+    } catch (e) {
+      console.warn('Failed to increment remix_count for project', sourceProjectId, e);
+    }
     
     return new Response(JSON.stringify({ 
       success: true, 

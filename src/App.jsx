@@ -27,6 +27,7 @@ import ProfilePage from './components/auth/ProfilePage'
 import { getCurrentSession } from './config/supabase'
 import VerifyEmailPage from './components/auth/VerifyEmailPage'
 import NameCaptureModal from './components/auth/NameCaptureModal'
+import CommunityShowcase from './components/CommunityShowcase'
 
 function App() {
   const [currentStep, setCurrentStep] = useState('hero') // hero, faq, pricing, lead-capture, onboarding, login, signup, demo-booking, demo-thankyou, chat, profile
@@ -78,9 +79,8 @@ function App() {
   useEffect(() => {
     const path = window.location.pathname;
     console.log('URL pathname:', path);
-    
-
-    
+    const params = new URLSearchParams(window.location.search);
+    const wantSignup = params.get('signup') === '1';
     if (path === '/verify_email') {
       setCurrentStep('verify-email');
     } else if (path === '/chat') {
@@ -227,7 +227,12 @@ function App() {
           } catch (e) {
             console.error('Error checking auth session on home:', e);
           }
-          setCurrentStep('hero');
+          // If URL requests signup (from unauthenticated Remix), go to signup
+          if (wantSignup) {
+            setCurrentStep('signup');
+          } else {
+            setCurrentStep('hero');
+          }
           setIsInitialLoad(false);
         })();
       }
@@ -348,9 +353,15 @@ function App() {
   }
 
   const handleAuthSuccess = (user) => {
-    console.log('Authentication successful:', user)
-    // Redirect to chat page after successful auth
-    setCurrentStep('chat')
+    console.log('Authentication successful:', user);
+    // Try to perform pending remix if present
+    ;(async () => {
+      const done = await performPendingRemix();
+      if (!done) {
+        // Fallback: go to chat
+        setCurrentStep('chat');
+      }
+    })();
   }
 
   const handleShowSignup = () => {
@@ -533,6 +544,49 @@ function App() {
     setPreviewMode(newMode);
   };
 
+  // Perform pending remix if a project ID is stored in localStorage and user has a session
+  const performPendingRemix = async () => {
+    let pendingId = null;
+    try { pendingId = localStorage.getItem('jetsy_pending_remix_project_id'); } catch {}
+    if (!pendingId) return false;
+    try {
+      const session = await getCurrentSession();
+      const token = session?.access_token;
+      if (!token) return false;
+      const res = await fetch(`${getApiBaseUrl()}/api/projects/${pendingId}/remix`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!res.ok) {
+        console.error('Pending remix failed');
+        return false;
+      }
+      const data = await res.json();
+      const newProjectId = data?.project?.id;
+      try { localStorage.removeItem('jetsy_pending_remix_project_id'); } catch {}
+      if (newProjectId) {
+        setRouteProjectId(newProjectId);
+        setCurrentStep('chat');
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error('performPendingRemix error', e);
+      return false;
+    }
+  };
+
+  // Attempt remix on load if user is already authenticated after returning from OAuth
+  useEffect(() => {
+    (async () => {
+      await performPendingRemix();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="min-h-screen">
       {/* Navbar (hidden on public full-screen route and on mobile ad-creatives) */}
@@ -576,6 +630,9 @@ function App() {
           onPricingShown={() => setHasSeenPricing(true)}
           expandChat={expandChat}
         />
+      )}
+      {currentStep === 'hero' && (
+        <CommunityShowcase />
       )}
 
       {/* FAQ Section */}
