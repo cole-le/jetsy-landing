@@ -880,6 +880,25 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     localStorage.setItem('jetsy_current_project_id', projectId);
   };
 
+  const clearStoredProjectId = () => {
+    try {
+      localStorage.removeItem('jetsy_current_project_id');
+      localStorage.removeItem('jetsy_current_project_name');
+    } catch (_) {}
+  };
+
+  // Cache project name in both global and per-project scoped keys for Navbar/UI hydration
+  const setCachedProjectName = (name, projectId) => {
+    try {
+      if (typeof name === 'string' && name.length) {
+        localStorage.setItem('jetsy_current_project_name', name);
+        if (projectId) {
+          localStorage.setItem(`jetsy_project_name_${projectId}`, name);
+        }
+      }
+    } catch (_) {}
+  };
+
   const loadOrRestoreProject = async () => {
     try {
       // Check if we have an initialProjectId from the route first
@@ -904,6 +923,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             files: JSON.parse(project.files),
             visibility: project.visibility
           });
+          setCachedProjectName(project.project_name, project.id);
           
           // Dispatch project name update event
           window.dispatchEvent(new CustomEvent('project-name-update', { 
@@ -987,6 +1007,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             files: JSON.parse(mostRecent.files),
             visibility: mostRecent.visibility
           });
+          setCachedProjectName(mostRecent.project_name, mostRecent.id);
           
           // Dispatch project name update event
           window.dispatchEvent(new CustomEvent('project-name-update', { 
@@ -1055,7 +1076,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const createDefaultProject = async () => {
     try {
       const projectData = {
-        project_name: "New Project",
+        project_name: "New business",
         user_id: 1,
         files: {
           "src/App.jsx": `import React from 'react';\nimport './index.css';\nfunction App() {\n  return (\n    <div className=\"min-h-screen bg-gray-50\">\n      <div className=\"container mx-auto px-4 py-8\">\n        <h1 className=\"text-4xl font-bold text-center text-gray-900 mb-8\">Welcome to Your Landing Page</h1>\n        <p className=\"text-center text-gray-600 mb-8\">This is a placeholder. Start chatting to customize your landing page!</p>\n      </div>\n    </div>\n  );\n}\nexport default App;`,
@@ -1080,6 +1101,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         const newProject = { id: result.project_id, ...projectData };
         setCurrentProject(newProject);
         setStoredProjectId(result.project_id);
+        setCachedProjectName(newProject.project_name, result.project_id);
         
         // Dispatch project name update event
         window.dispatchEvent(new CustomEvent('project-name-update', { 
@@ -1399,6 +1421,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       visibility: project.visibility
     });
     setStoredProjectId(project.id);
+    setCachedProjectName(project.project_name, project.id);
     
     // Dispatch project name update event
     window.dispatchEvent(new CustomEvent('project-name-update', { 
@@ -1446,7 +1469,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const handleAllProjectsDeleted = async () => {
     setCurrentProject(null);
     setMessages([]);
-    setStoredProjectId(null);
+    clearStoredProjectId();
     await createDefaultProject();
   };
 

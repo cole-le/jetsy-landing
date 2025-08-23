@@ -2095,10 +2095,10 @@ async function createProject(request, env, corsHeaders) {
     let query, params;
     if (template_data) {
       query = 'INSERT INTO projects (user_id, project_name, files, template_data, visibility, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)';
-      params = [user_id, project_name, JSON.stringify(files), JSON.stringify(template_data), 'public', now, now];
+      params = [user_id, project_name, JSON.stringify(files), JSON.stringify(template_data), 'private', now, now];
     } else {
       query = 'INSERT INTO projects (user_id, project_name, files, visibility, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)';
-      params = [user_id, project_name, JSON.stringify(files), 'public', now, now];
+      params = [user_id, project_name, JSON.stringify(files), 'private', now, now];
     }
     
     const result = await db.prepare(query).bind(...params).run();
@@ -3067,6 +3067,16 @@ async function handleGenerateBusinessName(request, env, corsHeaders) {
     }
 
     const data = await response.json();
+    // Cost log for business name generation
+    if (data.usage) {
+      const inputTokens = data.usage.prompt_tokens || 0;
+      const outputTokens = data.usage.completion_tokens || 0;
+      const cost = logApiCost('gpt-4o-mini', inputTokens, outputTokens, 'mini');
+      totalCost.mini.input_tokens = inputTokens;
+      totalCost.mini.output_tokens = outputTokens;
+      totalCost.mini.cost = cost;
+      totalCost.total += cost;
+    }
     let name = (data.choices?.[0]?.message?.content || '').trim();
     // Strip surrounding quotes if present
     name = name.replace(/^"|"$/g, '').replace(/^'|'$/g, '').trim();
@@ -3095,6 +3105,16 @@ async function handleGenerateBusinessName(request, env, corsHeaders) {
       });
       if (second.ok) {
         const secondData = await second.json();
+        // Cost log for fallback business name generation attempt
+        if (secondData.usage) {
+          const inputTokens = secondData.usage.prompt_tokens || 0;
+          const outputTokens = secondData.usage.completion_tokens || 0;
+          const cost = logApiCost('gpt-4o-mini', inputTokens, outputTokens, 'mini');
+          totalCost.mini.input_tokens = inputTokens;
+          totalCost.mini.output_tokens = outputTokens;
+          totalCost.mini.cost = cost;
+          totalCost.total += cost;
+        }
         let alt = (secondData.choices?.[0]?.message?.content || '').trim();
         alt = alt.replace(/^\"|\"$/g, '').replace(/^'|'$/g, '').trim();
         if (alt && alt.toLowerCase() !== String(currentName).toLowerCase()) {
@@ -5987,8 +6007,8 @@ const PRICING = {
     output: 0.40    // $0.40 per 1M output tokens (GPT-4.1-nano)
   },
   mini: {
-    input: 1.10,    // $1.10 per 1M input tokens (GPT-4o-mini)
-    output: 4.40    // $4.40 per 1M output tokens (GPT-4o-mini)
+    input: 0.15,    // $0.15 per 1M input tokens (GPT-4o-mini)
+    output: 0.60    // $0.60 per 1M output tokens (GPT-4o-mini)
   }
 };
 
@@ -5999,11 +6019,18 @@ function calculateCost(inputTokens, outputTokens, model) {
   return inputCost + outputCost;
 }
 
+// Standardized API cost logger
+function logApiCost(modelLabel, inputTokens, outputTokens, priceKey = 'mini') {
+  const cost = calculateCost(inputTokens, outputTokens, priceKey);
+  console.log(`[API Cost]: model=${modelLabel}, input_tokens=${inputTokens}, output_tokens=${outputTokens}, cost=$${cost.toFixed(6)}`);
+  return cost;
+}
+
 // Log total cost
 function logTotalCost() {
-  console.log('💰 COST BREAKDOWN:');
-  console.log(`   GPT-4o-mini: ${totalCost.mini.input_tokens} input + ${totalCost.mini.output_tokens} output tokens = $${totalCost.mini.cost.toFixed(6)}`);
-  console.log(`   TOTAL COST: $${totalCost.total.toFixed(6)}`);
+  console.log('[API Cost]: COST BREAKDOWN');
+  console.log(`[API Cost]: model=gpt-4o-mini, input_tokens=${totalCost.mini.input_tokens}, output_tokens=${totalCost.mini.output_tokens}, cost=$${totalCost.mini.cost.toFixed(6)}`);
+  console.log(`[API Cost]: TOTAL cost=$${totalCost.total.toFixed(6)}`);
 }
 
 // Stage 1: GPT-4.1 Nano for task parsing and preprocessing
@@ -6130,14 +6157,8 @@ Parse this request and return ONLY the JSON object.`;
     if (data.usage) {
       totalCost.nano.input_tokens = data.usage.input_tokens || 0;
       totalCost.nano.output_tokens = data.usage.output_tokens || 0;
-      totalCost.nano.cost = calculateCost(totalCost.nano.input_tokens, totalCost.nano.output_tokens, 'nano');
+      totalCost.nano.cost = logApiCost('gpt-4.1-nano', totalCost.nano.input_tokens, totalCost.nano.output_tokens, 'nano');
       totalCost.total += totalCost.nano.cost;
-      
-      console.log('💰 GPT-4.1-nano cost:', {
-        input_tokens: totalCost.nano.input_tokens,
-        output_tokens: totalCost.nano.output_tokens,
-        cost: `$${totalCost.nano.cost.toFixed(6)}`
-      });
     }
     
                                 // Parse the response - NO FALLBACK, FAIL FAST
@@ -6711,12 +6732,7 @@ Return only the JSON response with assistant_message, updated_files, image_reque
     totalCost.mini.output_tokens = data.usage.completion_tokens || 0;
     totalCost.mini.cost = calculateCost(totalCost.mini.input_tokens, totalCost.mini.output_tokens, 'mini');
     totalCost.total += totalCost.mini.cost;
-    
-    console.log('💰 GPT-4o-mini cost:', {
-      input_tokens: totalCost.mini.input_tokens,
-      output_tokens: totalCost.mini.output_tokens,
-      cost: `$${totalCost.mini.cost.toFixed(6)}`
-    });
+    logApiCost('gpt-4o-mini', totalCost.mini.input_tokens, totalCost.mini.output_tokens, 'mini');
   }
   
   let content = data.choices[0].message.content;
@@ -9729,14 +9745,28 @@ Return ONLY the business type code (e.g., "saas_b2b") with no other text.`;
 
     const data = await response.json();
     
+    // Log API cost for template content generation (gpt-4o-mini)
+    if (data && data.usage) {
+      const inputTokens = (data.usage.prompt_tokens ?? data.usage.input_tokens) || 0;
+      const outputTokens = (data.usage.completion_tokens ?? data.usage.output_tokens) || 0;
+      const cost = logApiCost('gpt-4o-mini', inputTokens, outputTokens, 'mini');
+      totalCost.mini.input_tokens = inputTokens;
+      totalCost.mini.output_tokens = outputTokens;
+      totalCost.mini.cost = cost;
+      totalCost.total += cost;
+    }
+    
     if (data.choices && data.choices[0] && data.choices[0].message) {
       const assistantMessage = data.choices[0].message.content.trim();
       
       // Log cost - fix the parameter access
       const inputTokens = data.usage?.prompt_tokens || 0;
       const outputTokens = data.usage?.completion_tokens || 0;
-      const cost = calculateCost(inputTokens, outputTokens, 'mini');
-      console.log(`💰 GPT-4o-mini cost: { input_tokens: ${inputTokens}, output_tokens: ${outputTokens}, cost: '$${cost.toFixed(6)}' }`);
+      const cost = logApiCost('gpt-4o-mini', inputTokens, outputTokens, 'mini');
+      totalCost.mini.input_tokens = inputTokens;
+      totalCost.mini.output_tokens = outputTokens;
+      totalCost.mini.cost = cost;
+      totalCost.total += cost;
       
       return { assistant_message: assistantMessage };
     } else {
@@ -9815,6 +9845,17 @@ Output JSON example:
 
     const data = await response.json();
     console.log('🔍 OpenAI Responses API response structure:', JSON.stringify(data, null, 2));
+    
+    // Log API cost for background prompt generation (o4-mini via Responses API)
+    if (data && data.usage) {
+      const inputTokens = (data.usage.input_tokens ?? data.usage.prompt_tokens) || 0;
+      const outputTokens = (data.usage.output_tokens ?? data.usage.completion_tokens) || 0;
+      const cost = logApiCost('o4-mini', inputTokens, outputTokens, 'mini');
+      totalCost.mini.input_tokens = inputTokens;
+      totalCost.mini.output_tokens = outputTokens;
+      totalCost.mini.cost = cost;
+      totalCost.total += cost;
+    }
 
     let textOut;
     // Prefer Responses API "output" array: find assistant message content (output_text)
@@ -10275,6 +10316,16 @@ Return ONLY a JSON object with this exact structure:
     }
 
     const result = await response.json();
+    // Cost log for ad copy generation
+    if (result.usage) {
+      const inputTokens = result.usage.prompt_tokens || 0;
+      const outputTokens = result.usage.completion_tokens || 0;
+      const cost = logApiCost('gpt-4o-mini', inputTokens, outputTokens, 'mini');
+      totalCost.mini.input_tokens = inputTokens;
+      totalCost.mini.output_tokens = outputTokens;
+      totalCost.mini.cost = cost;
+      totalCost.total += cost;
+    }
     const aiResponse = result.choices[0].message.content.trim();
     
     // Parse the JSON response
@@ -10359,6 +10410,16 @@ Return ONLY the image generation prompt, no additional text.`;
     }
 
     const researchResult = await researchResponse.json();
+    // Cost log for ad creative research prompt generation
+    if (researchResult.usage) {
+      const inputTokens = researchResult.usage.prompt_tokens || 0;
+      const outputTokens = researchResult.usage.completion_tokens || 0;
+      const cost = logApiCost('gpt-4o-mini', inputTokens, outputTokens, 'mini');
+      totalCost.mini.input_tokens = inputTokens;
+      totalCost.mini.output_tokens = outputTokens;
+      totalCost.mini.cost = cost;
+      totalCost.total += cost;
+    }
     const imagePrompt = researchResult.choices[0].message.content.trim();
 
     // Step 2: Generate background image using Gemini
@@ -10688,6 +10749,16 @@ Return ONLY a JSON object with this exact structure:
   }
 
   const result = await response.json();
+  // Cost log for multi-platform ad copy generation
+  if (result.usage) {
+    const inputTokens = result.usage.prompt_tokens || 0;
+    const outputTokens = result.usage.completion_tokens || 0;
+    const cost = logApiCost('gpt-4o-mini', inputTokens, outputTokens, 'mini');
+    totalCost.mini.input_tokens = inputTokens;
+    totalCost.mini.output_tokens = outputTokens;
+    totalCost.mini.cost = cost;
+    totalCost.total += cost;
+  }
   const aiResponse = result.choices[0].message.content.trim();
   
   // Parse the JSON response
@@ -10773,6 +10844,16 @@ Return ONLY the image generation prompt, no additional text or formatting. Make 
   }
 
   const result = await response.json();
+  // Cost log for ad image prompt generation
+  if (result.usage) {
+    const inputTokens = result.usage.prompt_tokens || 0;
+    const outputTokens = result.usage.completion_tokens || 0;
+    const cost = logApiCost('gpt-4o-mini', inputTokens, outputTokens, 'mini');
+    totalCost.mini.input_tokens = inputTokens;
+    totalCost.mini.output_tokens = outputTokens;
+    totalCost.mini.cost = cost;
+    totalCost.total += cost;
+  }
   const aiResponse = result.choices[0].message.content.trim();
   
   // Clean up the response and ensure it's a good prompt
@@ -10925,6 +11006,16 @@ Example response format:
     }
 
     const result = await response.json();
+    // Cost log for auto-fill business info
+    if (result.usage) {
+      const inputTokens = result.usage.prompt_tokens || 0;
+      const outputTokens = result.usage.completion_tokens || 0;
+      const cost = logApiCost('gpt-4o-mini', inputTokens, outputTokens, 'mini');
+      totalCost.mini.input_tokens = inputTokens;
+      totalCost.mini.output_tokens = outputTokens;
+      totalCost.mini.cost = cost;
+      totalCost.total += cost;
+    }
     const aiResponse = result.choices[0].message.content.trim();
     
     // Parse the JSON response - handle markdown formatting
@@ -11503,6 +11594,16 @@ Make each description specific, actionable, and optimized for the respective pla
     }
 
     const data = await response.json();
+    // Cost log for target audience generation
+    if (data.usage) {
+      const inputTokens = data.usage.prompt_tokens || 0;
+      const outputTokens = data.usage.completion_tokens || 0;
+      const cost = logApiCost('gpt-4o-mini', inputTokens, outputTokens, 'mini');
+      totalCost.mini.input_tokens = inputTokens;
+      totalCost.mini.output_tokens = outputTokens;
+      totalCost.mini.cost = cost;
+      totalCost.total += cost;
+    }
     const content = data.choices?.[0]?.message?.content;
     
     if (!content) {

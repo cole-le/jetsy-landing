@@ -75,7 +75,6 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
     try {
       const projectData = {
         project_name: 'New business',
-        user_id: 1,
         files: {
           "src/App.jsx": `import React from 'react';\nimport './index.css';\nfunction App() {\n  return (\n    <div className=\"min-h-screen bg-gray-50\">\n      <div className=\"container mx-auto px-4 py-8\">\n        <h1 className=\"text-4xl font-bold text-center text-gray-900 mb-8\">Welcome to Your Landing Page</h1>\n        <p className=\"text-center text-gray-600 mb-8\">This is a placeholder. Start chatting to customize your landing page!</p>\n      </div>\n    </div>\n  );\n}\nexport default App;`,
           "src/index.css": `@tailwind base;\n@tailwind components;\n@tailwind utilities;`
@@ -83,19 +82,32 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
         // Don't include template_data for new projects - let users chat first
       };
 
+      // Prepare headers with auth token
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
       const response = await fetch(`${getApiBaseUrl()}/api/projects`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(projectData)
       });
 
       if (response.ok) {
         const result = await response.json();
+        // Reload projects to get authoritative data (visibility, timestamps, etc.)
+        await loadProjects();
+        // Optimistically select the newly created project
         const newProject = { id: result.project_id, ...projectData };
-        setProjects(prev => [newProject, ...prev]);
         onProjectSelect(newProject);
       } else {
-        setError('Failed to create project');
+        try {
+          const err = await response.json();
+          setError(err?.error || 'Failed to create project');
+        } catch (_) {
+          setError('Failed to create project');
+        }
       }
     } catch (error) {
       console.error('Error creating project:', error);
@@ -112,9 +124,13 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
     }
 
     try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
       const response = await fetch(`${getApiBaseUrl()}/api/projects/${editingProject.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ project_name: newProjectName.trim() })
       });
 
@@ -152,8 +168,13 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
     }
 
     try {
+      const headers = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
       const response = await fetch(`${getApiBaseUrl()}/api/projects/${projectId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers
       });
 
       if (response.ok) {
