@@ -3,7 +3,7 @@ import { useAuth } from './AuthProvider';
 import { supabase } from '../../config/supabase';
 
 const ProfilePage = ({ onBackToChat }) => {
-  const { user, signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const [profile, setProfile] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -13,6 +13,14 @@ const ProfilePage = ({ onBackToChat }) => {
     phone: ''
   });
   const [errors, setErrors] = useState({});
+
+  // Redirect unauthenticated users once auth has finished loading
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      try { window.location.href = '/'; } catch (_) {}
+    }
+  }, [authLoading, user]);
 
   useEffect(() => {
     if (user) {

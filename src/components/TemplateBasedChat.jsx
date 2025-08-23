@@ -319,6 +319,14 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const [showPublishPanel, setShowPublishPanel] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
 
+  // Redirect unauthenticated users once auth has finished loading
+  useEffect(() => {
+    if (authLoading) return;
+    if (!session) {
+      try { window.location.href = '/'; } catch (_) {}
+    }
+  }, [authLoading, session]);
+
   // Effect to detect mobile screen size
   useEffect(() => {
     const checkMobile = () => {

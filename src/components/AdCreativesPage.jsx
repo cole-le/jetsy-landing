@@ -8,7 +8,7 @@ import AdControls from './ads-template/AdControls';
 import { useAuth } from './auth/AuthProvider';
 
 const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNavigateToDataAnalytics }) => {
-  const { session, signOut } = useAuth();
+  const { session, loading: authLoading, signOut } = useAuth();
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -19,6 +19,14 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
   const [mobileView, setMobileView] = useState('ads-copy'); // 'ads-copy' or 'preview'
   const [showWorkflowPanel, setShowWorkflowPanel] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
+
+  // Redirect unauthenticated users once auth has finished loading
+  useEffect(() => {
+    if (authLoading) return;
+    if (!session) {
+      try { window.location.href = '/'; } catch (_) {}
+    }
+  }, [authLoading, session]);
 
   // Workflow status state for navbar progress bar
   const [websiteDeployed, setWebsiteDeployed] = useState(false);
