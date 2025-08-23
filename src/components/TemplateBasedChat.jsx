@@ -2971,6 +2971,16 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
               )}
               
               <div className={`${isMobile ? 'p-4' : ''}`}>
+                {/* Mobile: Project Visibility Toggle chip above progress */}
+                {isMobile && currentProject && (
+                  <div className="mb-4">
+                    <div className="text-xs font-medium text-gray-500 mb-1">Project visibility</div>
+                    <VisibilityToggle
+                      project={currentProject}
+                      onVisibilityChange={handleVisibilityChange}
+                    />
+                  </div>
+                )}
                 {/* Workflow Progress */}
                 <div>
                   <h3 className="text-sm font-medium text-gray-900 mb-3">Website Creation Progress</h3>
