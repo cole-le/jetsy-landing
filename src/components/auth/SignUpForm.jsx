@@ -4,42 +4,32 @@ import { supabase } from '../../config/supabase';
 const SignUpForm = ({ onShowLogin, onSuccess }) => {
   const [formData, setFormData] = useState({
     email: '',
-    password: '',
-    confirmPassword: '',
-    fullName: '',
-    phone: ''
+    password: ''
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [step, setStep] = useState(1); // 1: email, 2: password
+  const [showPassword, setShowPassword] = useState(false);
 
-  const validateForm = () => {
+  const validateEmail = () => {
     const newErrors = {};
-
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
+  const validatePassword = () => {
+    const newErrors = {};
     if (!formData.password.trim()) {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
     }
-
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = 'Full name is required';
-    }
-
-    if (!formData.phone.trim()) {
-      newErrors.phone = 'Phone number is required';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -60,36 +50,47 @@ const SignUpForm = ({ onShowLogin, onSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
+    if (step === 1) {
+      if (!validateEmail()) return;
+      setStep(2);
       return;
     }
+
+    if (!validatePassword()) return;
 
     setIsSubmitting(true);
 
     try {
+      const redirectUrl = (import.meta?.env?.VITE_AUTH_REDIRECT_URL) || `${window.location.origin}/verify_email`;
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
-          data: {
-            full_name: formData.fullName,
-            phone: formData.phone
-          }
+          emailRedirectTo: redirectUrl
         }
       });
 
       if (error) {
-        setErrors({ general: error.message });
+        // Provide actionable guidance for common signup email errors
+        const msg = error.message || 'Sign up failed';
+        if (msg.toLowerCase().includes('confirmation email')) {
+          setErrors({
+            general:
+              'We could not send the verification email. If you are running locally, make sure Supabase Auth email is configured: (1) Auth > URL Configuration: set Site URL to your app URL (e.g., http://localhost:3000) and add it to Allowed Redirect URLs; (2) Auth > Providers > Email: configure SMTP or disable "Confirm email" for development.'
+          });
+        } else {
+          setErrors({ general: msg });
+        }
       } else {
-        // Success - user will receive verification email
-        if (onSuccess) {
+        // Redirect to verify email instruction page
+        window.location.href = '/verify_email';
+        if (onSuccess && data?.user) {
           onSuccess(data.user);
         }
       }
     } catch (error) {
       setErrors({ general: 'An unexpected error occurred. Please try again.' });
-      console.error('Sign up error:', error);
+      console.error('Sign up error (exception):', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -122,7 +123,7 @@ const SignUpForm = ({ onShowLogin, onSuccess }) => {
       <div className="max-w-md mx-auto w-full">
         <div className="text-center mb-8">
           <h2 className="text-3xl font-bold mb-2 text-text">Create Your Account</h2>
-          <p className="text-mutedText font-normal">Join Jetsy to build amazing landing pages</p>
+          <p className="text-mutedText font-normal">Join Jetsy to build amazing businesses in minutes</p>
         </div>
 
         {/* Google Sign Up Button */}
@@ -160,123 +161,135 @@ const SignUpForm = ({ onShowLogin, onSuccess }) => {
             <span className="px-2 bg-white text-gray-500">Or continue with email</span>
           </div>
         </div>
-
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Full Name Field */}
-          <div>
-            <label htmlFor="fullName" className="block text-sm font-semibold text-text mb-2">
-              Full Name *
-            </label>
-            <input
-              type="text"
-              id="fullName"
-              value={formData.fullName}
-              onChange={(e) => handleInputChange('fullName', e.target.value)}
-              className={`input-field ${errors.fullName ? 'border-red-500 focus:ring-red-500' : ''}`}
-              placeholder="John Doe"
-            />
-            {errors.fullName && (
-              <p className="mt-1 text-sm text-red-500">{errors.fullName}</p>
-            )}
-          </div>
+          {/* Step 1: Email */}
+          {step === 1 && (
+            <>
+              <div>
+                <label htmlFor="email" className="block text-sm font-semibold text-text mb-2">
+                  Email Address *
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  className={`input-field ${errors.email ? 'border-red-500 focus:ring-red-500' : ''}`}
+                  placeholder="your@email.com"
+                />
+                {errors.email && (
+                  <p className="mt-1 text-sm text-red-500">{errors.email}</p>
+                )}
+              </div>
 
-          {/* Email Field */}
-          <div>
-            <label htmlFor="email" className="block text-sm font-semibold text-text mb-2">
-              Email Address *
-            </label>
-            <input
-              type="email"
-              id="email"
-              value={formData.email}
-              onChange={(e) => handleInputChange('email', e.target.value)}
-              className={`input-field ${errors.email ? 'border-red-500 focus:ring-red-500' : ''}`}
-              placeholder="your@email.com"
-            />
-            {errors.email && (
-              <p className="mt-1 text-sm text-red-500">{errors.email}</p>
-            )}
-          </div>
+              {/* General Error */}
+              {errors.general && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-600">{errors.general}</p>
+                </div>
+              )}
 
-          {/* Phone Field */}
-          <div>
-            <label htmlFor="phone" className="block text-sm font-semibold text-text mb-2">
-              Phone Number *
-            </label>
-            <input
-              type="tel"
-              id="phone"
-              value={formData.phone}
-              onChange={(e) => handleInputChange('phone', e.target.value)}
-              className={`input-field ${errors.phone ? 'border-red-500 focus:ring-red-500' : ''}`}
-              placeholder="1 555 123 4567"
-            />
-            {errors.phone && (
-              <p className="mt-1 text-sm text-red-500">{errors.phone}</p>
-            )}
-          </div>
-
-          {/* Password Field */}
-          <div>
-            <label htmlFor="password" className="block text-sm font-semibold text-text mb-2">
-              Password *
-            </label>
-            <input
-              type="password"
-              id="password"
-              value={formData.password}
-              onChange={(e) => handleInputChange('password', e.target.value)}
-              className={`input-field ${errors.password ? 'border-red-500 focus:ring-red-500' : ''}`}
-              placeholder="Enter your password"
-            />
-            {errors.password && (
-              <p className="mt-1 text-sm text-red-500">{errors.password}</p>
-            )}
-          </div>
-
-          {/* Confirm Password Field */}
-          <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-semibold text-text mb-2">
-              Confirm Password *
-            </label>
-            <input
-              type="password"
-              id="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-              className={`input-field ${errors.confirmPassword ? 'border-red-500 focus:ring-red-500' : ''}`}
-              placeholder="Confirm your password"
-            />
-            {errors.confirmPassword && (
-              <p className="mt-1 text-sm text-red-500">{errors.confirmPassword}</p>
-            )}
-          </div>
-
-          {/* General Error */}
-          {errors.general && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{errors.general}</p>
-            </div>
+              <button
+                type="submit"
+                className="w-full btn btn-primary"
+              >
+                Continue
+              </button>
+            </>
           )}
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isSubmitting ? (
-              <div className="flex items-center justify-center gap-2">
-                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Creating account...
+          {/* Step 2: Password */}
+          {step === 2 && (
+            <>
+              <div>
+                <label htmlFor="email" className="block text-sm font-semibold text-text mb-2">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  value={formData.email}
+                  disabled
+                  className="input-field bg-gray-50 text-gray-500"
+                />
               </div>
-            ) : (
-              "Create Account"
-            )}
-          </button>
+
+              <div>
+                <label htmlFor="password" className="block text-sm font-semibold text-text mb-2">
+                  Password *
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    id="password"
+                    value={formData.password}
+                    onChange={(e) => handleInputChange('password', e.target.value)}
+                    className={`input-field pr-10 ${errors.password ? 'border-red-500 focus:ring-red-500' : ''}`}
+                    placeholder="Enter your password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((s) => !s)}
+                    className="absolute inset-y-0 right-3 flex items-center text-gray-500 hover:text-gray-700"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                  {showPassword ? (
+                    // Eye off icon
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20C7 20 2.73 16.11 1 12c.74-1.64 1.82-3.12 3.17-4.33" />
+                      <path d="M10.58 10.58a2 2 0 0 0 2.83 2.83" />
+                      <path d="M1 1l22 22" />
+                      <path d="M21 21 3 3" />
+                    </svg>
+                  ) : (
+                    // Eye icon
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                  </button>
+                </div>
+                {errors.password && (
+                  <p className="mt-1 text-sm text-red-500">{errors.password}</p>
+                )}
+              </div>
+
+              {/* General Error */}
+              {errors.general && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-600">{errors.general}</p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="w-1/3 btn bg-gray-100 text-gray-700 hover:bg-gray-200"
+                >
+                  Back
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-2/3 btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Creating account...
+                    </div>
+                  ) : (
+                    'Create Account'
+                  )}
+                </button>
+              </div>
+            </>
+          )}
         </form>
 
         {/* Login Link */}

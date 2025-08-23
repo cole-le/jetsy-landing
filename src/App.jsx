@@ -21,10 +21,12 @@ import PublicRouteView from './components/PublicRouteView'
 import AdCreativesPage from './components/AdCreativesPage'
 import AdsTemplatePage from './components/AdsTemplatePage'
 import LaunchMonitorPage from './components/LaunchMonitorPage'
-import { AuthProvider } from './components/auth/AuthProvider'
+import { AuthProvider, useAuth } from './components/auth/AuthProvider'
 import SignUpForm from './components/auth/SignUpForm'
 import ProfilePage from './components/auth/ProfilePage'
 import { getCurrentSession } from './config/supabase'
+import VerifyEmailPage from './components/auth/VerifyEmailPage'
+import NameCaptureModal from './components/auth/NameCaptureModal'
 
 function App() {
   const [currentStep, setCurrentStep] = useState('hero') // hero, faq, pricing, lead-capture, onboarding, login, signup, demo-booking, demo-thankyou, chat, profile
@@ -44,6 +46,8 @@ function App() {
   const [routeProjectId, setRouteProjectId] = useState(null);
   const [adCreativesProjectId, setAdCreativesProjectId] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
+  const { user } = useAuth ? useAuth() : { user: null };
+  const [showNameCapture, setShowNameCapture] = useState(false);
 
   useEffect(() => {
     // Track page view
@@ -60,6 +64,16 @@ function App() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Show name capture modal when user is signed in but missing full_name
+  useEffect(() => {
+    if (!user) {
+      setShowNameCapture(false);
+      return;
+    }
+    const name = user.user_metadata?.full_name;
+    setShowNameCapture(!name || name.trim() === '');
+  }, [user]);
+
   // Handle URL-based routing
   useEffect(() => {
     const path = window.location.pathname;
@@ -67,7 +81,9 @@ function App() {
     
 
     
-    if (path === '/chat') {
+    if (path === '/verify_email') {
+      setCurrentStep('verify-email');
+    } else if (path === '/chat') {
       // Only authenticated users can access chat
       setCurrentStep('chat');
     } else if (path.startsWith('/chat/')) {
@@ -203,7 +219,11 @@ function App() {
           try {
             const session = await getCurrentSession();
             if (session && session.user) {
-              setCurrentStep('chat');
+              if (session.user.email_confirmed_at) {
+                setCurrentStep('chat');
+              } else {
+                setCurrentStep('verify-email');
+              }
               setIsInitialLoad(false);
               return;
             }
@@ -235,6 +255,8 @@ function App() {
       window.history.pushState({}, '', '/chat');
     } else if (currentStep === 'profile' && path !== '/profile') {
       window.history.pushState({}, '', '/profile');
+    } else if (currentStep === 'verify-email' && path !== '/verify_email') {
+      window.history.pushState({}, '', '/verify_email');
     } else if (currentStep === 'ad-creatives' && adCreativesProjectId && path !== `/ad-creatives/${adCreativesProjectId}`) {
       window.history.pushState({}, '', `/ad-creatives/${adCreativesProjectId}`);
     } else if (currentStep === 'launch-monitor' && routeProjectId && path !== `/launch/${routeProjectId}`) {
@@ -632,6 +654,11 @@ function App() {
         />
       )}
 
+      {/* Verify Email Page */}
+      {currentStep === 'verify-email' && (
+        <VerifyEmailPage />
+      )}
+
       {/* Profile Page */}
       {currentStep === 'profile' && (
         <ProfilePage 
@@ -802,6 +829,15 @@ function App() {
 
       {/* Footer */}
       {currentStep !== 'template' && currentStep !== 'public-route' && currentStep !== 'chat' && <Footer />}
+
+      {/* Name Capture Modal (blocking) */}
+      <NameCaptureModal
+        isOpen={!!user && showNameCapture}
+        onCompleted={() => {
+          setShowNameCapture(false);
+          if (currentStep !== 'chat') setCurrentStep('chat');
+        }}
+      />
 
     </div>
   )
