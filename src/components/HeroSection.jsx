@@ -23,13 +23,17 @@ const HeroSection = ({ onIdeaSubmit, onPricingShown, expandChat }) => {
 
         {/* Headline */}
         <h1 className={`text-3xl md:text-5xl font-bold mb-6 mt-12 md:mt-24 transition-all duration-1000 delay-200 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-           Would anyone pay 💸 {' '}
-          <span className="text-gradient">for your idea?</span>
+          <img
+            src="/jetsy_colorful_transparent_horizontal.png"
+            alt="Jetsy logo"
+            className="inline-block h-16 md:h-20 align-middle mr-3 relative -top-[6px] md:-top-[4px]"
+          />
+          <span className="text-gradient"> business idea into reality</span>
         </h1>
 
         {/* Subheadline */}
         <p className={`text-lg md:text-xl text-mutedText mb-12 max-w-3xl mx-auto leading-relaxed font-medium transition-all duration-1000 delay-400 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-        Jetsy launches landing pages and ads to validate your startup idea quickly
+        Instantly create website and ads with AI
         </p>
 
         {/* Chat Input with Toggle */}
