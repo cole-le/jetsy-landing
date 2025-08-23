@@ -30,6 +30,10 @@ experimental_remote = true
 # GEMINI_API_KEY = "your-gemini-api-key-here"
 # CF_ZONE_ID used by the Worker (optional if stored as secret)
 CF_ZONE_ID = "53957945e940cad5e6dd29dd7add1e0c"
+# CF_ACCOUNT_ID used for Cloudflare Browser Rendering REST API
+# Set via plain var or secret. Token must have Browser Rendering permissions.
+# Example: wrangler secret put CLOUDFLARE_API_TOKEN
+CF_ACCOUNT_ID = "91166932d98ac9017c1156f1fa6c1dec"
 
 # Static assets configuration
 [site]
@@ -55,3 +59,12 @@ experimental_remote = true
 # Add environment variables for development
 [env.development.vars]
 CF_ZONE_ID = "53957945e940cad5e6dd29dd7add1e0c"
+CF_ACCOUNT_ID = "91166932d98ac9017c1156f1fa6c1dec"
+
+# Production environment configuration for `--env production`
+[env.production]
+name = "jetsy-landing-prod"
+
+# Add environment variables for production
+[env.production.vars]
+CF_ACCOUNT_ID = "91166932d98ac9017c1156f1fa6c1dec"

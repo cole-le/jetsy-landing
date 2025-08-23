@@ -51,7 +51,7 @@ const Avatar = ({ name }) => {
 
 const ProjectCard = ({ project, onRemixClick }) => {
   const title = extractProjectTitle(project);
-  const preview = extractPreviewImage(project);
+  const preview = project.preview_image_url || extractPreviewImage(project);
   const remixCount = project.remix_count ?? project.remixCount;
 
   return (

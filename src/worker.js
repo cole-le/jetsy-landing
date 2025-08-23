@@ -4,6 +4,99 @@ function getWorkerUrl(request) {
   return `${url.protocol}//${url.host}`;
 }
 
+// Ensure preview columns exist on projects table
+async function ensurePreviewColumns(env) {
+  const db = env.DB;
+  if (!db) return;
+  try { await db.prepare(`ALTER TABLE projects ADD COLUMN preview_image_url TEXT`).run(); } catch (_) {}
+  try { await db.prepare(`ALTER TABLE projects ADD COLUMN preview_image_updated_at TEXT`).run(); } catch (_) {}
+}
+
+// Capture screenshot via Cloudflare Browser Rendering REST API and persist to DB
+async function captureAndPersistProjectScreenshot(projectId, deploymentUrl, request, env) {
+  if (!deploymentUrl) throw new Error('Missing deploymentUrl');
+  const accountId = env.CF_ACCOUNT_ID;
+  const apiToken = env.CLOUDFLARE_API_TOKEN;
+  if (!accountId || !apiToken) throw new Error('Cloudflare account or API token not configured');
+
+  const apiUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/browser-rendering/screenshot`;
+  const body = {
+    url: deploymentUrl,
+    screenshotOptions: { type: 'webp' },
+    viewport: { width: 1200, height: 630 },
+    gotoOptions: { waitUntil: 'networkidle0', timeout: 45000 }
+  };
+
+  const res = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`Browser Rendering failed: ${res.status} ${txt}`);
+  }
+  const bytes = new Uint8Array(await res.arrayBuffer());
+
+  // Upload to R2 (flat key to match /api/serve-image/<filename>)
+  const filename = `screenshot-${projectId}-${Date.now()}.webp`;
+  await env.IMAGES_BUCKET.put(filename, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), {
+    httpMetadata: { contentType: 'image/webp', cacheControl: 'public, max-age=31536000, immutable' }
+  });
+  const publicUrl = `${new URL(request.url).origin}/api/serve-image/${filename}`;
+
+  // Persist on project
+  const now = new Date().toISOString();
+  await env.DB.prepare(`UPDATE projects SET preview_image_url = ?, preview_image_updated_at = ? WHERE id = ?`)
+    .bind(publicUrl, now, projectId)
+    .run();
+
+  return { url: publicUrl };
+}
+
+// HTTP handler for POST /api/projects/:id/preview/screenshot
+async function captureProjectScreenshot(projectId, request, env, corsHeaders) {
+  try {
+    await ensurePreviewColumns(env);
+    const db = env.DB;
+    const project = await db.prepare('SELECT id, current_deployment_url FROM projects WHERE id = ?').bind(projectId).first();
+    if (!project) {
+      return new Response(JSON.stringify({ success: false, error: 'Project not found' }), { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+    // Prefer deployed URL; otherwise fallback to local preview route so we can capture immediately after generation
+    let url = project.current_deployment_url;
+    if (!url) {
+      const origin = request.headers.get('origin') || new URL(request.url).origin;
+      url = `${origin}/preview/${projectId}`;
+    }
+    const result = await captureAndPersistProjectScreenshot(projectId, url, request, env);
+    return new Response(JSON.stringify({ success: true, preview_image_url: result.url }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  } catch (err) {
+    return new Response(JSON.stringify({ success: false, error: err.message || 'Failed to capture screenshot' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  }
+}
+
+// Public preview route: GET /preview/:projectId
+// Serves the latest generated HTML from template_data for Browser Rendering and manual preview
+async function handlePreviewRoute(projectId, request, env) {
+  const db = env.DB;
+  const project = await db.prepare('SELECT id, template_data, project_name FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) {
+    return new Response('Not found', { status: 404 });
+  }
+  let templateData = {};
+  try {
+    templateData = project.template_data
+      ? (typeof project.template_data === 'string' ? JSON.parse(project.template_data) : project.template_data)
+      : {};
+  } catch {}
+  const html = createCompleteStaticSite(templateData || {}, projectId);
+  return new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -25,6 +118,12 @@ export default {
     }
 
     try {
+      // --- Public Preview Route (for screenshot fallback) ---
+      const previewRouteTopMatch = path.match(/^\/preview\/(\d+)$/);
+      if (previewRouteTopMatch && request.method === 'GET') {
+        return await handlePreviewRoute(previewRouteTopMatch[1], request, env);
+      }
+
       // API routes
       if (path === '/api/lead' && request.method === 'POST') {
         // Use the new handler logic from functions/api/leads.js
@@ -208,21 +307,18 @@ export default {
           }
         }
 
-        // --- Project Remix API ---
-        if (request.method === 'POST' && path.match(/^\/api\/projects\/(\d+)\/remix$/)) {
-          const remixMatch = path.match(/^\/api\/projects\/(\d+)\/remix$/);
-          return await remixProject(remixMatch[1], request, env, corsHeaders);
-        }
-
-        if (request.method === 'OPTIONS') {
-          return new Response(null, { status: 200, headers: corsHeaders });
+        // --- Project Preview Screenshot API ---
+        const previewMatch = path.match(/^\/api\/projects\/(\d+)\/preview\/screenshot$/);
+        if (previewMatch) {
+          const pid = previewMatch[1];
+          if (request.method === 'POST') {
+            return await captureProjectScreenshot(pid, request, env, corsHeaders);
+          }
+          if (request.method === 'OPTIONS') {
+            return new Response(null, { status: 200, headers: corsHeaders });
+          }
         }
       }
-
-
-
-
-
 
       // --- Vercel Deployment API ---
       if (path.startsWith('/api/vercel')) {
@@ -230,7 +326,6 @@ export default {
         const deployMatch = path.match(/^\/api\/vercel\/deploy\/(\d+)$/);
         const statusMatch = path.match(/^\/api\/vercel\/status\/(\d+)$/);
         const domainMatch = path.match(/^\/api\/vercel\/domain\/(\d+)$/);
-        
         if (request.method === 'POST' && deployMatch) {
           // POST /api/vercel/deploy/:projectId - Deploy project to Vercel
           return await deployProjectToVercel(deployMatch[1], request, env, corsHeaders);
@@ -2429,6 +2524,8 @@ async function deployProjectToVercel(projectId, request, env, corsHeaders) {
       vercelProjectName: vercelProjectName,
       requestedName: vercelProjectName
     });
+
+    // Removed: screenshot capture after Vercel deploy. We now capture only once right after Live Preview is rendered.
 
     return new Response(JSON.stringify({
       success: true,
