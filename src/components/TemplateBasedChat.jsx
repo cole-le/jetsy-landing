@@ -897,6 +897,18 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
               setTemplateData(mergedTemplateData);
               // Switch to editor mode if template data exists
               setIsEditorMode(true);
+              // Immediately notify navbar about workflow state
+              try {
+                window.dispatchEvent(new CustomEvent('chat:workflow-status', {
+                  detail: {
+                    projectId: project.id,
+                    hasTemplateData: true,
+                    adsExist: !!project.ads_data,
+                    // We don't know deployment here; let Navbar fetch. Leave undefined.
+                    websiteDeployed: undefined
+                  }
+                }));
+              } catch (_) {}
             } catch (error) {
               console.error('❌ Error parsing template_data:', error);
               console.log('🔍 Raw template_data:', project.template_data);
@@ -906,6 +918,17 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             // Reset to default template data and switch to chat mode
             setTemplateData(DEFAULT_TEMPLATE_DATA);
             setIsEditorMode(false);
+            // Notify navbar so it can render stage states
+            try {
+              window.dispatchEvent(new CustomEvent('chat:workflow-status', {
+                detail: {
+                  projectId: project.id,
+                  hasTemplateData: false,
+                  adsExist: !!project.ads_data,
+                  websiteDeployed: undefined
+                }
+              }));
+            } catch (_) {}
           }
           
           // Update stored project ID if we loaded from initialProjectId
@@ -956,6 +979,17 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
               setTemplateData(mergedTemplateData);
               // Switch to editor mode if template data exists
               setIsEditorMode(true);
+              // Notify navbar immediately (fix for /chat auto-load flow)
+              try {
+                window.dispatchEvent(new CustomEvent('chat:workflow-status', {
+                  detail: {
+                    projectId: mostRecent.id,
+                    hasTemplateData: true,
+                    adsExist: !!mostRecent.ads_data,
+                    websiteDeployed: undefined
+                  }
+                }));
+              } catch (_) {}
             } catch (error) {
               console.error('❌ Error parsing template_data from mostRecent:', error);
               console.log('🔍 Raw template_data from mostRecent:', mostRecent.template_data);
@@ -965,6 +999,16 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             // Reset to default template data and switch to chat mode
             setTemplateData(DEFAULT_TEMPLATE_DATA);
             setIsEditorMode(false);
+            try {
+              window.dispatchEvent(new CustomEvent('chat:workflow-status', {
+                detail: {
+                  projectId: mostRecent.id,
+                  hasTemplateData: false,
+                  adsExist: !!mostRecent.ads_data,
+                  websiteDeployed: undefined
+                }
+              }));
+            } catch (_) {}
           }
           
           setStoredProjectId(mostRecent.id);

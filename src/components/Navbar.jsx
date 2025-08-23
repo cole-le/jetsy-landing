@@ -227,6 +227,20 @@ const Navbar = ({
     return () => window.removeEventListener('launch-monitor:workflow-status', handleWorkflowStatus);
   }, []);
 
+  // Listen for workflow status updates from TemplateBasedChat (when it auto-loads most recent project)
+  React.useEffect(() => {
+    const handleChatWorkflowStatus = (event) => {
+      const { websiteDeployed: newWebsiteDeployed, adsExist: newAdsExist, hasTemplateData: newHasTemplateData, projectId } = event.detail || {};
+      if (projectId) setCurrentProjectId(projectId);
+      if (typeof newHasTemplateData === 'boolean') setHasTemplateData(newHasTemplateData);
+      if (typeof newAdsExist === 'boolean') setAdsExist(newAdsExist);
+      if (typeof newWebsiteDeployed === 'boolean') setWebsiteDeployed(newWebsiteDeployed);
+    };
+
+    window.addEventListener('chat:workflow-status', handleChatWorkflowStatus);
+    return () => window.removeEventListener('chat:workflow-status', handleChatWorkflowStatus);
+  }, []);
+
   // Function to load ads state (extracted for reuse)
   const loadAdsState = async () => {
     try {
@@ -377,6 +391,7 @@ const Navbar = ({
                       projectId={currentProjectId}
                       websiteDeployed={websiteDeployed}
                       adsExist={adsExist}
+                      hasTemplateData={hasTemplateData}
                       onStageClick={(stageId) => {
                         if (stageId === 1 && currentProjectId) {
                           // Navigate to website creation using callback if available
