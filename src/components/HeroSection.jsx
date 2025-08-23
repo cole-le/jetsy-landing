@@ -33,7 +33,7 @@ const HeroSection = ({ onIdeaSubmit, onPricingShown, expandChat }) => {
 
         {/* Subheadline */}
         <p className={`text-lg md:text-xl text-mutedText mb-12 max-w-3xl mx-auto leading-relaxed font-medium transition-all duration-1000 delay-400 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-        Instantly create website and ads with AI
+        Create website and ads that people actually would pay money for with AI
         </p>
 
         {/* Chat Input with Toggle */}
