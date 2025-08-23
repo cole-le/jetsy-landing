@@ -341,6 +341,19 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Prefill chat input with idea saved from landing page after auth
+  useEffect(() => {
+    if (authLoading) return;
+    if (!session) return;
+    try {
+      const savedIdea = localStorage.getItem('jetsy_prefill_idea');
+      if (savedIdea && !inputMessage) {
+        setInputMessage(savedIdea);
+        localStorage.removeItem('jetsy_prefill_idea');
+      }
+    } catch (_) {}
+  }, [authLoading, session, inputMessage]);
+
   // Effect to dispatch navbar visibility event
   useEffect(() => {
     if (isMobile) {

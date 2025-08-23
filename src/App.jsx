@@ -289,6 +289,11 @@ function App() {
       visibility: visibility 
     })
 
+    // Persist idea so we can prefill it after signup/login on /chat
+    try {
+      localStorage.setItem('jetsy_prefill_idea', idea)
+    } catch {}
+
     // If user has already seen pricing modal, go directly to signup
     if (hasSeenPricing) {
       setCurrentStep('signup')
