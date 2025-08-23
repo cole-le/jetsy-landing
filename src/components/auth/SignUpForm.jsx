@@ -299,7 +299,7 @@ const SignUpForm = ({ onShowLogin, onSuccess }) => {
             onClick={onShowLogin}
             className="text-mutedText hover:text-text transition-colors duration-200"
           >
-            Already have an account? Sign in
+            Already have an account? <span className="underline">Log in</span>
           </button>
         </div>
 

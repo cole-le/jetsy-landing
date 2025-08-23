@@ -201,7 +201,7 @@ const LoginForm = ({ onBackToSignup, onSuccess }) => {
             onClick={onBackToSignup}
             className="text-mutedText hover:text-text transition-colors duration-200"
           >
-            Don't have an account? Sign up
+            Don't have an account? <span className="underline">Sign up</span>
           </button>
         </div>
       </div>
