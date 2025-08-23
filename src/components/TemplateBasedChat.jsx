@@ -2983,7 +2983,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                 )}
                 {/* Workflow Progress */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-900 mb-3">Website Creation Progress</h3>
+                  <h3 className="text-sm font-medium text-gray-900 mb-3">{isMobile ? 'Launch your business 🚀' : 'Website Creation Progress'}</h3>
                   <div className="space-y-3">
                     {/* Step 1: Website Creation */}
                     <div className="flex items-center space-x-3">

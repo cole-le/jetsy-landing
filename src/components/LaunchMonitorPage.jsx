@@ -1793,7 +1793,7 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
               <div className={`${isMobile ? 'p-4' : ''}`}>
                 {/* Workflow Progress */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-900 mb-3">Website Creation Progress</h3>
+                  <h3 className="text-sm font-medium text-gray-900 mb-3">{isMobile ? 'Launch your business 🚀' : 'Website Creation Progress'}</h3>
                   <div className="space-y-3">
                     {/* Step 1: Website Creation */}
                     <div className="flex items-center space-x-3">
