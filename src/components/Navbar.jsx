@@ -352,15 +352,15 @@ const Navbar = ({
     <nav className={`${hideNavbar ? 'fixed' : 'sticky'} top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 transition-all duration-300 ${hideNavbar ? 'transform -translate-y-full' : 'transform translate-y-0'}`}>
       <div className="flex items-center h-16">
         {/* Logo - positioned at far left with some padding */}
-        <div className="flex items-center pl-8">
+        <div className="flex items-center pl-3 sm:pl-6 lg:pl-8 flex-shrink-0 min-w-[72px]">
           <button 
             onClick={handleLogoClick}
-            className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+            className="flex items-center space-x-2 hover:opacity-80 transition-opacity flex-shrink-0"
           >
             <img 
               src="/jetsy_colorful_transparent_horizontal.png" 
               alt="Jetsy" 
-              className="h-8 sm:h-10 md:h-12 w-auto"
+              className="h-8 sm:h-10 md:h-12 w-auto flex-shrink-0"
             />
           </button>
         </div>
@@ -482,15 +482,15 @@ const Navbar = ({
                           // Dispatch event to show workflow panel in TemplateBasedChat
                           window.dispatchEvent(new CustomEvent('toggle-workflow-panel'));
                         }}
-                        className="flex items-center space-x-2 text-center hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors min-w-0 relative"
+                        className="flex items-center space-x-1 sm:space-x-2 text-center hover:bg-gray-50 rounded-lg px-2 sm:px-3 py-2 transition-colors min-w-0 relative w-28 sm:w-44 overflow-hidden"
                       >
                         {shouldPulseProjectName && (
                           <span className="pointer-events-none absolute inset-0 rounded-lg ring-2 ring-blue-400 ring-inset animate-pulse"></span>
                         )}
-                        <span className="text-sm font-medium text-gray-900 truncate max-w-[120px]">
+                        <span className="text-xs sm:text-sm font-medium text-gray-900 truncate flex-1 min-w-0">
                           {currentProjectName || 'Loading...'}
                         </span>
-                        <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
                       </button>
