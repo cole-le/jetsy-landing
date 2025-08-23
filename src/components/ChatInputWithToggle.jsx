@@ -14,17 +14,32 @@ const ChatInputWithToggle = ({ onSubmit, onPricingShown, expandChat }) => {
   const [isReversing, setIsReversing] = useState(false)
   const modalRef = useRef(null)
 
-  const baseText = "Ask Jetsy to test and see if people want to pay for "
+  const baseText = "Ask Jetsy to create "
   const businessIdeas = [
-    "a meal planning app...",
-    "a language learning platform...", 
-    "a fitness tracking website...",
-    "an online course marketplace...",
-    "a productivity tool...",
-    "a social media scheduler...",
-    "a project management app...",
-    "a customer support chatbot..."
+    "a dog walking business 🐶",
+    "a clothing brand 👕",
+    "a subscription box service 📦",
+    "a fitness coaching program 💪",
+    "an online course marketplace 🎓",
+    "a food delivery side hustle 🍔",
+    "a SaaS tool for freelancers 💻",
+    "a pet sitting service 🐾",
+    "a language learning platform 🌍",
   ]
+
+  // Safely split text into user-perceived characters (grapheme clusters)
+  const getGraphemes = (text) => {
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      const seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+      return Array.from(seg.segment(text), s => s.segment)
+    }
+    // Fallback: spread to code points (handles surrogate pairs, not full ZWJ sequences)
+    try {
+      return [...text]
+    } catch (e) {
+      return text.split('')
+    }
+  }
 
   // Typing animation effect
   useEffect(() => {
@@ -32,16 +47,17 @@ const ChatInputWithToggle = ({ onSubmit, onPricingShown, expandChat }) => {
     
     const animateText = async () => {
       const currentIdea = businessIdeas[currentPlaceholderIndex]
+      const graphemes = getGraphemes(currentIdea)
       
       // Type out the text
       setIsTyping(true)
       setIsReversing(false)
       
-      for (let i = 0; i <= currentIdea.length; i++) {
+      for (let i = 0; i <= graphemes.length; i++) {
         await new Promise(resolve => {
           timeoutId = setTimeout(resolve, 100) // Typing speed
         })
-        setTypingText(currentIdea.substring(0, i))
+        setTypingText(graphemes.slice(0, i).join(''))
       }
       
       // Wait a bit before reversing
@@ -51,11 +67,11 @@ const ChatInputWithToggle = ({ onSubmit, onPricingShown, expandChat }) => {
       
       // Reverse the text
       setIsReversing(true)
-      for (let i = currentIdea.length; i >= 0; i--) {
+      for (let i = graphemes.length; i >= 0; i--) {
         await new Promise(resolve => {
           timeoutId = setTimeout(resolve, 50) // Faster reverse speed
         })
-        setTypingText(currentIdea.substring(0, i))
+        setTypingText(graphemes.slice(0, i).join(''))
       }
       
       // Move to next idea

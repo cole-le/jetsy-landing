@@ -28,12 +28,12 @@ const HeroSection = ({ onIdeaSubmit, onPricingShown, expandChat }) => {
             alt="Jetsy logo"
             className="inline-block h-16 md:h-20 align-middle mr-3 relative -top-[6px] md:-top-[4px]"
           />
-          <span className="text-gradient"> business idea into reality</span>
+          <span className="text-gradient"> a Business Today </span>
         </h1>
 
         {/* Subheadline */}
         <p className={`text-lg md:text-xl text-mutedText mb-12 max-w-3xl mx-auto leading-relaxed font-medium transition-all duration-1000 delay-400 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-        Create website and ads that people actually would pay money for with AI
+        Create website, run ads, and see if people pay — all in 24 hours with AI
         </p>
 
         {/* Chat Input with Toggle */}
@@ -47,19 +47,19 @@ const HeroSection = ({ onIdeaSubmit, onPricingShown, expandChat }) => {
             <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
-            <span>No code required</span>
+            <span>Jetsy can create website</span>
           </div>
           <div className="flex items-center gap-2">
             <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
-            <span>Save time building something no one wants</span>
+            <span>Jetsy can create ads</span>
           </div>
           <div className="flex items-center gap-2">
             <svg className="w-5 h-5 text-purple-500" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
-            <span>See real purchase intent</span>
+            <span>Jetsy can tell you if people want to pay for your idea or not</span>
           </div>
         </div>
       </div>
