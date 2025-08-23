@@ -214,16 +214,13 @@ function App() {
         })();
         return; // avoid marking initial load twice below
       } else {
-        // This is jetsy.dev or localhost - if already logged in, go to chat, else show hero
+        // This is jetsy.dev or localhost - show hero by default.
+        // If logged in but email not confirmed, show verify-email instead.
         (async () => {
           try {
             const session = await getCurrentSession();
-            if (session && session.user) {
-              if (session.user.email_confirmed_at) {
-                setCurrentStep('chat');
-              } else {
-                setCurrentStep('verify-email');
-              }
+            if (session && session.user && !session.user.email_confirmed_at) {
+              setCurrentStep('verify-email');
               setIsInitialLoad(false);
               return;
             }
