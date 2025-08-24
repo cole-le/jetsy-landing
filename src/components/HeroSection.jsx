@@ -26,7 +26,7 @@ const HeroSection = ({ onIdeaSubmit, onPricingShown, expandChat }) => {
           <img
             src="/jetsy_colorful_transparent_horizontal.png"
             alt="Jetsy logo"
-            className="inline-block h-16 md:h-20 align-middle mr-3 relative -top-[6px] md:-top-[4px]"
+            className="inline-block h-16 md:h-20 align-middle mr-0 relative -top-[6px] md:-top-[4px]"
           />
           <span className="text-gradient"> a Business Today </span>
         </h1>
