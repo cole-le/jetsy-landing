@@ -10215,6 +10215,17 @@ Return ONLY a JSON object with these fields. Keep the structure exactly the same
 
     const data = await response.json();
     
+    // Cost logging for template generation
+    if (data.usage) {
+      const inputTokens = data.usage.prompt_tokens || 0;
+      const outputTokens = data.usage.completion_tokens || 0;
+      const cost = logApiCost('gpt-4o-mini', inputTokens, outputTokens, 'mini');
+      totalCost.mini.input_tokens = inputTokens;
+      totalCost.mini.output_tokens = outputTokens;
+      totalCost.mini.cost = cost;
+      totalCost.total += cost;
+    }
+    
     if (data.choices && data.choices[0] && data.choices[0].message) {
       const assistantMessage = data.choices[0].message.content.trim();
       
