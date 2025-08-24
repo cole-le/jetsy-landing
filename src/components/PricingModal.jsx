@@ -20,7 +20,7 @@ const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBoo
       color: 'green',
       subtitle: 'Discover what Jetsy can do for you',
       features: [
-        '35 credits',
+        '15 credits',
         'Public projects',
       ],
       buttonText: 'Get Started',
@@ -35,12 +35,27 @@ const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBoo
       subtitle: 'Designed for fast-moving teams building together in real time.',
       features: [
         'Everything in Free, plus:',
-        '300 monthly credits',
+        '100 monthly credits',
         'Private projects',
         'Custom website domains',
       ],
       buttonText: 'Get Started',
       popular: true
+    },
+    {
+      type: 'business',
+      name: 'Business',
+      price: 50,
+      period: '/month',
+      color: 'purple',
+      subtitle: 'Advanced controls and power features for growing departments',
+      features: [
+        'Everything in Pro, plus:',
+        '300 monthly credits',
+
+      ],
+      buttonText: 'Get Started',
+      popular: false
     },
     {
       type: 'enterprise',
