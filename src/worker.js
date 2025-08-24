@@ -7073,13 +7073,58 @@ async function getIndexHTML() {
 // Handle image generation using Google Gemini Imagen 3 Generate
 async function handleImageGeneration(request, env, corsHeaders) {
   try {
-    const { project_id, prompt, aspect_ratio = '1:1', number_of_images = 1, update_project_field } = await request.json();
+    const { project_id, prompt, aspect_ratio = '1:1', number_of_images = 1, update_project_field, is_part_of_template } = await request.json();
     
     if (!project_id || !prompt) {
       return new Response(JSON.stringify({ error: 'project_id and prompt are required' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
+    }
+
+    // Check if this is part of template generation (no credit deduction needed)
+    if (is_part_of_template) {
+      console.log(`[Credits Transaction] 🎨 Image generation is part of template generation - skipping credit deduction`);
+    } else {
+      // This is an independent image generation - deduct 2 credits
+      const authHeader = request.headers.get('Authorization');
+      let userId = null;
+      
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        // Get user ID for credit deduction
+        const db = env.DB;
+        if (db) {
+          const userCredits = await db.prepare(`
+            SELECT user_id FROM user_credits 
+            ORDER BY created_at DESC 
+            LIMIT 1
+          `).first();
+          if (userCredits) {
+            userId = userCredits.user_id;
+          }
+        }
+      }
+      
+      if (userId) {
+        try {
+          console.log(`[Credits Transaction] 🎨 Deducting 2 credits for independent image generation`);
+          await deductCredits(userId, 2, 'image_generation', 'deduction', 
+            JSON.stringify({ project_id, prompt: prompt.substring(0, 100), aspect_ratio }), env);
+          console.log(`[Credits Transaction] ✅ Successfully deducted 2 credits for image generation`);
+        } catch (creditError) {
+          console.error(`[Credits Transaction] ❌ Failed to deduct credits:`, creditError.message);
+          return new Response(JSON.stringify({ 
+            success: false, 
+            error: 'Insufficient credits for image generation',
+            details: creditError.message 
+          }), { 
+            status: 402, 
+            headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+          });
+        }
+      } else {
+        console.log(`[Credits Transaction] ⚠️ No user ID found, skipping credit deduction for image generation`);
+      }
     }
 
     if (!env.GEMINI_API_KEY) {
@@ -9954,6 +9999,48 @@ async function handleTemplateGeneration(request, env, corsHeaders) {
     console.log('🎨 Template generation function called');
     const { project_id, user_message, current_template_data } = await request.json();
     
+    // Get user ID from Authorization header for credit deduction
+    const authHeader = request.headers.get('Authorization');
+    let userId = null;
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      // For now, we'll use a simple approach - in production, verify JWT and extract user ID
+      // For now, let's get the first user's ID from the database
+      const db = env.DB;
+      if (db) {
+        const userCredits = await db.prepare(`
+          SELECT user_id FROM user_credits 
+          ORDER BY created_at DESC 
+          LIMIT 1
+        `).first();
+        if (userCredits) {
+          userId = userCredits.user_id;
+        }
+      }
+    }
+    
+    // Deduct 5 credits for full template generation
+    if (userId) {
+      try {
+        console.log(`[Credits Transaction] 🎨 Deducting 5 credits for full template generation`);
+        await deductCredits(userId, 5, 'full_template_generation', 'deduction', 
+          JSON.stringify({ project_id, user_message: user_message.substring(0, 100) }), env);
+        console.log(`[Credits Transaction] ✅ Successfully deducted 5 credits for template generation`);
+      } catch (creditError) {
+        console.error(`[Credits Transaction] ❌ Failed to deduct credits:`, creditError.message);
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'Insufficient credits for template generation',
+          details: creditError.message 
+        }), { 
+          status: 402, 
+          headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+        });
+      }
+    } else {
+      console.log(`[Credits Transaction] ⚠️ No user ID found, skipping credit deduction`);
+    }
+    
     // Generate template content directly from user message
     const updatedTemplateData = await generateTemplateContent(user_message, current_template_data, env);
     
@@ -9987,7 +10074,8 @@ async function handleTemplateGeneration(request, env, corsHeaders) {
           project_id: project_id,
           prompt: heroBackgroundPrompt,
           aspect_ratio: '16:9',
-          number_of_images: 1
+          number_of_images: 1,
+          is_part_of_template: true // Flag to indicate this is part of template generation
         })
       });
       const heroBackgroundResponse = await handleImageGeneration(heroImageRequest, env, corsHeaders);
@@ -10017,7 +10105,8 @@ async function handleTemplateGeneration(request, env, corsHeaders) {
           project_id: project_id,
           prompt: logoPrompt,
           aspect_ratio: '1:1',
-          number_of_images: 1
+          number_of_images: 1,
+          is_part_of_template: true // Flag to indicate this is part of template generation
         })
       });
       const logoResponse = await handleImageGeneration(logoImageRequest, env, corsHeaders);
@@ -10040,7 +10129,8 @@ async function handleTemplateGeneration(request, env, corsHeaders) {
           project_id: project_id,
           prompt: aboutBackgroundPrompt,
           aspect_ratio: '16:9',
-          number_of_images: 1
+          number_of_images: 1,
+          is_part_of_template: true // Flag to indicate this is part of template generation
         })
       });
       const aboutBackgroundResponse = await handleImageGeneration(aboutImageRequest, env, corsHeaders);
@@ -11688,6 +11778,80 @@ Make each description specific, actionable, and optimized for the respective pla
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });
+  }
+}
+
+// --- Credit Deduction Function ---
+async function deductCredits(userId, amount, featureName, transactionType = 'deduction', metadata = null, env) {
+  try {
+    console.log(`[Credits Transaction] Starting credit deduction for user ${userId}`);
+    console.log(`[Credits Transaction] Amount: ${amount}, Feature: ${featureName}, Type: ${transactionType}`);
+    
+    const db = env.DB;
+    if (!db) {
+      throw new Error('Database not available');
+    }
+
+    // Get current user credits
+    const currentCredits = await db.prepare(`
+      SELECT credits FROM user_credits 
+      WHERE user_id = ? 
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `).bind(userId).first();
+
+    if (!currentCredits) {
+      throw new Error('User credits not found');
+    }
+
+    const creditsBefore = currentCredits.credits;
+    const creditsAfter = creditsBefore - amount;
+
+    if (creditsAfter < 0) {
+      console.log(`[Credits Transaction] ❌ Insufficient credits: ${creditsBefore} available, ${amount} required`);
+      throw new Error(`Insufficient credits: ${creditsBefore} available, ${amount} required`);
+    }
+
+    console.log(`[Credits Transaction] Credits before: ${creditsBefore}, after: ${creditsAfter}, change: -${amount}`);
+
+    // Update user credits
+    const updateResult = await db.prepare(`
+      UPDATE user_credits 
+      SET credits = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE user_id = ? 
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `).bind(creditsAfter, userId).run();
+
+    if (!updateResult.success) {
+      throw new Error('Failed to update user credits');
+    }
+
+    // Log transaction
+    const transactionResult = await db.prepare(`
+      INSERT INTO credit_transactions (
+        user_id, transaction_type, feature_name, credits_before, 
+        credits_after, credits_change, metadata, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `).bind(userId, transactionType, featureName, creditsBefore, creditsAfter, -amount, metadata).run();
+
+    if (!transactionResult.success) {
+      console.log(`[Credits Transaction] ⚠️ Warning: Failed to log transaction, but credits were deducted`);
+    } else {
+      console.log(`[Credits Transaction] ✅ Transaction logged successfully`);
+    }
+
+    console.log(`[Credits Transaction] ✅ Credit deduction completed successfully`);
+    return {
+      success: true,
+      creditsBefore,
+      creditsAfter,
+      creditsDeducted: amount
+    };
+
+  } catch (error) {
+    console.error(`[Credits Transaction] ❌ Credit deduction failed:`, error);
+    throw error;
   }
 }
 
