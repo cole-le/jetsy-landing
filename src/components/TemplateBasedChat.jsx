@@ -329,6 +329,8 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     }
   }, [authLoading, session]);
 
+
+
   // Effect to detect mobile screen size
   useEffect(() => {
     const checkMobile = () => {
@@ -343,6 +345,8 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+
+
   // Prefill chat input with idea saved from landing page after auth
   useEffect(() => {
     if (authLoading) return;
@@ -355,6 +359,8 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       }
     } catch (_) {}
   }, [authLoading, session, inputMessage]);
+
+
 
   // Effect to dispatch navbar visibility event
   useEffect(() => {
@@ -400,6 +406,8 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     window.addEventListener('toggle-project-panel', handleToggleProjectPanel);
     return () => window.removeEventListener('toggle-project-panel', handleToggleProjectPanel);
   }, [showProjectPanel]);
+
+
 
   // Listen for workflow panel toggle from Navbar
   useEffect(() => {
@@ -605,30 +613,31 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         detail: { projectName: currentProject.project_name } 
       }));
     }
-  }, [currentProject?.project_name]);
+  }, [currentProject?.project_name, currentProject?.id]);
 
   // Dispatch project name update event when template data business name changes
   useEffect(() => {
-    if (templateData?.businessName && templateData.businessName !== currentProject?.project_name && isEditorMode) {
-      // Update currentProject state with new business name
-      setCurrentProject(prev => ({
-        ...prev,
-        project_name: templateData.businessName
-      }));
-      
-      // Dispatch project name update event
-      try {
-        localStorage.setItem('jetsy_current_project_name', templateData.businessName);
-        if (currentProject?.id) {
-          localStorage.setItem(`jetsy_project_name_${currentProject.id}`, templateData.businessName);
-        }
-      } catch (_) {}
-      window.dispatchEvent(new CustomEvent('project-name-update', { 
-        detail: { projectName: templateData.businessName } 
-      }));
+    if (templateData?.businessName && templateData.businessName !== currentProject?.project_name && isEditorMode && currentProject?.id) {
+      // Only update if we're not in the process of creating a new project
+      if (currentProject.project_name !== 'New business' || templateData.businessName !== 'Your Amazing Startup') {
+        // Update currentProject state with new business name
+        setCurrentProject(prev => ({
+          ...prev,
+          project_name: templateData.businessName
+        }));
+        
+        // Dispatch project name update event
+        try {
+          localStorage.setItem('jetsy_current_project_name', templateData.businessName);
+          if (currentProject?.id) {
+            localStorage.setItem(`jetsy_project_name_${currentProject.id}`, templateData.businessName);
+          }
+        } catch (_) {}
+        window.dispatchEvent(new CustomEvent('project-name-update', { 
+          detail: { projectName: templateData.businessName } 
+        }));
 
-      // Update project name in database as well
-      if (currentProject?.id) {
+        // Update project name in database as well
         const updateProjectName = async () => {
           try {
             const headers = { 'Content-Type': 'application/json' };
@@ -887,6 +896,47 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     } catch (_) {}
   };
 
+  // Clear all cached project data to prevent state leakage
+  const clearAllCachedProjectData = () => {
+    try {
+      // Clear current project data
+      localStorage.removeItem('jetsy_current_project_id');
+      localStorage.removeItem('jetsy_current_project_name');
+      
+      // Clear any other project-related cached data
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('jetsy_project_name_')) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+      
+      // Clear any cached template data
+      localStorage.removeItem('jetsy_prefill_idea');
+    } catch (_) {}
+  };
+
+  // Force immediate project name update in UI
+  const forceProjectNameUpdate = (projectName, projectId) => {
+    // Update localStorage immediately
+    try {
+      localStorage.setItem('jetsy_current_project_name', projectName);
+      if (projectId) {
+        localStorage.setItem(`jetsy_project_name_${projectId}`, projectName);
+      }
+    } catch (_) {}
+    
+    // Dispatch event immediately
+    window.dispatchEvent(new CustomEvent('project-name-update', { 
+      detail: { projectName } 
+    }));
+    
+    // Force a re-render by updating state
+    setCachedProjectName(projectName, projectId);
+  };
+
   // Cache project name in both global and per-project scoped keys for Navbar/UI hydration
   const setCachedProjectName = (name, projectId) => {
     try {
@@ -988,14 +1038,15 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         }
       }
 
-              const headers = {};
-              if (session?.access_token) {
-                headers['Authorization'] = `Bearer ${session.access_token}`;
-              }
-              
-              const projectsResponse = await fetch(`${getApiBaseUrl()}/api/projects`, {
-                headers
-              });
+      // Try to load existing projects
+      const headers = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
+      const projectsResponse = await fetch(`${getApiBaseUrl()}/api/projects`, {
+        headers
+      });
       if (projectsResponse.ok) {
         const result = await projectsResponse.json();
         if (result.projects && result.projects.length > 0) {
@@ -1066,15 +1117,36 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         }
       }
 
+      // No projects exist, create a new one with proper state reset
       await createDefaultProject();
     } catch (error) {
       console.error('Error loading/restoring project:', error);
+      // On error, create a new project with proper state reset
       await createDefaultProject();
     }
   };
 
   const createDefaultProject = async () => {
     try {
+      // Reset all state before creating new project
+      setMessages([]);
+      setInputMessage('');
+      setIsLoading(false);
+      setIsEditorMode(false);
+      setTemplateData(DEFAULT_TEMPLATE_DATA);
+      setAiProgress({
+        isActive: false,
+        currentStep: '',
+        steps: [],
+        completedSteps: [],
+        currentStepIndex: 0,
+        startTime: null,
+        estimatedTimePerStep: 0
+      });
+      
+      // Clear all cached project data to prevent state leakage
+      clearAllCachedProjectData();
+      
       const projectData = {
         project_name: "New business",
         user_id: 1,
@@ -1085,12 +1157,12 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         // Don't include template_data for new projects - let users chat first
       };
 
-              const headers = { 'Content-Type': 'application/json' };
-              if (session?.access_token) {
-                headers['Authorization'] = `Bearer ${session.access_token}`;
-              }
-              
-              const response = await fetch(`${getApiBaseUrl()}/api/projects`, {
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
+      const response = await fetch(`${getApiBaseUrl()}/api/projects`, {
         method: 'POST',
         headers,
         body: JSON.stringify(projectData)
@@ -1099,14 +1171,14 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       if (response.ok) {
         const result = await response.json();
         const newProject = { id: result.project_id, ...projectData };
+        
+        // Force immediate project name update in UI with "New business"
+        forceProjectNameUpdate("New business", result.project_id);
+        
+        // Set the new project with explicit "New business" name
         setCurrentProject(newProject);
         setStoredProjectId(result.project_id);
-        setCachedProjectName(newProject.project_name, result.project_id);
         
-        // Dispatch project name update event
-        window.dispatchEvent(new CustomEvent('project-name-update', { 
-          detail: { projectName: newProject.project_name } 
-        }));
         // Start in chat mode for new projects
         setIsEditorMode(false);
         setTemplateData(DEFAULT_TEMPLATE_DATA);
@@ -1413,20 +1485,40 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   };
 
   const handleProjectSelect = async (project) => {
+    // Reset all state when switching projects to prevent leakage
+    setMessages([]);
+    setInputMessage('');
+    setIsLoading(false);
+    setIsEditorMode(false);
+    setTemplateData(DEFAULT_TEMPLATE_DATA);
+    setAiProgress({
+      isActive: false,
+      currentStep: '',
+      steps: [],
+      completedSteps: [],
+      currentStepIndex: 0,
+      startTime: null,
+      estimatedTimePerStep: 0
+    });
+    
+    // Clear all cached project data to prevent state leakage
+    clearAllCachedProjectData();
+    
+    // Ensure proper project name (critical for new projects)
+    const projectName = project.project_name || 'New business';
+    
+    // Force immediate project name update in UI
+    forceProjectNameUpdate(projectName, project.id);
+    
+    // Set the new project with explicit project name
     setCurrentProject({
       id: project.id,
       user_id: project.user_id,
-      project_name: project.project_name,
+      project_name: projectName,
       files: typeof project.files === 'string' ? JSON.parse(project.files) : project.files,
       visibility: project.visibility
     });
     setStoredProjectId(project.id);
-    setCachedProjectName(project.project_name, project.id);
-    
-    // Dispatch project name update event
-    window.dispatchEvent(new CustomEvent('project-name-update', { 
-      detail: { projectName: project.project_name } 
-    }));
     
     await loadChatMessages(project.id);
     
@@ -1467,11 +1559,19 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   };
 
   const handleAllProjectsDeleted = async () => {
+    // Clear all state and cached data
     setCurrentProject(null);
     setMessages([]);
-    clearStoredProjectId();
+    clearAllCachedProjectData();
+    
+    // Force immediate UI update to clear project name
+    forceProjectNameUpdate('', null);
+    
+    // Create a new default project
     await createDefaultProject();
   };
+
+
 
   const effectivePreviewMode = isMobile ? 'phone' : previewMode;
 

@@ -98,8 +98,17 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
         const result = await response.json();
         // Reload projects to get authoritative data (visibility, timestamps, etc.)
         await loadProjects();
-        // Optimistically select the newly created project
-        const newProject = { id: result.project_id, ...projectData };
+        // Create a complete project object with all necessary fields
+        const newProject = { 
+          id: result.project_id, 
+          user_id: session?.user?.id || 1,
+          project_name: 'New business', // Explicitly set to "New business"
+          visibility: 'private', // Default visibility for new projects
+          files: projectData.files,
+          updated_at: new Date().toISOString()
+        };
+        
+        // Call onProjectSelect with the new project to trigger state reset
         onProjectSelect(newProject);
       } else {
         try {
