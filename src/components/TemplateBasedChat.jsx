@@ -320,6 +320,8 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const [showWorkflowPanel, setShowWorkflowPanel] = useState(false);
   const [showPublishPanel, setShowPublishPanel] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
+  const [userCredits, setUserCredits] = useState(0);
+  const [creditsLoading, setCreditsLoading] = useState(true);
 
   // Redirect unauthenticated users once auth has finished loading
   useEffect(() => {
@@ -463,6 +465,67 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     };
     loadPublishedState();
   }, [showPublishPanel, currentProject?.id]);
+
+  // Load user credits when auth is ready
+  useEffect(() => {
+    const loadUserCredits = async () => {
+      if (authLoading || !session?.access_token) return;
+      
+      setCreditsLoading(true);
+      try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+        
+        const response = await fetch(`${getApiBaseUrl()}/api/user-credits`, {
+          headers
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.credits !== undefined) {
+            setUserCredits(data.credits);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading user credits:', error);
+        // Keep default value of 0 on error
+      } finally {
+        setCreditsLoading(false);
+      }
+    };
+    
+    loadUserCredits();
+  }, [authLoading, session?.access_token]);
+
+  // Function to refresh user credits (can be called after credit-consuming operations)
+  const refreshUserCredits = async () => {
+    if (!session?.access_token) return;
+    
+    setCreditsLoading(true);
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
+      const response = await fetch(`${getApiBaseUrl()}/api/user-credits`, {
+        headers
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.credits !== undefined) {
+          setUserCredits(data.credits);
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing user credits:', error);
+    } finally {
+      setCreditsLoading(false);
+    }
+  };
 
   // Progress tracking state
   const [aiProgress, setAiProgress] = useState({
@@ -764,6 +827,9 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             detail: { projectName: data.businessName } 
           }));
         }
+        
+        // Refresh credits after successful business name generation
+        refreshUserCredits();
       } else {
         throw new Error(data.error || 'No name returned');
       }
@@ -799,17 +865,20 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       if (!(data.success && data.images && data.images.length > 0)) {
         throw new Error('No images generated');
       }
-      const url = data.images[0].url;
-      // Suppress the next auto-save so user must click Save Changes
-      skipAutoSaveRef.current = true;
-      setTemplateData(prev => ({ ...prev, heroBackgroundImage: url }));
-    } catch (e) {
-      console.error('Hero background regeneration failed:', e);
-      alert('Failed to regenerate hero background. Please try again.');
-    } finally {
-      setIsRegeneratingHeroBg(false);
-    }
-  };
+              const url = data.images[0].url;
+        // Suppress the next auto-save so user must click Save Changes
+        skipAutoSaveRef.current = true;
+        setTemplateData(prev => ({ ...prev, heroBackgroundImage: url }));
+        
+        // Refresh credits after successful image generation
+        refreshUserCredits();
+      } catch (e) {
+        console.error('Hero background regeneration failed:', e);
+        alert('Failed to regenerate hero background. Please try again.');
+      } finally {
+        setIsRegeneratingHeroBg(false);
+      }
+    };
 
   const handleRegenerateAboutBackground = async () => {
     if (!currentProject?.id || isRegeneratingAboutBg) return;
@@ -835,17 +904,20 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       if (!(data.success && data.images && data.images.length > 0)) {
         throw new Error('No images generated');
       }
-      const url = data.images[0].url;
-      // Suppress the next auto-save so user must click Save Changes
-      skipAutoSaveRef.current = true;
-      setTemplateData(prev => ({ ...prev, aboutBackgroundImage: url }));
-    } catch (e) {
-      console.error('About background regeneration failed:', e);
-      alert('Failed to regenerate about background. Please try again.');
-    } finally {
-      setIsRegeneratingAboutBg(false);
-    }
-  };
+              const url = data.images[0].url;
+        // Suppress the next auto-save so user must click Save Changes
+        skipAutoSaveRef.current = true;
+        setTemplateData(prev => ({ ...prev, aboutBackgroundImage: url }));
+        
+        // Refresh credits after successful image generation
+        refreshUserCredits();
+      } catch (e) {
+        console.error('About background regeneration failed:', e);
+        alert('Failed to regenerate about background. Please try again.');
+      } finally {
+        setIsRegeneratingAboutBg(false);
+      }
+    };
 
   const handleRegenerateLogo = async () => {
     if (!currentProject?.id || isRegeneratingLogo) return;
@@ -871,15 +943,18 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       if (!(result.success && result.images && result.images.length > 0)) {
         throw new Error('No images generated');
       }
-      const newLogoUrl = result.images[0].url;
-      setTemplateData(prev => ({ ...prev, businessLogoUrl: newLogoUrl }));
-    } catch (error) {
-      console.error('Logo regeneration failed:', error);
-      alert('Failed to regenerate logo. Please try again.');
-    } finally {
-      setIsRegeneratingLogo(false);
-    }
-  };
+              const newLogoUrl = result.images[0].url;
+        setTemplateData(prev => ({ ...prev, businessLogoUrl: newLogoUrl }));
+        
+        // Refresh credits after successful image generation
+        refreshUserCredits();
+      } catch (error) {
+        console.error('Logo regeneration failed:', error);
+        alert('Failed to regenerate logo. Please try again.');
+      } finally {
+        setIsRegeneratingLogo(false);
+      }
+    };
 
   const getStoredProjectId = () => {
     return localStorage.getItem('jetsy_current_project_id');
@@ -1451,6 +1526,9 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         if (messages.length === 0) {
           setIsEditorMode(true);
         }
+        
+        // Refresh credits after successful AI generation
+        refreshUserCredits();
       }
     } catch (error) {
       console.error('Error processing message:', error);
@@ -2004,6 +2082,9 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                                 if (res.ok) {
                                   const data = await res.json();
                                   setTemplateData(prev => ({ ...prev, businessLogoUrl: data.url }));
+                                  
+                                  // Refresh credits after successful image upload
+                                  refreshUserCredits();
                                 }
                               } catch (err) {
                                 console.error('Logo upload failed', err);
@@ -2171,6 +2252,9 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                             if (res.ok) {
                               const data = await res.json();
                               setTemplateData(prev => ({ ...prev, heroBackgroundImage: data.url }));
+                              
+                              // Refresh credits after successful image upload
+                              refreshUserCredits();
                             }
                           } catch (err) {
                             console.error('Hero background upload failed', err);
@@ -2475,6 +2559,9 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                             if (res.ok) {
                               const data = await res.json();
                               setTemplateData(prev => ({ ...prev, aboutBackgroundImage: data.url }));
+                              
+                              // Refresh credits after successful image upload
+                              refreshUserCredits();
                             }
                           } catch (err) {
                             console.error('About background upload failed', err);
@@ -2926,11 +3013,34 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">Live Preview</h2>
               <div className="flex items-center space-x-3">
+                {/* Credit Badge */}
+                <div className="flex items-center space-x-2">
+                  <div className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-3 py-1.5 rounded-full text-sm font-medium shadow-sm">
+                    <div className="flex items-center space-x-1.5">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 2a8 8 0 100 16 8 8 0 000-16zM8.5 12.5l7-4.5-7-4.5v9z"/>
+                      </svg>
+                      <span>
+                        {creditsLoading ? (
+                          <span className="inline-flex items-center">
+                            <svg className="animate-spin -ml-1 mr-1 h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Loading...
+                          </span>
+                        ) : (
+                          `${userCredits || 0} Credits`
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                
                 <div className="flex items-center space-x-2 text-sm text-gray-500">
                   <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                   <span>Real-time updates</span>
                 </div>
-                
 
               </div>
             </div>
