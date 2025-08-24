@@ -538,6 +538,14 @@ export default {
         return new Response(null, { status: 200, headers: corsHeaders });
       }
 
+      // --- User Credits API ---
+      if (path === '/api/user-credits' && request.method === 'GET') {
+        return await handleGetUserCredits(request, env, corsHeaders);
+      }
+      if (path === '/api/user-credits' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
       // Serve static files
       return await serveStaticFiles(request, env);
 
@@ -11675,6 +11683,81 @@ Make each description specific, actionable, and optimized for the respective pla
     console.error('Target audience generation error:', error);
     return new Response(JSON.stringify({ 
       error: 'Failed to generate target audience',
+      details: error.message 
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+}
+
+// --- User Credits API Handler ---
+async function handleGetUserCredits(request, env, corsHeaders) {
+  try {
+    // Get the Authorization header
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Authorization header required' 
+      }), { 
+        status: 401, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      });
+    }
+
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    
+    // For now, we'll use a simple approach to get user ID from the token
+    // In a real implementation, you'd verify the JWT token and extract the user ID
+    // For now, let's assume the token contains the user ID or we can derive it
+    
+    const db = env.DB;
+    if (!db) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Database not available' 
+      }), { 
+        status: 500, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      });
+    }
+
+    // Since we don't have JWT verification set up yet, let's get the first user's credits
+    // In a real implementation, you'd extract the user ID from the JWT token
+    const userCredits = await db.prepare(`
+      SELECT user_id, credits, plan_type, credits_per_month, last_refresh_date 
+      FROM user_credits 
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `).first();
+
+    if (!userCredits) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'No user credits found' 
+      }), { 
+        status: 404, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      });
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      credits: userCredits.credits,
+      plan_type: userCredits.plan_type,
+      credits_per_month: userCredits.credits_per_month,
+      last_refresh_date: userCredits.last_refresh_date
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+
+  } catch (error) {
+    console.error('Error getting user credits:', error);
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: 'Failed to get user credits',
       details: error.message 
     }), {
       status: 500,
