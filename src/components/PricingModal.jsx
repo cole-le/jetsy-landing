@@ -5,7 +5,6 @@ import { trackEvent } from '../utils/analytics'
 const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBookDemo }) => {
   const [selectedPlan, setSelectedPlan] = useState(null)
   const [mounted, setMounted] = useState(false)
-  const [isAnnual, setIsAnnual] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -21,7 +20,7 @@ const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBoo
       color: 'green',
       subtitle: 'Discover what Jetsy can do for you',
       features: [
-        '5 daily credits (up to 30/month)',
+        '35 credits',
         'Public projects',
       ],
       buttonText: 'Get Started',
@@ -30,35 +29,18 @@ const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBoo
     {
       type: 'pro',
       name: 'Pro',
-      price: isAnnual ? 21 : 25,
-      period: isAnnual ? '/month (billed annually)' : '/month',
+      price: 25,
+      period: '/month',
       color: 'blue',
       subtitle: 'Designed for fast-moving teams building together in real time.',
       features: [
         'Everything in Free, plus:',
-        '100 monthly credits',
-        '5 daily credits (up to 150/month)',
+        '300 monthly credits',
         'Private projects',
-        'Custom domains',
+        'Custom website domains',
       ],
       buttonText: 'Get Started',
       popular: true
-    },
-    {
-      type: 'business',
-      name: 'Business',
-      price: isAnnual ? 42 : 50,
-      period: isAnnual ? '/month (billed annually)' : '/month',
-      color: 'purple',
-      subtitle: 'Advanced controls and power features for growing departments',
-      features: [
-        'Everything in Pro, plus:',
-        'Advanced analytics dashboard',
-        'Real-time metrics (click heatmaps, scroll depth)',
-        'Priority access to new features'
-      ],
-      buttonText: 'Get Started',
-      popular: false
     },
     {
       type: 'enterprise',
@@ -134,28 +116,6 @@ const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBoo
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold mb-2 text-text">Choose Your Plan</h2>
             <p className="text-mutedText font-normal">Start validating your startup idea today</p>
-            
-            {/* Billing Toggle */}
-            <div className="flex items-center justify-center gap-3 mt-4">
-              <span className="text-sm text-mutedText">Annual billing gets</span>
-              <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-medium">2 months free</span>
-              <div className="flex items-center ml-4">
-                <span className={`text-sm font-medium ${!isAnnual ? 'text-blue-600' : 'text-gray-400'}`}>Monthly</span>
-                <button
-                  className={`mx-2 w-10 h-6 flex items-center bg-gray-200 rounded-full p-1 transition-colors duration-200 focus:outline-none ${isAnnual ? 'bg-blue-500' : 'bg-gray-200'}`}
-                  onClick={() => {
-                    setIsAnnual((prev) => !prev)
-                    trackEvent('pricing_toggle_annual', { annual: !isAnnual })
-                  }}
-                  aria-label="Toggle annual billing"
-                >
-                  <span
-                    className={`inline-block w-4 h-4 transform bg-white rounded-full shadow transition-transform duration-200 ${isAnnual ? 'translate-x-4' : 'translate-x-0'}`}
-                  />
-                </button>
-                <span className={`text-sm font-medium ${isAnnual ? 'text-blue-600' : 'text-gray-400'}`}>Annual</span>
-              </div>
-            </div>
           </div>
 
           {/* Plans Grid */}
