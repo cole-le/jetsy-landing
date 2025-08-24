@@ -13,11 +13,59 @@ const FAQ = () => {
   const faqData = [
     {
       question: "What is a credit?",
-      answer: "Each message with Jetsy while you chat with it to make it build the landing page or the ads costs 1 credit."
+      answer: "Credits are the currency used to access Jetsy's AI-powered features. Each feature has a specific credit cost based on the complexity and AI resources required. Credits are consumed when you use Jetsy's services to generate websites, ads, images, and other content."
+    },
+    {
+      question: "How much do different features cost?",
+      answer: (
+        <div className="space-y-4">
+          <p className="text-mutedText leading-relaxed text-lg mb-4">
+            Here's our transparent pricing structure based on feature complexity:
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse bg-white/60 backdrop-blur-sm rounded-lg overflow-hidden">
+              <thead>
+                <tr className="bg-primary/10">
+                  <th className="px-4 py-3 text-left font-semibold text-text border-b border-gray-200">Feature</th>
+                  <th className="px-4 py-3 text-left font-semibold text-text border-b border-gray-200">Credit Cost</th>
+                  <th className="px-4 py-3 text-left font-semibold text-text border-b border-gray-200">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-gray-100">
+                  <td className="px-4 py-3 text-text font-medium">Full website generation</td>
+                  <td className="px-4 py-3 text-text">5 credits</td>
+                  <td className="px-4 py-3 text-mutedText">Includes site copy + initial ads copy + 1 image</td>
+                </tr>
+                <tr className="border-b border-gray-100">
+                  <td className="px-4 py-3 text-text font-medium">Generate new ad set</td>
+                  <td className="px-4 py-3 text-text">3 credits</td>
+                  <td className="px-4 py-3 text-mutedText">1 ad copy + 1 ad image</td>
+                </tr>
+                <tr className="border-b border-gray-100">
+                  <td className="px-4 py-3 text-text font-medium">Regenerate image</td>
+                  <td className="px-4 py-3 text-text">2 credits</td>
+                  <td className="px-4 py-3 text-mutedText">Logo, background, or ad image</td>
+                </tr>
+                <tr className="border-b border-gray-100">
+                  <td className="px-4 py-3 text-text font-medium">Regenerate ad copy text</td>
+                  <td className="px-4 py-3 text-text">1 credit</td>
+                  <td className="px-4 py-3 text-mutedText">Very light cost</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3 text-text font-medium">Regenerate business name/tagline</td>
+                  <td className="px-4 py-3 text-text">1 credit</td>
+                  <td className="px-4 py-3 text-mutedText">Very light cost</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )
     },
     {
       question: "What is the infrastructure of my website?",
-      answer: "Your website will be designed with React and hosted on Cloudflare Pages, optimized for beautiful design and speed."
+      answer: "Your website will be designed with React and hosted on Vercel, optimized for beautiful design and speed."
     },
     {
       question: "Can I decide the design of my website and ads?",
@@ -55,9 +103,13 @@ const FAQ = () => {
               <h3 className="text-xl md:text-2xl font-bold mb-4 text-text">
                 {item.question}
               </h3>
-              <p className="text-mutedText leading-relaxed text-lg">
-                {item.answer}
-              </p>
+              {typeof item.answer === 'string' ? (
+                <p className="text-mutedText leading-relaxed text-lg">
+                  {item.answer}
+                </p>
+              ) : (
+                item.answer
+              )}
             </div>
           ))}
         </div>
