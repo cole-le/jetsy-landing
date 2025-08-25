@@ -26,6 +26,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
   const [showWorkflowPanel, setShowWorkflowPanel] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeOutOfCredits, setUpgradeOutOfCredits] = useState(false);
 
   // Redirect unauthenticated users once auth has finished loading
   useEffect(() => {
@@ -394,6 +395,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
         })
       });
       if (response.status === 402) {
+        setUpgradeOutOfCredits(true);
         setShowUpgradeModal(true);
         return;
       }
@@ -597,7 +599,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
         <PricingModal
           onPlanSelect={() => { /* no-op for now */ }}
           onClose={() => setShowUpgradeModal(false)}
-          showUpgradeMessage={true}
+          showUpgradeMessage={upgradeOutOfCredits}
           currentPlanType="free"
           upgradeTitle="You're out of credits"
           upgradeDescription="Free plan includes 15 credits. Upgrade to a paid plan to get a higher monthly credit allowance and continue generating."
@@ -705,10 +707,27 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
         {/* Project Headline with Credits Badge */
         }
         {(!isMobile || mobileView === 'ads-copy') && (
-          <div className="mb-4">
+          <div className="mb-4 flex items-center justify-between">
             <h1 className="text-2xl font-bold text-gray-900">
               {(projectName || project?.project_name || 'Project')} - Ads Creative
             </h1>
+            {!isMobile && (
+              <div className="flex items-center gap-3">
+                <div className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-3 py-1.5 rounded-full text-sm font-medium shadow-sm">
+                  {creditsLoading ? 'Loading…' : `${userCredits || 0} Credits`}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setUpgradeOutOfCredits(false); setShowUpgradeModal(true); }}
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-3 py-1.5 rounded-full text-sm font-medium shadow-sm inline-flex items-center gap-1.5"
+                >
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" className="mr-1">
+                    <path d="M17.665 10C17.665 10.688 17.179 11.245 16.549 11.395l-.127.024c-1.713.247-2.81.711-3.546 1.443-.736.732-1.203 1.822-1.453 3.527-.104.708-.706 1.276-1.459 1.276-.695 0-1.277-.488-1.429-1.144-.412-1.775-.874-2.902-1.579-3.656-.644-.688-1.563-1.138-3.071-1.396l-.309-.049C2.889 11.319 2.335 10.734 2.335 10c0-.734.554-1.319 1.242-1.42l.31-.049c1.507-.258 2.426-.708 3.07-1.396.705-.754 1.167-1.88 1.579-3.656l.033-.121c.192-.594.745-1.023 1.396-1.023.753 0 1.355.568 1.459 1.276l.104.611c.267 1.36.705 2.274 1.349 2.914.736.732 1.833 1.196 3.545 1.444.69.1 1.243.686 1.243 1.419z" />
+                  </svg>
+                  Upgrade your plan
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -960,7 +979,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
                     </div>
                     <button
                       type="button"
-                      onClick={() => setShowUpgradeModal(true)}
+                      onClick={() => { setUpgradeOutOfCredits(false); setShowUpgradeModal(true); }}
                       className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-3 py-1.5 rounded-full text-xs font-medium shadow-sm inline-flex items-center gap-1.5"
                     >
                       <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" className="mr-1">

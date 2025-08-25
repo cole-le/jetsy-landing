@@ -26,6 +26,7 @@ const ChatPage = ({ onBackToHome }) => {
   const [creditsLoading, setCreditsLoading] = useState(true);
   const [userCredits, setUserCredits] = useState(0);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeOutOfCredits, setUpgradeOutOfCredits] = useState(false);
 
   // Load existing chat history when component mounts and session is available
   useEffect(() => {
@@ -877,7 +878,7 @@ const ChatPage = ({ onBackToHome }) => {
         <PricingModal
           onPlanSelect={() => { /* no-op */ }}
           onClose={() => setShowUpgradeModal(false)}
-          showUpgradeMessage={true}
+          showUpgradeMessage={upgradeOutOfCredits}
           currentPlanType="free"
           upgradeTitle="Upgrade your plan"
           upgradeDescription="Upgrade to unlock more monthly credits and premium features."
@@ -971,7 +972,7 @@ const ChatPage = ({ onBackToHome }) => {
                     </div>
                   </div>
                   <button
-                    onClick={() => setShowUpgradeModal(true)}
+                    onClick={() => { setUpgradeOutOfCredits(false); setShowUpgradeModal(true); }}
                     className="inline-flex items-center justify-center rounded-md bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors px-3 h-8 text-xs font-medium"
                     aria-label="Upgrade plan"
                   >
@@ -1205,7 +1206,7 @@ const ChatPage = ({ onBackToHome }) => {
           {/* Right: Upgrade + Globe buttons */}
           <div className="ml-auto flex items-center gap-2">
             <button
-              onClick={() => setShowUpgradeModal(true)}
+              onClick={() => { setUpgradeOutOfCredits(false); setShowUpgradeModal(true); }}
               className="h-11 inline-flex items-center justify-center rounded-md bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors px-3 text-sm font-medium"
               aria-label="Upgrade plan"
             >

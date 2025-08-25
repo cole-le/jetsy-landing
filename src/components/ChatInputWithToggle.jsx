@@ -269,7 +269,7 @@ const ChatInputWithToggle = ({ onSubmit, onPricingShown, expandChat }) => {
             trackEvent('pricing_plan_select', { plan: plan.type })
           }}
           onClose={() => setShowPricingModal(false)}
-          showUpgradeMessage={true}
+          showUpgradeMessage={false}
           currentPlanType="free"
         />
       )}

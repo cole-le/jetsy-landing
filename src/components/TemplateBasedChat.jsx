@@ -324,6 +324,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const [userCredits, setUserCredits] = useState(0);
   const [creditsLoading, setCreditsLoading] = useState(true);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeOutOfCredits, setUpgradeOutOfCredits] = useState(false);
 
   // Redirect unauthenticated users once auth has finished loading
   useEffect(() => {
@@ -818,6 +819,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         body: JSON.stringify({ projectId: currentProject.id, currentName: (templateData.businessName || '').trim() })
       });
       if (resp.status === 402) {
+        setUpgradeOutOfCredits(true);
         setShowUpgradeModal(true);
         return;
       }
@@ -891,6 +893,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       console.error('Hero background regeneration failed:', e);
       const msg = String(e?.message || e);
       if (msg.includes('402') || msg.toLowerCase().includes('insufficient')) {
+        setUpgradeOutOfCredits(true);
         setShowUpgradeModal(true);
       } else {
         alert('Failed to regenerate hero background. Please try again.');
@@ -1011,6 +1014,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       console.error('About background regeneration failed:', e);
       const msg = String(e?.message || e);
       if (msg.includes('402') || msg.toLowerCase().includes('insufficient')) {
+        setUpgradeOutOfCredits(true);
         setShowUpgradeModal(true);
       } else {
         alert('Failed to regenerate about background. Please try again.');
@@ -1058,6 +1062,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       console.error('Logo regeneration failed:', e);
       const msg = String(e?.message || e);
       if (msg.includes('402') || msg.toLowerCase().includes('insufficient')) {
+        setUpgradeOutOfCredits(true);
         setShowUpgradeModal(true);
       } else {
         alert('Failed to regenerate logo. Please try again.');
@@ -1457,6 +1462,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         })
       });
       if (aiResponse.status === 402) {
+        setUpgradeOutOfCredits(true);
         setShowUpgradeModal(true);
         // stop progress UI if any
         completeAiProgress();
@@ -1710,7 +1716,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         <PricingModal
           onPlanSelect={() => { /* no-op for now */ }}
           onClose={() => setShowUpgradeModal(false)}
-          showUpgradeMessage={true}
+          showUpgradeMessage={upgradeOutOfCredits}
           upgradeTitle="You're out of credits"
           upgradeDescription="Free plan includes 15 credits. Upgrade to a paid plan to get a higher monthly credit allowance and continue generating."
           currentPlanType="free"
@@ -3075,7 +3081,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                 {/* Upgrade button to open Pricing modal */}
                 <button
                   type="button"
-                  onClick={() => setShowUpgradeModal(true)}
+                  onClick={() => { setUpgradeOutOfCredits(false); setShowUpgradeModal(true); }}
                   className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-3 py-1.5 rounded-full text-sm font-medium shadow-sm inline-flex items-center gap-1.5"
                 >
                   <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg" className="icon-sm">
@@ -3312,7 +3318,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                         </div>
                       </div>
                       <button
-                        onClick={() => setShowUpgradeModal(true)}
+                        onClick={() => { setUpgradeOutOfCredits(false); setShowUpgradeModal(true); }}
                         className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-2 py-1 rounded-full text-[11px] font-medium shadow-sm inline-flex items-center gap-1.5"
                         aria-label="Upgrade your plan"
                       >
