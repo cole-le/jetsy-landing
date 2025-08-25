@@ -10,6 +10,7 @@ import { useAuth } from './auth/AuthProvider';
 const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNavigateToDataAnalytics }) => {
   const { session, loading: authLoading, signOut } = useAuth();
   const [project, setProject] = useState(null);
+  const [projectName, setProjectName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -300,6 +301,13 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
         try {
           const templateData = JSON.parse(projectData.template_data);
           
+          // Prefer businessName from template_data for display
+          if (templateData.businessName) {
+            setProjectName(templateData.businessName);
+          } else if (projectData.project_name) {
+            setProjectName(projectData.project_name);
+          }
+          
           // Update business logo for all platforms
           if (templateData.businessLogoUrl) {
             const logoUrl = templateData.businessLogoUrl;
@@ -318,6 +326,9 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
         } catch (error) {
           console.error('Error parsing template data:', error);
         }
+      } else {
+        // No template_data: fall back to project_name
+        if (projectData?.project_name) setProjectName(projectData.project_name);
       }
 
     } catch (err) {
@@ -597,7 +608,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
                 className="flex items-center space-x-2 text-center hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors min-w-0 relative max-w-full"
               >
                 <span className="text-sm font-medium text-gray-900 truncate max-w-[120px] sm:max-w-[160px]">
-                  {project?.project_name || 'Loading...'}
+                  {projectName || project?.project_name || 'Loading...'}
                 </span>
                 <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -680,7 +691,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
         {(!isMobile || mobileView === 'ads-copy') && (
           <div className="mb-4 flex items-center justify-between">
             <h1 className="text-2xl font-bold text-gray-900">
-              {project?.project_name || 'Project'} - Ads Creative
+              {(projectName || project?.project_name || 'Project')} - Ads Creative
             </h1>
             <div className="flex items-center space-x-2">
               <div className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-3 py-1.5 rounded-full text-sm font-medium shadow-sm">

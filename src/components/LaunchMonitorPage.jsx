@@ -116,6 +116,7 @@ const copyTargetAudience = async (platform, aiTargetAudience) => {
 const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreatives }) => {
   const { session, loading: authLoading, signOut } = useAuth();
   const [project, setProject] = useState(null);
+  const [projectName, setProjectName] = useState('');
   const [cachedProjectName, setCachedProjectName] = useState('');
   const [deployment, setDeployment] = useState(null);
   const [metrics, setMetrics] = useState(null);
@@ -439,14 +440,27 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
       const projectData = result.project;
       setProject(projectData);
 
-      // Cache project name for immediate navbar display on refresh, and notify navbar
-      try {
-        const projName = projectData?.project_name || 'Project';
-        localStorage.setItem('jetsy_current_project_name', projName);
-        if (projectId) {
-          localStorage.setItem(`jetsy_project_name_${projectId}`, projName);
+      // Determine display name: prefer template_data.businessName
+      let displayName = projectData?.project_name || 'Project';
+      if (projectData?.template_data) {
+        try {
+          const templateData = JSON.parse(projectData.template_data);
+          if (templateData?.businessName) {
+            displayName = templateData.businessName;
+          }
+        } catch (err) {
+          console.error('Error parsing template_data for businessName:', err);
         }
-        window.dispatchEvent(new CustomEvent('project-name-update', { detail: { projectName: projName } }));
+      }
+      setProjectName(displayName);
+
+      // Cache display name for immediate navbar display on refresh, and notify navbar
+      try {
+        localStorage.setItem('jetsy_current_project_name', displayName);
+        if (projectId) {
+          localStorage.setItem(`jetsy_project_name_${projectId}`, displayName);
+        }
+        window.dispatchEvent(new CustomEvent('project-name-update', { detail: { projectName: displayName } }));
       } catch (_) {}
       
       // Check website deployment status
@@ -866,7 +880,7 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
                 className="flex items-center space-x-2 text-center hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors min-w-0 relative max-w-full"
               >
                 <span className="text-sm font-medium text-gray-900 truncate max-w-[120px] sm:max-w-[160px]">
-                  {project?.project_name || cachedProjectName || 'Loading...'}
+                  {projectName || project?.project_name || cachedProjectName || 'Loading...'}
                 </span>
                 <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -916,7 +930,7 @@ const LaunchMonitorPage = ({ projectId, onNavigateToChat, onNavigateToAdCreative
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            {project?.project_name || 'Project'} - Launch & Monitor
+            {(projectName || project?.project_name || 'Project')} - Launch & Monitor
           </h1>
           <p className="text-sm text-gray-600 mt-1">Run a 24-hour paid ads ($15-20) to gauge demand for your business. We track on-site engagement and your ad campaign inputs to compute a single Jetsy Validation Score.</p>
           
