@@ -982,6 +982,27 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
               )}
               
               <div className={`${isMobile ? 'p-4' : ''}`}>
+                {/* Mobile: Credits badge + Upgrade button */}
+                {isMobile && (
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-3 py-1.5 rounded-full text-xs font-medium shadow-sm inline-flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10 2a8 8 0 100 16 8 8 0 000-16zM8.5 12.5l7-4.5-7-4.5v9z" />
+                      </svg>
+                      {creditsLoading ? 'Loading…' : `${userCredits || 0} Credits`}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowUpgradeModal(true)}
+                      className="px-3 py-2 h-9 inline-flex items-center justify-center rounded-md bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors text-xs font-medium"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" className="mr-1">
+                        <path d="M17.665 10C17.665 10.688 17.179 11.245 16.549 11.395l-.127.024c-1.713.247-2.81.711-3.546 1.443-.736.732-1.203 1.822-1.453 3.527-.104.708-.706 1.276-1.459 1.276-.695 0-1.277-.488-1.429-1.144-.412-1.775-.874-2.902-1.579-3.656-.644-.688-1.563-1.138-3.071-1.396l-.309-.049C2.889 11.319 2.335 10.734 2.335 10c0-.734.554-1.319 1.242-1.42l.31-.049c1.507-.258 2.426-.708 3.07-1.396.705-.754 1.167-1.88 1.579-3.656l.033-.121c.192-.594.745-1.023 1.396-1.023.753 0 1.355.568 1.459 1.276l.104.611c.267 1.36.705 2.274 1.349 2.914.736.732 1.833 1.196 3.545 1.444.69.1 1.243.686 1.243 1.419z" />
+                      </svg>
+                      Upgrade
+                    </button>
+                  </div>
+                )}
                 {/* Workflow Progress */}
                 <div>
                   <h3 className="text-sm font-medium text-gray-900 mb-3">{isMobile ? 'Launch your business 🚀' : 'Website Creation Progress'}</h3>

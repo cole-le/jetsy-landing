@@ -5,6 +5,7 @@ import { DEFAULT_TEMPLATE_DATA } from './TemplateBasedChat';
 import { getApiBaseUrl, getVercelApiBaseUrl } from '../config/environment';
 import { useAuth } from './auth/AuthProvider';
 import VisibilityToggle from './VisibilityToggle';
+import PricingModal from './PricingModal';
 
 const ChatPage = ({ onBackToHome }) => {
   const { user, session, isAuthenticated, loading: authLoading } = useAuth();
@@ -21,6 +22,10 @@ const ChatPage = ({ onBackToHome }) => {
   const iframeRef = useRef(null);
   const [showPublishPanel, setShowPublishPanel] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
+  // Billing state for mobile credits badge and upgrade
+  const [creditsLoading, setCreditsLoading] = useState(true);
+  const [userCredits, setUserCredits] = useState(0);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Load existing chat history when component mounts and session is available
   useEffect(() => {
@@ -71,6 +76,28 @@ const ChatPage = ({ onBackToHome }) => {
     // Cleanup
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Load user credits for badge
+  useEffect(() => {
+    const fetchCredits = async () => {
+      try {
+        if (!session?.access_token) return;
+        setCreditsLoading(true);
+        const headers = { };
+        if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+        const res = await fetch(`${getApiBaseUrl()}/api/user-credits`, { headers });
+        if (res.ok) {
+          const data = await res.json();
+          setUserCredits(data.credits ?? 0);
+        }
+      } catch (_) {
+        // ignore
+      } finally {
+        setCreditsLoading(false);
+      }
+    };
+    fetchCredits();
+  }, [session]);
 
   // Session-based project tracking
   const getStoredProjectId = () => {
@@ -846,6 +873,17 @@ const ChatPage = ({ onBackToHome }) => {
   return (
     <div className="min-h-screen bg-gray-50">
 
+      {showUpgradeModal && (
+        <PricingModal
+          onPlanSelect={() => { /* no-op */ }}
+          onClose={() => setShowUpgradeModal(false)}
+          showUpgradeMessage={true}
+          currentPlanType="free"
+          upgradeTitle="Upgrade your plan"
+          upgradeDescription="Upgrade to unlock more monthly credits and premium features."
+        />
+      )}
+
       {/* Project Management Panel */}
       {showProjectPanel && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40 backdrop-blur-sm" onClick={() => setShowProjectPanel(false)}>
@@ -919,6 +957,40 @@ const ChatPage = ({ onBackToHome }) => {
                     </svg>
                   </button>
                 </div>
+              </div>
+              {/* Mobile: Credits badge + Upgrade above Project Visibility */}
+              <div className="lg:hidden mt-2 space-y-2">
+                {/* Row: Credits badge and Upgrade button */}
+                <div className="flex items-center justify-between">
+                  <div className="min-w-[84px]">
+                    <div className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-2 py-1 rounded-full text-[11px] font-medium shadow-sm inline-flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10 2a8 8 0 100 16 8 8 0 000-16zM8.5 12.5l7-4.5-7-4.5v9z" />
+                      </svg>
+                      {creditsLoading ? '...' : `${userCredits || 0} cr`}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowUpgradeModal(true)}
+                    className="inline-flex items-center justify-center rounded-md bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors px-3 h-8 text-xs font-medium"
+                    aria-label="Upgrade plan"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" className="mr-1">
+                      <path d="M17.665 10C17.665 10.688 17.179 11.245 16.549 11.395l-.127.024c-1.713.247-2.81.711-3.546 1.443-.736.732-1.203 1.822-1.453 3.527-.104.708-.706 1.276-1.459 1.276-.695 0-1.277-.488-1.429-1.144-.412-1.775-.874-2.902-1.579-3.656-.644-.688-1.563-1.138-3.071-1.396l-.309-.049C2.889 11.319 2.335 10.734 2.335 10c0-.734.554-1.319 1.242-1.42l.31-.049c1.507-.258 2.426-.708 3.07-1.396.705-.754 1.167-1.88 1.579-3.656l.033-.121c.192-.594.745-1.023 1.396-1.023.753 0 1.355.568 1.459 1.276l.104.611c.267 1.36.705 2.274 1.349 2.914.736.732 1.833 1.196 3.545 1.444.69.1 1.243.686 1.243 1.419z" />
+                    </svg>
+                    Upgrade
+                  </button>
+                </div>
+                {/* Row: Mobile visibility toggle */}
+                {currentProject && (
+                  <div>
+                    <VisibilityToggle
+                      project={currentProject}
+                      onVisibilityChange={handleProjectVisibilityChange}
+                      className="inline-flex"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1095,8 +1167,15 @@ const ChatPage = ({ onBackToHome }) => {
       {/* Mobile Toggle Bar - Only visible on mobile */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-transparent z-30">
         <div className="flex items-center justify-between px-3 py-2 max-w-sm md:max-w-md mx-auto">
-          {/* Spacer to balance the right globe button and keep center group truly centered */}
-          <div className="w-11" />
+          {/* Left: Compact Credits Badge */}
+          <div className="min-w-[84px]">
+            <div className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-2 py-1 rounded-full text-[11px] font-medium shadow-sm inline-flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10 2a8 8 0 100 16 8 8 0 000-16zM8.5 12.5l7-4.5-7-4.5v9z" />
+              </svg>
+              {creditsLoading ? '...' : `${userCredits || 0} cr`}
+            </div>
+          </div>
 
           {/* Centered compact toggle buttons */}
           <div className="flex items-center gap-2 mx-auto">
@@ -1123,18 +1202,30 @@ const ChatPage = ({ onBackToHome }) => {
             </button>
           </div>
 
-          {/* Globe secondary action button */}
-          <button
-            onClick={() => setShowPublishPanel(true)}
-            aria-label="Globe"
-            className="ml-auto w-11 h-11 flex items-center justify-center rounded-md bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-              <circle cx="12" cy="12" r="10"></circle>
-              <path d="M2 12h20"></path>
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-            </svg>
-          </button>
+          {/* Right: Upgrade + Globe buttons */}
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={() => setShowUpgradeModal(true)}
+              className="h-11 inline-flex items-center justify-center rounded-md bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors px-3 text-sm font-medium"
+              aria-label="Upgrade plan"
+            >
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" className="mr-1">
+                <path d="M17.665 10C17.665 10.688 17.179 11.245 16.549 11.395l-.127.024c-1.713.247-2.81.711-3.546 1.443-.736.732-1.203 1.822-1.453 3.527-.104.708-.706 1.276-1.459 1.276-.695 0-1.277-.488-1.429-1.144-.412-1.775-.874-2.902-1.579-3.656-.644-.688-1.563-1.138-3.071-1.396l-.309-.049C2.889 11.319 2.335 10.734 2.335 10c0-.734.554-1.319 1.242-1.42l.31-.049c1.507-.258 2.426-.708 3.07-1.396.705-.754 1.167-1.88 1.579-3.656l.033-.121c.192-.594.745-1.023 1.396-1.023.753 0 1.355.568 1.459 1.276l.104.611c.267 1.36.705 2.274 1.349 2.914.736.732 1.833 1.196 3.545 1.444.69.1 1.243.686 1.243 1.419z" />
+              </svg>
+              Upgrade
+            </button>
+            <button
+              onClick={() => setShowPublishPanel(true)}
+              aria-label="Globe"
+              className="w-11 h-11 flex items-center justify-center rounded-md bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M2 12h20"></path>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
       {/* Publish Panel (mobile bottom sheet) */}
