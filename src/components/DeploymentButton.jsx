@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { getVercelApiBaseUrl, getApiBaseUrl } from '../config/environment';
+import { useAuth } from './auth/AuthProvider';
 
 const DeploymentButton = ({ projectId, showAsModal = false }) => {
+  const { session } = useAuth();
   const [deploymentStatus, setDeploymentStatus] = useState(null);
   const [domainStatus, setDomainStatus] = useState(null);
   const [isDeploying, setIsDeploying] = useState(false);
@@ -53,7 +55,11 @@ const DeploymentButton = ({ projectId, showAsModal = false }) => {
       const apiBaseUrl = getApiBaseUrl();
       console.log('Loading template data from:', `${apiBaseUrl}/api/projects/${projectId}`);
       
-      const response = await fetch(`${apiBaseUrl}/api/projects/${projectId}`);
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      const response = await fetch(`${apiBaseUrl}/api/projects/${projectId}`, { headers });
       console.log('Template data response status:', response.status);
       
       const result = await response.json();
@@ -77,7 +83,11 @@ const DeploymentButton = ({ projectId, showAsModal = false }) => {
 
   const loadDeploymentStatus = async () => {
     try {
-      const response = await fetch(`${getVercelApiBaseUrl()}/api/vercel/status/${projectId}`);
+      const headers = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      const response = await fetch(`${getVercelApiBaseUrl()}/api/vercel/status/${projectId}`, { headers });
       const result = await response.json();
       
       if (result.success) {
@@ -95,7 +105,11 @@ const DeploymentButton = ({ projectId, showAsModal = false }) => {
 
   const loadDomainStatus = async () => {
     try {
-      const response = await fetch(`${getVercelApiBaseUrl()}/api/vercel/domain/${projectId}`);
+      const headers = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      const response = await fetch(`${getVercelApiBaseUrl()}/api/vercel/domain/${projectId}`, { headers });
       const result = await response.json();
       
       if (result.success) {
@@ -121,11 +135,13 @@ const DeploymentButton = ({ projectId, showAsModal = false }) => {
     setError(null);
 
     try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
       const response = await fetch(`${getVercelApiBaseUrl()}/api/vercel/deploy/${projectId}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify({
           templateData: templateData
         })
@@ -165,11 +181,13 @@ const DeploymentButton = ({ projectId, showAsModal = false }) => {
     setError(null);
 
     try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
       const response = await fetch(`${getVercelApiBaseUrl()}/api/vercel/domain/${projectId}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify({
           domain: customDomain.trim()
         })
@@ -194,7 +212,11 @@ const DeploymentButton = ({ projectId, showAsModal = false }) => {
   const pollDeploymentStatus = () => {
     const interval = setInterval(async () => {
       try {
-        const response = await fetch(`${getVercelApiBaseUrl()}/api/vercel/status/${projectId}`);
+        const headers = {};
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+        const response = await fetch(`${getVercelApiBaseUrl()}/api/vercel/status/${projectId}`, { headers });
         const result = await response.json();
         
         if (result.success) {

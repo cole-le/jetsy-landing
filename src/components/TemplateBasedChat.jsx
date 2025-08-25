@@ -452,7 +452,11 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     const loadPublishedState = async () => {
       try {
         if (!showPublishPanel || !currentProject?.id) return;
-        const res = await fetch(`${getVercelApiBaseUrl()}/api/vercel/status/${currentProject.id}`);
+        const headers = {};
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+        const res = await fetch(`${getVercelApiBaseUrl()}/api/vercel/status/${currentProject.id}`, { headers });
         const json = await res.json();
         if (json?.success && json.deployment && json.deployment.status === 'READY') {
           setIsPublished(true);
