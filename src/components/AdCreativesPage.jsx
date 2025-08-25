@@ -159,8 +159,11 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
   }, [showAccountMenu]);
 
   useEffect(() => {
+    // Wait for auth to finish before loading the project to avoid 401 race on refresh
+    if (authLoading) return;
+    if (!session) return; // redirect handled by the auth redirect effect above
     loadProjectData();
-  }, [projectId]);
+  }, [projectId, authLoading, session]);
 
   // Load user credits for badge
   useEffect(() => {
