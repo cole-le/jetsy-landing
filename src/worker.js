@@ -3100,17 +3100,17 @@ async function handleGenerateBusinessName(request, env, corsHeaders) {
         }
       }
       if (userId) {
-        console.log(`[Credits Transaction] 📝 Deducting 1 credit for ad copy generation`);
-        await deductCredits(userId, 1, 'regen_ad_copy', 'deduction', JSON.stringify({ projectId, businessName, targetAudience }), env);
-        console.log(`[Credits Transaction] ✅ Successfully deducted 1 credit for ad copy generation`);
+        console.log(`[Credits Transaction] 📝 Deducting 1 credit for business name regeneration`);
+        await deductCredits(userId, 1, 'regen_business_name', 'deduction', JSON.stringify({ projectId, currentName }), env);
+        console.log(`[Credits Transaction] ✅ Successfully deducted 1 credit for business name regeneration`);
       } else {
-        console.log(`[Credits Transaction] ⚠️ No user ID found, skipping credit deduction for ad copy generation`);
+        console.log(`[Credits Transaction] ⚠️ No user ID found, skipping credit deduction for business name regeneration`);
       }
     } catch (creditError) {
       console.error(`[Credits Transaction] ❌ Failed to deduct credits:`, creditError.message);
       return new Response(JSON.stringify({ 
         success: false, 
-        error: 'Insufficient credits for ad copy generation',
+        error: 'Insufficient credits for business name regeneration',
         details: creditError.message 
       }), { 
         status: 402, 
