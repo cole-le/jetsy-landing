@@ -1713,6 +1713,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
           showUpgradeMessage={true}
           upgradeTitle="You're out of credits"
           upgradeDescription="Free plan includes 15 credits. Upgrade to a paid plan to get a higher monthly credit allowance and continue generating."
+          currentPlanType="free"
         />
       )}
       {/* Left Side - Chat/Editor Panel */}

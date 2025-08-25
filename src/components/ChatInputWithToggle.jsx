@@ -270,6 +270,7 @@ const ChatInputWithToggle = ({ onSubmit, onPricingShown, expandChat }) => {
           }}
           onClose={() => setShowPricingModal(false)}
           showUpgradeMessage={true}
+          currentPlanType="free"
         />
       )}
     </div>

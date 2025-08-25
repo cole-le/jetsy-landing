@@ -598,6 +598,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
           onPlanSelect={() => { /* no-op for now */ }}
           onClose={() => setShowUpgradeModal(false)}
           showUpgradeMessage={true}
+          currentPlanType="free"
           upgradeTitle="You're out of credits"
           upgradeDescription="Free plan includes 15 credits. Upgrade to a paid plan to get a higher monthly credit allowance and continue generating."
         />

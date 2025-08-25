@@ -646,6 +646,7 @@ function App() {
           onPlanSelect={handlePlanSelect}
           onClose={() => setShowPricingModal(false)}
           onBookDemo={handleBookDemo}
+          currentPlanType={user ? 'free' : null}
         />
       )}
 
@@ -655,6 +656,7 @@ function App() {
           onPlanSelect={handleNavbarPlanSelect}
           onClose={() => setShowNavbarPricingModal(false)}
           onBookDemo={handleBookDemo}
+          currentPlanType={user ? 'free' : null}
         />
       )}
 

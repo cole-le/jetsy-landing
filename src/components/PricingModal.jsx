@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { trackEvent } from '../utils/analytics'
 
-const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBookDemo, upgradeTitle = 'Upgrade required', upgradeDescription = 'You have reached your current plan limit. Upgrade to continue.' }) => {
+const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBookDemo, upgradeTitle = 'Upgrade required', upgradeDescription = 'You have reached your current plan limit. Upgrade to continue.', currentPlanType = null }) => {
   const [selectedPlan, setSelectedPlan] = useState(null)
   const [mounted, setMounted] = useState(false)
 
@@ -213,8 +213,12 @@ const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBoo
                   ))}
                 </ul>
 
-                {/* Button */}
-                {plan.type === 'enterprise' ? (
+                {/* Button or Current Plan Label */}
+                {plan.type === currentPlanType ? (
+                  <div className="w-full py-3 px-4 rounded-lg font-semibold bg-gray-100 text-gray-600 border border-gray-300 text-center mt-auto">
+                    Your current plan
+                  </div>
+                ) : plan.type === 'enterprise' ? (
                   <button
                     onClick={() => {
                       if (onBookDemo) onBookDemo()
