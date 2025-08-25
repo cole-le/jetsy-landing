@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { getApiBaseUrl } from '../../config/environment';
+import { useAuth } from '../auth/AuthProvider';
 
 /**
  * Ad Controls Component for live-editing ad content and settings
@@ -21,8 +22,10 @@ const AdControls = ({
   onCopyChange,
   onVisualChange,
   onAspectRatioChange,
-  projectId
+  projectId,
+  onCreditsRefresh
 }) => {
+  const { session } = useAuth();
   const [isRegenerating, setIsRegenerating] = useState(false);
   const ctaOptions = [
     'LEARN_MORE',
@@ -72,6 +75,8 @@ const AdControls = ({
         if (data && data.url) {
           handleVisualChange(targetField, data.url);
         }
+        // Refresh credits badge if provided
+        try { if (typeof onCreditsRefresh === 'function') await onCreditsRefresh(); } catch {}
       }
     } catch (err) {
       console.error('Image upload failed', err);
@@ -87,7 +92,10 @@ const AdControls = ({
       setIsRegenerating(true);
       const resp = await fetch(`${getApiBaseUrl()}/api/generate-platform-ad-copy`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
+        },
         body: JSON.stringify({ projectId, platform })
       });
       if (!resp.ok) throw new Error('Failed to regenerate copy');
@@ -110,6 +118,8 @@ const AdControls = ({
             cta: data.copy.cta || copy.cta
           });
         }
+        // Refresh credits badge if provided
+        try { if (typeof onCreditsRefresh === 'function') await onCreditsRefresh(); } catch {}
       }
     } catch (e) {
       console.error('Regenerate copy failed:', e);
@@ -125,7 +135,10 @@ const AdControls = ({
       setIsImageRegenerating(true);
       const resp = await fetch(`${getApiBaseUrl()}/api/generate-ads-image`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
+        },
         body: JSON.stringify({ projectId })
       });
       if (!resp.ok) throw new Error('Failed to generate image');
@@ -136,6 +149,8 @@ const AdControls = ({
           imageUrl: data.imageUrl
         });
         // Note: not saved to DB; user must click Save Changes in header
+        // Refresh credits badge if provided
+        try { if (typeof onCreditsRefresh === 'function') await onCreditsRefresh(); } catch {}
       }
     } catch (e) {
       console.error('Generate image failed:', e);

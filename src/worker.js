@@ -2998,7 +2998,7 @@ async function handleGeneratePlatformAdCopy(request, env, corsHeaders) {
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
     }
-
+  
     // Load project + template data for context
     const db = env.DB;
     const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
@@ -3006,6 +3006,39 @@ async function handleGeneratePlatformAdCopy(request, env, corsHeaders) {
       return new Response(JSON.stringify({ success: false, error: 'Project not found' }), {
         status: 404,
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    // Credits: Deduct 1 credit for platform ad copy regeneration (prefer project owner)
+    try {
+      let userId = project.user_id || null;
+      if (!userId) {
+        const authHeader = request.headers.get('Authorization');
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+          const userCredits = await db.prepare(`
+            SELECT user_id FROM user_credits 
+            ORDER BY created_at DESC 
+            LIMIT 1
+          `).first();
+          if (userCredits) userId = userCredits.user_id;
+        }
+      }
+      if (userId) {
+        console.log(`[Credits Transaction] 📝 Deducting 1 credit for platform ad copy regeneration (${platform})`);
+        await deductCredits(userId, 1, 'regen_ad_copy', 'deduction', JSON.stringify({ projectId, platform }), env);
+        console.log(`[Credits Transaction] ✅ Successfully deducted 1 credit for platform ad copy regeneration (${platform})`);
+      } else {
+        console.log(`[Credits Transaction] ⚠️ No user ID found, skipping credit deduction for platform ad copy regeneration (${platform})`);
+      }
+    } catch (creditError) {
+      console.error(`[Credits Transaction] ❌ Failed to deduct credits:`, creditError.message);
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Insufficient credits for platform ad copy regeneration',
+        details: creditError.message 
+      }), { 
+        status: 402, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
       });
     }
 
@@ -10971,10 +11004,24 @@ Return ONLY a JSON object with this exact structure:
     totalCost.total += cost;
   }
   const aiResponse = result.choices[0].message.content.trim();
-  
-  // Parse the JSON response
+
+  // Parse the JSON response (robust to code fences/backticks)
   try {
-    return JSON.parse(aiResponse);
+    let jsonText = aiResponse;
+    // If wrapped in code fences like ```json ... ``` or ``` ... ```
+    const fenceMatch = aiResponse.match(/```(?:json)?\n([\s\S]*?)```/i);
+    if (fenceMatch && fenceMatch[1]) {
+      jsonText = fenceMatch[1].trim();
+    }
+    // Fallback: extract first {...} block
+    if (!jsonText.trim().startsWith('{')) {
+      const start = jsonText.indexOf('{');
+      const end = jsonText.lastIndexOf('}');
+      if (start !== -1 && end !== -1 && end > start) {
+        jsonText = jsonText.slice(start, end + 1);
+      }
+    }
+    return JSON.parse(jsonText);
   } catch (parseError) {
     console.error('Failed to parse AI response:', parseError);
     // Fallback content
