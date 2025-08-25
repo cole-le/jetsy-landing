@@ -65,11 +65,10 @@ const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBoo
       color: 'gray',
       subtitle: 'For organizations with advanced needs',
       features: [
+        'Custom credits',
         'Dedicated support',
-        'Onboarding services',
         'Custom integrations',
         'Group-based access control',
-        'Custom design systems',
       ],
       buttonText: 'Book a Demo',
       popular: false
@@ -198,7 +197,6 @@ const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBoo
                       <span className="text-2xl font-bold text-text">Flexible Billing</span>
                     )}
                   </div>
-                  <p className="text-sm text-mutedText font-medium">{plan.subtitle}</p>
                 </div>
 
                 {/* Features */}
