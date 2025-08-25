@@ -14,6 +14,10 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
   const [error, setError] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // Credits badge state
+  const [creditsLoading, setCreditsLoading] = useState(true);
+  const [userCredits, setUserCredits] = useState(0);
+
   // Mobile responsiveness state
   const [isMobile, setIsMobile] = useState(false);
   const [mobileView, setMobileView] = useState('ads-copy'); // 'ads-copy' or 'preview'
@@ -153,6 +157,46 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
   useEffect(() => {
     loadProjectData();
   }, [projectId]);
+
+  // Load user credits for badge
+  useEffect(() => {
+    const fetchCredits = async () => {
+      try {
+        setCreditsLoading(true);
+        const headers = {};
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+        const res = await fetch(`${getApiBaseUrl()}/api/user-credits`, { headers });
+        if (res.ok) {
+          const data = await res.json();
+          setUserCredits(data.credits ?? 0);
+        }
+      } catch (_) {
+        // ignore
+      } finally {
+        setCreditsLoading(false);
+      }
+    };
+    fetchCredits();
+  }, [session]);
+
+  const refreshCredits = useCallback(async () => {
+    try {
+      setCreditsLoading(true);
+      const headers = {};
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      const res = await fetch(`${getApiBaseUrl()}/api/user-credits`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setUserCredits(data.credits ?? 0);
+      }
+    } catch (_) {
+      // ignore
+    } finally {
+      setCreditsLoading(false);
+    }
+  }, [session]);
 
   const loadProjectData = async () => {
     try {
@@ -378,6 +422,8 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
           }
 
           alert('Ads generated successfully with AI!');
+          // Refresh credits after successful generation (costs 3 credits)
+          try { await refreshCredits(); } catch (_) {}
           
           // Auto-switch to Preview page on mobile after successful generation
           if (isMobile) {
@@ -630,12 +676,34 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
           </div>
         )}
 
-        {/* Project Headline */}
+        {/* Project Headline with Credits Badge */}
         {(!isMobile || mobileView === 'ads-copy') && (
-          <div className="mb-4">
+          <div className="mb-4 flex items-center justify-between">
             <h1 className="text-2xl font-bold text-gray-900">
               {project?.project_name || 'Project'} - Ads Creative
             </h1>
+            <div className="flex items-center space-x-2">
+              <div className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-3 py-1.5 rounded-full text-sm font-medium shadow-sm">
+                <div className="flex items-center space-x-1.5">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 2a8 8 0 100 16 8 8 0 000-16zM8.5 12.5l7-4.5-7-4.5v9z" />
+                  </svg>
+                  <span>
+                    {creditsLoading ? (
+                      <span className="inline-flex items-center">
+                        <svg className="animate-spin -ml-1 mr-1 h-3 w-3 text-white" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                        </svg>
+                        Loading...
+                      </span>
+                    ) : (
+                      `${userCredits || 0} Credits`
+                    )}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

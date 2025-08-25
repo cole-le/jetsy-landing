@@ -643,6 +643,40 @@ async function handleGenerateAdsImageOnly(request, env, corsHeaders) {
       });
     }
 
+    // Credits: Deduct 2 credits for standalone image regeneration
+    try {
+      const authHeader = request.headers.get('Authorization');
+      let userId = null;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const db = env.DB;
+        if (db) {
+          const userCredits = await db.prepare(`
+            SELECT user_id FROM user_credits 
+            ORDER BY created_at DESC 
+            LIMIT 1
+          `).first();
+          if (userCredits) userId = userCredits.user_id;
+        }
+      }
+      if (userId) {
+        console.log(`[Credits Transaction] 🎨 Deducting 2 credits for ads image regeneration`);
+        await deductCredits(userId, 2, 'regen_image', 'deduction', JSON.stringify({ projectId, scope: 'ads_image_only' }), env);
+        console.log(`[Credits Transaction] ✅ Successfully deducted 2 credits for ads image regeneration`);
+      } else {
+        console.log(`[Credits Transaction] ⚠️ No user ID found, skipping credit deduction for ads image regeneration`);
+      }
+    } catch (creditError) {
+      console.error(`[Credits Transaction] ❌ Failed to deduct credits:`, creditError.message);
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Insufficient credits for ads image regeneration',
+        details: creditError.message 
+      }), { 
+        status: 402, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      });
+    }
+
     await ensureAdsColumns(env);
     const db = env.DB;
     const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
@@ -3048,6 +3082,40 @@ async function handleGenerateBusinessName(request, env, corsHeaders) {
 
     if (!env.OPENAI_API_KEY) {
       throw new Error('OpenAI API key is required but not found');
+    }
+
+    // Credits: Deduct 1 credit for standalone ad copy generation
+    try {
+      const authHeader = request.headers.get('Authorization');
+      let userId = null;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const db = env.DB;
+        if (db) {
+          const userCredits = await db.prepare(`
+            SELECT user_id FROM user_credits 
+            ORDER BY created_at DESC 
+            LIMIT 1
+          `).first();
+          if (userCredits) userId = userCredits.user_id;
+        }
+      }
+      if (userId) {
+        console.log(`[Credits Transaction] 📝 Deducting 1 credit for ad copy generation`);
+        await deductCredits(userId, 1, 'regen_ad_copy', 'deduction', JSON.stringify({ projectId, businessName, targetAudience }), env);
+        console.log(`[Credits Transaction] ✅ Successfully deducted 1 credit for ad copy generation`);
+      } else {
+        console.log(`[Credits Transaction] ⚠️ No user ID found, skipping credit deduction for ad copy generation`);
+      }
+    } catch (creditError) {
+      console.error(`[Credits Transaction] ❌ Failed to deduct credits:`, creditError.message);
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Insufficient credits for ad copy generation',
+        details: creditError.message 
+      }), { 
+        status: 402, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      });
     }
 
     const systemPrompt = `You are a brand naming expert. Generate ONE distinctive, brandable business name based on the user's startup idea.\n\nConstraints:\n- 1 or 2 words only\n- Easy to pronounce and remember\n- Avoid hyphens, numbers, trademarks, and generic terms\n- Evoke the core feeling/benefit of the idea\n- If a current/previous name is provided, the new name MUST be different from it.\n\nReturn ONLY the name string with no quotes or extra text.`;
@@ -10607,6 +10675,40 @@ async function handleGenerateAdsWithAI(request, env, corsHeaders) {
     }
 
     console.log('🎨 Starting AI ads generation for project:', projectId);
+
+    // Credits: Deduct 3 credits for full ads (copy + image) generation
+    try {
+      const authHeader = request.headers.get('Authorization');
+      let userId = null;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const db = env.DB;
+        if (db) {
+          const userCredits = await db.prepare(`
+            SELECT user_id FROM user_credits 
+            ORDER BY created_at DESC 
+            LIMIT 1
+          `).first();
+          if (userCredits) userId = userCredits.user_id;
+        }
+      }
+      if (userId) {
+        console.log(`[Credits Transaction] 🧠🎨 Deducting 3 credits for full ads generation`);
+        await deductCredits(userId, 3, 'ad_set', 'deduction', JSON.stringify({ projectId, scope: 'full_ads_generation' }), env);
+        console.log(`[Credits Transaction] ✅ Successfully deducted 3 credits for full ads generation`);
+      } else {
+        console.log(`[Credits Transaction] ⚠️ No user ID found, skipping credit deduction for full ads generation`);
+      }
+    } catch (creditError) {
+      console.error(`[Credits Transaction] ❌ Failed to deduct credits:`, creditError.message);
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Insufficient credits for full ads generation',
+        details: creditError.message 
+      }), { 
+        status: 402, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      });
+    }
 
     // Ensure ads columns exist in database
     await ensureAdsColumns(env);
