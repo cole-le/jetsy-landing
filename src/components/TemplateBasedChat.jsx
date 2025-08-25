@@ -5,6 +5,7 @@ import DeploymentButton from './DeploymentButton';
 import { getVercelApiBaseUrl } from '../config/environment';
 import { useAuth } from './auth/AuthProvider';
 import VisibilityToggle from './VisibilityToggle';
+import PricingModal from './PricingModal';
 
 import { getApiBaseUrl } from '../config/environment';
 
@@ -322,6 +323,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const [isPublished, setIsPublished] = useState(false);
   const [userCredits, setUserCredits] = useState(0);
   const [creditsLoading, setCreditsLoading] = useState(true);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Redirect unauthenticated users once auth has finished loading
   useEffect(() => {
@@ -645,7 +647,6 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             project_name: templateData?.businessName || currentProject?.project_name
           })
         });
-        
         if (response.ok) {
           console.log('Template data saved successfully');
           alert('Changes saved successfully!');
@@ -816,6 +817,10 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         headers,
         body: JSON.stringify({ projectId: currentProject.id, currentName: (templateData.businessName || '').trim() })
       });
+      if (resp.status === 402) {
+        setShowUpgradeModal(true);
+        return;
+      }
       if (!resp.ok) throw new Error('Failed to generate business name');
       const data = await resp.json();
       if (data.success && data.businessName) {
@@ -868,104 +873,40 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
           number_of_images: 1
         })
       });
+      if (resp.status === 402) {
+        setShowUpgradeModal(true);
+        return;
+      }
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const data = await resp.json();
       if (!(data.success && data.images && data.images.length > 0)) {
         throw new Error('No images generated');
       }
-              const url = data.images[0].url;
-        // Suppress the next auto-save so user must click Save Changes
-        skipAutoSaveRef.current = true;
-        setTemplateData(prev => ({ ...prev, heroBackgroundImage: url }));
-        
-        // Refresh credits after successful image generation
-        refreshUserCredits();
-      } catch (e) {
-        console.error('Hero background regeneration failed:', e);
+      const url = data.images[0].url;
+      // Suppress the next auto-save so user must click Save Changes
+      skipAutoSaveRef.current = true;
+      setTemplateData(prev => ({ ...prev, heroBackgroundImage: url }));
+      try { refreshUserCredits(); } catch (_) {}
+    } catch (e) {
+      console.error('Hero background regeneration failed:', e);
+      const msg = String(e?.message || e);
+      if (msg.includes('402') || msg.toLowerCase().includes('insufficient')) {
+        setShowUpgradeModal(true);
+      } else {
         alert('Failed to regenerate hero background. Please try again.');
-      } finally {
-        setIsRegeneratingHeroBg(false);
       }
-    };
+    } finally {
+      setIsRegeneratingHeroBg(false);
+    }
+  };
 
-  const handleRegenerateAboutBackground = async () => {
-    if (!currentProject?.id || isRegeneratingAboutBg) return;
-    try {
-      setIsRegeneratingAboutBg(true);
-      const headers = { 'Content-Type': 'application/json' };
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
-      }
-      
-      const resp = await fetch(`${getApiBaseUrl()}/api/generate-image`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          project_id: currentProject.id,
-          prompt: `Ultra-relevant background image for ${templateData.businessName || 'Your Business'} about section. 16:9 cinematic background, photographic or high-quality illustration, darker tones or strong contrast to support overlay text readability. No text of any kind: no words, no lettering, no logos, no watermarks. Avoid brand names and copyrighted content.`,
-          aspect_ratio: '16:9',
-          number_of_images: 1
-        })
-      });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const data = await resp.json();
-      if (!(data.success && data.images && data.images.length > 0)) {
-        throw new Error('No images generated');
-      }
-              const url = data.images[0].url;
-        // Suppress the next auto-save so user must click Save Changes
-        skipAutoSaveRef.current = true;
-        setTemplateData(prev => ({ ...prev, aboutBackgroundImage: url }));
-        
-        // Refresh credits after successful image generation
-        refreshUserCredits();
-      } catch (e) {
-        console.error('About background regeneration failed:', e);
-        alert('Failed to regenerate about background. Please try again.');
-      } finally {
-        setIsRegeneratingAboutBg(false);
-      }
-    };
-
-  const handleRegenerateLogo = async () => {
-    if (!currentProject?.id || isRegeneratingLogo) return;
-    try {
-      setIsRegeneratingLogo(true);
-      const headers = { 'Content-Type': 'application/json' };
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
-      }
-      
-      const response = await fetch(`${getApiBaseUrl()}/api/generate-image`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          project_id: currentProject.id,
-          prompt: `Abstract, text-free logo mark for ${templateData.businessName || 'Your Business'}. Unique and memorable symbol only (no letters, no words, no typography, no text, no watermarks). Minimal modern vector emblem, clean geometric forms, balanced composition, flat scalable design, strong silhouette, 1:1 aspect ratio`,
-          aspect_ratio: '1:1',
-          number_of_images: 1
-        })
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const result = await response.json();
-      if (!(result.success && result.images && result.images.length > 0)) {
-        throw new Error('No images generated');
-      }
-              const newLogoUrl = result.images[0].url;
-        setTemplateData(prev => ({ ...prev, businessLogoUrl: newLogoUrl }));
-        
-        // Refresh credits after successful image generation
-        refreshUserCredits();
-      } catch (error) {
-        console.error('Logo regeneration failed:', error);
-        alert('Failed to regenerate logo. Please try again.');
-      } finally {
-        setIsRegeneratingLogo(false);
-      }
-    };
-
+  // Local storage helpers and project name cache utilities
   const getStoredProjectId = () => {
-    return localStorage.getItem('jetsy_current_project_id');
+    try {
+      return localStorage.getItem('jetsy_current_project_id');
+    } catch (_) {
+      return null;
+    }
   };
 
   const setStoredProjectId = (projectId) => {
@@ -1030,6 +971,100 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         }
       }
     } catch (_) {}
+  };
+
+  // Regenerate About background with 402 handling
+  const handleRegenerateAboutBackground = async () => {
+    if (!currentProject?.id || isRegeneratingAboutBg) return;
+    try {
+      setIsRegeneratingAboutBg(true);
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
+      const resp = await fetch(`${getApiBaseUrl()}/api/generate-image`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          project_id: currentProject.id,
+          prompt: `Ultra-relevant background image for ${templateData.businessName || 'Your Business'} about section. 16:9 cinematic background, photographic or high-quality illustration, darker tones or strong contrast to support overlay text readability. No text of any kind: no words, no lettering, no logos, no watermarks. Avoid brand names and copyrighted content.`,
+          aspect_ratio: '16:9',
+          number_of_images: 1
+        })
+      });
+      if (resp.status === 402) {
+        setShowUpgradeModal(true);
+        return;
+      }
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      if (!(data.success && data.images && data.images.length > 0)) {
+        throw new Error('No images generated');
+      }
+      const url = data.images[0].url;
+      // Suppress the next auto-save so user must click Save Changes
+      skipAutoSaveRef.current = true;
+      setTemplateData(prev => ({ ...prev, aboutBackgroundImage: url }));
+      try { refreshUserCredits(); } catch (_) {}
+    } catch (e) {
+      console.error('About background regeneration failed:', e);
+      const msg = String(e?.message || e);
+      if (msg.includes('402') || msg.toLowerCase().includes('insufficient')) {
+        setShowUpgradeModal(true);
+      } else {
+        alert('Failed to regenerate about background. Please try again.');
+      }
+    } finally {
+      setIsRegeneratingAboutBg(false);
+    }
+  };
+
+  // Regenerate Business Logo with 402 handling
+  const handleRegenerateLogo = async () => {
+    if (!currentProject?.id || isRegeneratingLogo) return;
+    try {
+      setIsRegeneratingLogo(true);
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
+      const resp = await fetch(`${getApiBaseUrl()}/api/generate-image`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          project_id: currentProject.id,
+          prompt: `Flat, minimal, modern logo mark for ${templateData.businessName || 'Your Business'}. Clean vector style, centered emblem or monogram, high contrast, no gradients, no text, no watermarks, no brand names.`,
+          aspect_ratio: '1:1',
+          number_of_images: 1
+        })
+      });
+      if (resp.status === 402) {
+        setShowUpgradeModal(true);
+        return;
+      }
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      if (!(data.success && data.images && data.images.length > 0)) {
+        throw new Error('No images generated');
+      }
+      const url = data.images[0].url;
+      // Suppress the next auto-save so user must click Save Changes
+      skipAutoSaveRef.current = true;
+      setTemplateData(prev => ({ ...prev, businessLogoUrl: url }));
+      try { refreshUserCredits(); } catch (_) {}
+    } catch (e) {
+      console.error('Logo regeneration failed:', e);
+      const msg = String(e?.message || e);
+      if (msg.includes('402') || msg.toLowerCase().includes('insufficient')) {
+        setShowUpgradeModal(true);
+      } else {
+        alert('Failed to regenerate logo. Please try again.');
+      }
+    } finally {
+      setIsRegeneratingLogo(false);
+    }
   };
 
   const loadOrRestoreProject = async () => {
@@ -1421,7 +1456,12 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
           current_template_data: templateData
         })
       });
-
+      if (aiResponse.status === 402) {
+        setShowUpgradeModal(true);
+        // stop progress UI if any
+        completeAiProgress();
+        return;
+      }
       if (aiResponse.ok) {
         const result = await aiResponse.json();
         
@@ -1665,6 +1705,16 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     <div className="flex flex-col lg:flex-row h-screen bg-gray-50 pb-24 lg:pb-0">
       {/* Inject mobile viewport styles */}
       <style dangerouslySetInnerHTML={{ __html: getMobileViewportStyles(effectivePreviewMode) }} />
+
+      {showUpgradeModal && (
+        <PricingModal
+          onPlanSelect={() => { /* no-op for now */ }}
+          onClose={() => setShowUpgradeModal(false)}
+          showUpgradeMessage={true}
+          upgradeTitle="You're out of credits"
+          upgradeDescription="Free plan includes 15 credits. Upgrade to a paid plan to get a higher monthly credit allowance and continue generating."
+        />
+      )}
       {/* Left Side - Chat/Editor Panel */}
       <div className={`${mobileView === 'chat' ? 'flex' : 'hidden'} lg:flex lg:w-1/4 bg-white border-r border-gray-200 flex-col`}>
         {/* Header */}
