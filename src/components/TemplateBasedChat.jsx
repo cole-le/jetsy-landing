@@ -640,7 +640,9 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
           method: 'PUT',
           headers,
           body: JSON.stringify({
-            template_data: templateData
+            template_data: templateData,
+            // Ensure project_name stays in sync with businessName on manual save
+            project_name: templateData?.businessName || currentProject?.project_name
           })
         });
         
@@ -725,7 +727,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         };
 
         // Debounce the database update to avoid excessive API calls
-        const timeoutId = setTimeout(updateProjectName, 2000);
+        const timeoutId = setTimeout(updateProjectName, 300);
         return () => clearTimeout(timeoutId);
       }
     }
@@ -772,7 +774,9 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             method: 'PUT',
             headers,
             body: JSON.stringify({
-              template_data: templateData
+              template_data: templateData,
+              // Keep project_name synced during auto-save as well
+              project_name: templateData?.businessName || currentProject?.project_name
             })
           });
           
