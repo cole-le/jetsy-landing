@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { trackEvent } from '../utils/analytics'
 
-const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBookDemo }) => {
+const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBookDemo, upgradeTitle = 'Upgrade required', upgradeDescription = 'You have reached your current plan limit. Upgrade to continue.' }) => {
   const [selectedPlan, setSelectedPlan] = useState(null)
   const [mounted, setMounted] = useState(false)
 
@@ -122,15 +122,15 @@ const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBoo
                   </svg>
                 </div>
               </div>
-              <h2 className="text-2xl font-bold mb-2 text-text">Upgrade required</h2>
-              <p className="text-mutedText font-normal">You need to be on a business plan to make your project personal.</p>
+              <h2 className="text-2xl font-bold mb-2 text-text">{upgradeTitle}</h2>
+              <p className="text-mutedText font-normal">{upgradeDescription}</p>
             </div>
           )}
 
           {/* Header */}
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold mb-2 text-text">Choose Your Plan</h2>
-            <p className="text-mutedText font-normal">Start validating your startup idea today</p>
+            <p className="text-mutedText font-normal">Idea into Business in 24 hours 🚀</p>
           </div>
 
           {/* Plans Grid */}
