@@ -650,12 +650,12 @@ const Navbar = ({
                 </div>
               ) : isAdCreativesMode ? (
                 // Ad Creatives mode header content
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2">
                   {/* Generate + Save */}
                   <button
                     onClick={() => window.dispatchEvent(new CustomEvent('ad-creatives:generate'))}
                     disabled={isAdGenerating}
-                    className={`bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all disabled:opacity-60 disabled:cursor-not-allowed`}
+                    className={`bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all disabled:opacity-60 disabled:cursor-not-allowed`}
                   >
                     {isAdGenerating ? (
                       <span className="flex items-center gap-2">
@@ -666,7 +666,7 @@ const Navbar = ({
                   </button>
                   <button 
                     onClick={() => window.dispatchEvent(new CustomEvent('ad-creatives:save'))}
-                    className="px-6 py-2 bg-black hover:bg-gray-800 text-white rounded-lg transition-colors duration-200 font-semibold">
+                    className="px-4 py-2 bg-black hover:bg-gray-800 text-white rounded-lg transition-colors duration-200 font-semibold">
                     Save Changes
                   </button>
                   {/* Account avatar */}
