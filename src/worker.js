@@ -791,15 +791,9 @@ async function handleGenerateAdsImageOnly(request, env, corsHeaders) {
       const authHeader = request.headers.get('Authorization');
       let userId = null;
       if (authHeader && authHeader.startsWith('Bearer ')) {
-        const db = env.DB;
-        if (db) {
-          const userCredits = await db.prepare(`
-            SELECT user_id FROM user_credits 
-            ORDER BY created_at DESC 
-            LIMIT 1
-          `).first();
-          if (userCredits) userId = userCredits.user_id;
-        }
+        const token = authHeader.substring(7);
+        const claims = parseJwt(token);
+        userId = claims?.sub || claims?.user?.id || claims?.user_id || null;
       }
       if (userId) {
         console.log(`[Credits Transaction] 🎨 Deducting 2 credits for ads image regeneration`);
@@ -3158,12 +3152,9 @@ async function handleGeneratePlatformAdCopy(request, env, corsHeaders) {
       if (!userId) {
         const authHeader = request.headers.get('Authorization');
         if (authHeader && authHeader.startsWith('Bearer ')) {
-          const userCredits = await db.prepare(`
-            SELECT user_id FROM user_credits 
-            ORDER BY created_at DESC 
-            LIMIT 1
-          `).first();
-          if (userCredits) userId = userCredits.user_id;
+          const token = authHeader.substring(7);
+          const claims = parseJwt(token);
+          userId = claims?.sub || claims?.user?.id || claims?.user_id || userId;
         }
       }
       if (userId) {
@@ -3265,15 +3256,9 @@ async function handleGenerateBusinessName(request, env, corsHeaders) {
       const authHeader = request.headers.get('Authorization');
       let userId = null;
       if (authHeader && authHeader.startsWith('Bearer ')) {
-        const db = env.DB;
-        if (db) {
-          const userCredits = await db.prepare(`
-            SELECT user_id FROM user_credits 
-            ORDER BY created_at DESC 
-            LIMIT 1
-          `).first();
-          if (userCredits) userId = userCredits.user_id;
-        }
+        const token = authHeader.substring(7);
+        const claims = parseJwt(token);
+        userId = claims?.sub || claims?.user?.id || claims?.user_id || null;
       }
       if (userId) {
         console.log(`[Credits Transaction] 📝 Deducting 1 credit for business name regeneration`);
@@ -7335,18 +7320,9 @@ async function handleImageGeneration(request, env, corsHeaders) {
       let userId = null;
       
       if (authHeader && authHeader.startsWith('Bearer ')) {
-        // Get user ID for credit deduction
-        const db = env.DB;
-        if (db) {
-          const userCredits = await db.prepare(`
-            SELECT user_id FROM user_credits 
-            ORDER BY created_at DESC 
-            LIMIT 1
-          `).first();
-          if (userCredits) {
-            userId = userCredits.user_id;
-          }
-        }
+        const token = authHeader.substring(7);
+        const claims = parseJwt(token);
+        userId = claims?.sub || claims?.user?.id || claims?.user_id || null;
       }
       
       if (userId) {
@@ -10248,19 +10224,9 @@ async function handleTemplateGeneration(request, env, corsHeaders) {
     let userId = null;
     
     if (authHeader && authHeader.startsWith('Bearer ')) {
-      // For now, we'll use a simple approach - in production, verify JWT and extract user ID
-      // For now, let's get the first user's ID from the database
-      const db = env.DB;
-      if (db) {
-        const userCredits = await db.prepare(`
-          SELECT user_id FROM user_credits 
-          ORDER BY created_at DESC 
-          LIMIT 1
-        `).first();
-        if (userCredits) {
-          userId = userCredits.user_id;
-        }
-      }
+      const token = authHeader.substring(7);
+      const claims = parseJwt(token);
+      userId = claims?.sub || claims?.user?.id || claims?.user_id || null;
     }
     
     // Deduct 5 credits for full template generation
@@ -10857,15 +10823,9 @@ async function handleGenerateAdsWithAI(request, env, corsHeaders) {
       const authHeader = request.headers.get('Authorization');
       let userId = null;
       if (authHeader && authHeader.startsWith('Bearer ')) {
-        const db = env.DB;
-        if (db) {
-          const userCredits = await db.prepare(`
-            SELECT user_id FROM user_credits 
-            ORDER BY created_at DESC 
-            LIMIT 1
-          `).first();
-          if (userCredits) userId = userCredits.user_id;
-        }
+        const token = authHeader.substring(7);
+        const claims = parseJwt(token);
+        userId = claims?.sub || claims?.user?.id || claims?.user_id || null;
       }
       if (userId) {
         console.log(`[Credits Transaction] 🧠🎨 Deducting 3 credits for full ads generation`);
@@ -12081,44 +12041,47 @@ async function getBillingMe(request, env, corsHeaders) {
       return new Response(JSON.stringify({ error: 'Database not available' }), { status: 500, headers: corsHeaders });
     }
 
-    // Attempt to extract user from Authorization header (Supabase JWT)
+    // Extract user from Authorization header (Supabase JWT)
     const authHeader = request.headers.get('Authorization');
-    let user_id = null;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      // TODO: parse JWT to get user_id. For now, we will fallback to latest record if parsing is not available.
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Authorization header required' }), { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+    const token = authHeader.slice('Bearer '.length).trim();
+    const claims = parseJwt(token);
+    const user_id = claims?.sub || claims?.user?.id || null;
+    if (!user_id) {
+      return new Response(JSON.stringify({ error: 'Invalid token: user not found' }), { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
     }
 
-    let row;
-    if (user_id) {
-      row = await db.prepare(`
-        SELECT user_id, credits, plan_type, credits_per_month, last_refresh_date
-        FROM user_credits
-        WHERE user_id = ?
-        ORDER BY created_at DESC
-        LIMIT 1
-      `).bind(user_id).first();
-    } else {
-      row = await db.prepare(`
-        SELECT user_id, credits, plan_type, credits_per_month, last_refresh_date
-        FROM user_credits
-        ORDER BY created_at DESC
-        LIMIT 1
-      `).first();
-    }
+    // Fetch or create per-user credits row
+    let row = await db.prepare(`
+      SELECT user_id, credits, plan_type, credits_per_month, last_refresh_date
+      FROM user_credits
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+      LIMIT 1
+    `).bind(user_id).first();
 
     if (!row) {
-      // Default for new users without records yet
-      return new Response(JSON.stringify({ plan: 'free', credits: 15, credit_limit: 15, next_refresh_at: null }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders }
-      });
+      // Initialize new user with Free plan and 15 credits
+      const nowIso = new Date().toISOString();
+      const insertRes = await db.prepare(`
+        INSERT INTO user_credits (user_id, credits, plan_type, credits_per_month, last_refresh_date, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `).bind(user_id, 15, 'free', 15, nowIso).run();
+      if (!insertRes.success) {
+        throw new Error('Failed to initialize user credits');
+      }
+      row = { user_id, credits: 15, plan_type: 'free', credits_per_month: 15, last_refresh_date: nowIso };
     }
 
     const plan = row.plan_type || 'free';
     const credit_limit = row.credits_per_month || 15;
-    const next_refresh_at = row.last_refresh_date
-      ? new Date(new Date(row.last_refresh_date).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
-      : null;
+    const next_refresh_at = plan === 'free'
+      ? null
+      : (row.last_refresh_date
+        ? new Date(new Date(row.last_refresh_date).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        : null);
 
     return new Response(JSON.stringify({
       plan,
@@ -12144,6 +12107,21 @@ function formEncode(obj) {
     params.push(`${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
   }
   return params.join('&');
+}
+
+// Decode a JWT without verification to extract claims (sufficient for local dev; consider verifying in production)
+function parseJwt(token) {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    // Base64URL decode
+    const b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = b64 + '==='.slice((b64.length + 3) % 4);
+    const json = atob(padded);
+    return JSON.parse(json);
+  } catch (_) {
+    return null;
+  }
 }
 
 // Utility: crypto helpers for webhook verification
@@ -12466,11 +12444,18 @@ async function handleGetUserCredits(request, env, corsHeaders) {
     }
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    
-    // For now, we'll use a simple approach to get user ID from the token
-    // In a real implementation, you'd verify the JWT token and extract the user ID
-    // For now, let's assume the token contains the user ID or we can derive it
-    
+    const claims = parseJwt(token);
+    const userId = claims?.sub || claims?.user?.id || null;
+    if (!userId) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Invalid token: user not found' 
+      }), { 
+        status: 401, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      });
+    }
+
     const db = env.DB;
     if (!db) {
       return new Response(JSON.stringify({ 
@@ -12482,36 +12467,34 @@ async function handleGetUserCredits(request, env, corsHeaders) {
       });
     }
 
-    // Since we don't have JWT verification set up yet, let's get the first user's credits
-    // In a real implementation, you'd extract the user ID from the JWT token
-    const userCredits = await db.prepare(`
+    // Fetch or create per-user credits row
+    let userCredits = await db.prepare(`
       SELECT user_id, credits, plan_type, credits_per_month, last_refresh_date 
       FROM user_credits 
+      WHERE user_id = ?
       ORDER BY created_at DESC 
       LIMIT 1
-    `).first();
+    `).bind(userId).first();
 
     if (!userCredits) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'No user credits found' 
-      }), { 
-        status: 404, 
-        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
-      });
+      const nowIso = new Date().toISOString();
+      const insertRes = await db.prepare(`
+        INSERT INTO user_credits (user_id, credits, plan_type, credits_per_month, last_refresh_date, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `).bind(userId, 15, 'free', 15, nowIso).run();
+      if (!insertRes.success) {
+        return new Response(JSON.stringify({ success: false, error: 'Failed to initialize user credits' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+      }
+      userCredits = { user_id: userId, credits: 15, plan_type: 'free', credits_per_month: 15, last_refresh_date: nowIso };
     }
 
-    return new Response(JSON.stringify({
-      success: true,
-      credits: userCredits.credits,
-      plan_type: userCredits.plan_type,
-      credits_per_month: userCredits.credits_per_month,
-      last_refresh_date: userCredits.last_refresh_date
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    return new Response(JSON.stringify({ 
+      success: true, 
+      ...userCredits 
+    }), { 
+      status: 200, 
+      headers: { 'Content-Type': 'application/json', ...corsHeaders } 
     });
-
   } catch (error) {
     console.error('Error getting user credits:', error);
     return new Response(JSON.stringify({ 
