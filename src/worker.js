@@ -106,7 +106,7 @@ export default {
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, Stripe-Signature',
     };
 
     // Handle preflight requests
@@ -160,6 +160,17 @@ export default {
       }
       if (path === '/api/billing/me' && request.method === 'OPTIONS') {
         return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
+      // --- Stripe Checkout API ---
+      if (path === '/api/stripe/create-checkout-session' && request.method === 'POST') {
+        return await createStripeCheckoutSession(request, env, corsHeaders);
+      }
+      if (path === '/api/stripe/create-checkout-session' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+      if (path === '/api/stripe/webhook' && request.method === 'POST') {
+        return await handleStripeWebhook(request, env);
       }
 
       if (path === '/api/jetsy-analytics' && request.method === 'POST') {
@@ -11997,6 +12008,227 @@ async function getBillingMe(request, env, corsHeaders) {
   } catch (error) {
     console.error('getBillingMe error:', error);
     return new Response(JSON.stringify({ error: 'Failed to fetch billing', details: error.message }), { status: 500, headers: corsHeaders });
+  }
+}
+
+// --- Stripe Helpers & Handlers ---
+// Utility: URL-encode form body for Stripe REST API
+function formEncode(obj) {
+  const params = [];
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === undefined || v === null) continue;
+    params.push(`${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
+  }
+  return params.join('&');
+}
+
+// Utility: crypto helpers for webhook verification
+async function hmacSha256Hex(secret, payload) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(payload));
+  const bytes = new Uint8Array(sig);
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function timingSafeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  let out = 0;
+  for (let i = 0; i < a.length; i++) {
+    out |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return out === 0;
+}
+
+// Plan mapping: set via environment variables for flexibility
+function resolvePlanConfig(env, plan) {
+  // Expected env vars:
+  // STRIPE_PRICE_PRO, STRIPE_PRICE_BUSINESS
+  // CREDITS_PRO=200, CREDITS_BUSINESS=1000
+  const map = {
+    pro: {
+      price: env.STRIPE_PRICE_PRO,
+      creditsMonthly: parseInt(env.CREDITS_PRO || '200', 10),
+    },
+    business: {
+      price: env.STRIPE_PRICE_BUSINESS,
+      creditsMonthly: parseInt(env.CREDITS_BUSINESS || '1000', 10),
+    },
+  };
+  return map[plan];
+}
+
+async function grantCreditsAndSetPlan(userId, plan, creditsToGrant, env) {
+  const db = env.DB;
+  if (!db) throw new Error('Database not available');
+
+  // Fetch latest row for user
+  const current = await db.prepare(`
+    SELECT user_id, credits, plan_type, credits_per_month, last_refresh_date
+    FROM user_credits
+    WHERE user_id = ?
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).bind(userId).first();
+
+  const now = new Date().toISOString();
+  let creditsBefore = 0;
+  if (!current) {
+    // Insert first record for this user
+    creditsBefore = 0;
+    const insertRes = await db.prepare(`
+      INSERT INTO user_credits (user_id, credits, plan_type, credits_per_month, last_refresh_date, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `).bind(userId, creditsToGrant, plan, creditsToGrant, now).run();
+    if (!insertRes.success) throw new Error('Failed to insert user_credits');
+  } else {
+    creditsBefore = current.credits || 0;
+    const newCredits = creditsBefore + creditsToGrant;
+    const updateRes = await db.prepare(`
+      UPDATE user_credits
+      SET credits = ?, plan_type = ?, credits_per_month = ?, last_refresh_date = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+      LIMIT 1
+    `).bind(newCredits, plan, creditsToGrant, now, userId).run();
+    if (!updateRes.success) throw new Error('Failed to update user_credits');
+  }
+
+  // Log credit grant transaction
+  const creditsAfter = creditsBefore + creditsToGrant;
+  await db.prepare(`
+    INSERT INTO credit_transactions (
+      user_id, transaction_type, feature_name, credits_before,
+      credits_after, credits_change, metadata, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+  `).bind(userId, 'grant', 'plan_upgrade', creditsBefore, creditsAfter, creditsToGrant, JSON.stringify({ plan })).run();
+
+  return { creditsBefore, creditsAfter };
+}
+
+async function createStripeCheckoutSession(request, env, corsHeaders) {
+  try {
+    const { plan, user_id, mode, return_to } = await request.json();
+    if (!plan || !user_id) {
+      return new Response(JSON.stringify({ error: 'Missing plan or user_id' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+    const conf = resolvePlanConfig(env, plan);
+    if (!conf || !conf.price) {
+      return new Response(JSON.stringify({ error: 'Invalid plan or price not configured' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+    // Validate that the configured price looks like a Stripe price ID
+    if (!/^price_/.test(conf.price)) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Misconfigured STRIPE_PRICE_* value', 
+          details: 'Expected a Stripe price ID like "price_...". Set STRIPE_PRICE_PRO/STRIPE_PRICE_BUSINESS to your test/live price IDs from the Stripe Dashboard.' 
+        }), 
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+    const secret = env.STRIPE_SECRET_KEY;
+    if (!secret) {
+      return new Response(JSON.stringify({ error: 'Stripe secret not configured' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+
+    const origin = request.headers.get('origin') || new URL(request.url).origin;
+    // Build return URLs that keep the user on their original page and signal status via query params
+    const backPath = typeof return_to === 'string' && return_to.startsWith('/') ? return_to : '/';
+    const hasQuery = backPath.includes('?');
+    const sep = hasQuery ? '&' : '?';
+    const successUrl = `${origin}${backPath}${sep}billing=success&plan=${encodeURIComponent(plan)}`;
+    const cancelUrl = `${origin}${backPath}${sep}billing=cancel`;
+    const sessionBody = {
+      mode: mode || 'subscription',
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      'line_items[0][price]': conf.price,
+      'line_items[0][quantity]': '1',
+      client_reference_id: user_id,
+      'metadata[plan]': plan,
+      // Expand for completeness if needed
+      // 'automatic_tax[enabled]': 'true',
+    };
+
+    const resp = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formEncode(sessionBody),
+    });
+    const json = await resp.json();
+    if (!resp.ok) {
+      console.error('Stripe create session error:', json);
+      return new Response(JSON.stringify({ error: 'Stripe error', details: json }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+    return new Response(JSON.stringify({ id: json.id, url: json.url }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  } catch (err) {
+    console.error('createStripeCheckoutSession error:', err);
+    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  }
+}
+
+async function handleStripeWebhook(request, env) {
+  try {
+    const sig = request.headers.get('Stripe-Signature');
+    const secret = env.STRIPE_WEBHOOK_SECRET;
+    if (!sig || !secret) {
+      return new Response('Missing signature or secret', { status: 400 });
+    }
+    const payload = await request.text(); // RAW body for signature
+
+    // Parse Stripe-Signature header: t=timestamp, v1=signature
+    const parts = Object.fromEntries(sig.split(',').map(kv => kv.split('=')));
+    const timestamp = parts.t;
+    const v1 = parts.v1;
+    if (!timestamp || !v1) return new Response('Invalid signature header', { status: 400 });
+
+    const signedPayload = `${timestamp}.${payload}`;
+    const computed = await hmacSha256Hex(secret, signedPayload);
+    if (!timingSafeEqual(computed, v1)) {
+      return new Response('Signature verification failed', { status: 400 });
+    }
+
+    const event = JSON.parse(payload);
+    const type = event.type;
+    // Handle successful payments/subscriptions
+    if (type === 'checkout.session.completed') {
+      const session = event.data.object;
+      const plan = (session.metadata && session.metadata.plan) || 'pro';
+      const userId = session.client_reference_id;
+      if (userId) {
+        const conf = resolvePlanConfig(env, plan);
+        if (conf) {
+          await grantCreditsAndSetPlan(userId, plan, conf.creditsMonthly, env);
+        }
+      }
+    } else if (type === 'invoice.paid') {
+      // Recurring monthly credit refresh for subscriptions
+      const invoice = event.data.object;
+      const sub = invoice.subscription;
+      // Try to get customer/user linkage via metadata on subscription or invoice
+      const plan = (invoice.metadata && invoice.metadata.plan) || 'pro';
+      const userId = (invoice.metadata && invoice.metadata.user_id) || null;
+      if (userId) {
+        const conf = resolvePlanConfig(env, plan);
+        if (conf) {
+          await grantCreditsAndSetPlan(userId, plan, conf.creditsMonthly, env);
+        }
+      }
+    }
+
+    return new Response(JSON.stringify({ received: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  } catch (err) {
+    console.error('handleStripeWebhook error:', err);
+    return new Response('Webhook error', { status: 400 });
   }
 }
 

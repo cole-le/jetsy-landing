@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { trackEvent } from '../utils/analytics'
+import { useAuth } from './auth/AuthProvider'
 
 const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBookDemo, upgradeTitle = 'Upgrade required', upgradeDescription = 'You have reached your current plan limit. Upgrade to continue.', currentPlanType = null }) => {
   const [selectedPlan, setSelectedPlan] = useState(null)
   const [mounted, setMounted] = useState(false)
+  const [loadingPlan, setLoadingPlan] = useState(null)
+  const { user, isAuthenticated } = useAuth()
 
   useEffect(() => {
     setMounted(true)
@@ -79,6 +82,38 @@ const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBoo
     setSelectedPlan(plan)
     // Removed duplicate tracking - parent component will handle this
     onPlanSelect(plan)
+  }
+
+  const startCheckout = async (planType) => {
+    try {
+      if (!isAuthenticated || !user?.id) {
+        // You can swap this for a nicer modal/toast
+        alert('Please sign in to upgrade your plan.');
+        return;
+      }
+      setLoadingPlan(planType)
+      trackEvent('upgrade_click', { plan: planType })
+      // Capture the current location to return after Stripe checkout
+      const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`
+      const res = await fetch('/api/stripe/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: planType, user_id: user.id, mode: 'subscription', return_to: returnTo })
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.url) {
+        console.error('Failed to create checkout session:', data)
+        alert(data?.error || 'Failed to start checkout. Please try again.')
+        setLoadingPlan(null)
+        return
+      }
+      // Redirect to Stripe Checkout
+      window.location.href = data.url
+    } catch (err) {
+      console.error('Checkout error:', err)
+      alert('Unexpected error. Please try again.')
+      setLoadingPlan(null)
+    }
   }
 
   const getColorClasses = (color) => {
@@ -228,7 +263,13 @@ const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBoo
                   </button>
                 ) : (
                   <button
-                    onClick={() => handlePlanSelect(plan)}
+                    onClick={() => {
+                      if (plan.type === 'pro' || plan.type === 'business') {
+                        startCheckout(plan.type)
+                      } else {
+                        handlePlanSelect(plan)
+                      }
+                    }}
                     className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white mt-auto ${
                       plan.popular 
                         ? 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500 text-white' 
@@ -236,8 +277,9 @@ const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBoo
                         ? 'bg-white hover:bg-gray-50 focus:ring-blue-500 text-blue-600 border border-blue-600'
                         : getButtonColor(plan.color)
                     }`}
+                    disabled={loadingPlan === plan.type}
                   >
-                    {plan.buttonText}
+                    {loadingPlan === plan.type ? 'Redirecting…' : plan.buttonText}
                   </button>
                 )}
               </div>

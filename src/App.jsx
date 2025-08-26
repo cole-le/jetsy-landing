@@ -49,6 +49,32 @@ function App() {
   const [isMobile, setIsMobile] = useState(false);
   const { user } = useAuth ? useAuth() : { user: null };
   const [showNameCapture, setShowNameCapture] = useState(false);
+  // Billing success modal state
+  const [showBillingSuccess, setShowBillingSuccess] = useState(false);
+  const [billingSuccessPlan, setBillingSuccessPlan] = useState(null);
+
+  // Fetch billing and broadcast to interested components
+  const refreshBillingState = React.useCallback(async () => {
+    try {
+      const session = await getCurrentSession();
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      const res = await fetch(`${getApiBaseUrl()}/api/billing/me`, { headers });
+      if (!res.ok) return;
+      const data = await res.json();
+      // Persist for components that prefer polling/localStorage
+      try {
+        localStorage.setItem('jetsy_billing_plan', data?.plan || 'free');
+        if (typeof data?.credits === 'number') localStorage.setItem('jetsy_credits', String(data.credits));
+        if (data?.credit_limit) localStorage.setItem('jetsy_credit_limit', String(data.credit_limit));
+        if (data?.next_refresh_at) localStorage.setItem('jetsy_next_refresh_at', String(data.next_refresh_at));
+      } catch {}
+      // Broadcast for live consumers
+      window.dispatchEvent(new CustomEvent('billing:updated', { detail: data }));
+    } catch (e) {
+      // silent fail
+    }
+  }, []);
 
   useEffect(() => {
     // Track page view
@@ -81,6 +107,16 @@ function App() {
     console.log('URL pathname:', path);
     const params = new URLSearchParams(window.location.search);
     const wantSignup = params.get('signup') === '1';
+    // Detect billing success flag from Stripe redirect and show confirmation modal
+    const billingFlag = params.get('billing');
+    if (billingFlag === 'success') {
+      setShowBillingSuccess(true);
+      const planParam = params.get('plan');
+      if (planParam) setBillingSuccessPlan(planParam);
+      // Do not mutate URL here to avoid losing state if user reloads; we'll clean on modal close
+      // Refresh billing state as soon as we detect success
+      (async () => { await refreshBillingState(); })();
+    }
     if (path === '/verify_email') {
       setCurrentStep('verify-email');
     } else if (path === '/chat') {
@@ -899,6 +935,45 @@ function App() {
           if (currentStep !== 'chat') setCurrentStep('chat');
         }}
       />
+
+      {/* Billing Success Modal */}
+      {showBillingSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6 border border-gray-200">
+            {/* Close (X) */}
+            <button
+              aria-label="Close"
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+              onClick={() => {
+                setShowBillingSuccess(false);
+                // Remove billing-related query params but keep current path and other params
+                try {
+                  const url = new URL(window.location.href);
+                  url.searchParams.delete('billing');
+                  url.searchParams.delete('plan');
+                  window.history.replaceState({}, '', url.toString());
+                } catch {}
+                // Refresh billing state one more time on close to ensure UI sync
+                (async () => { await refreshBillingState(); })();
+              }}
+            >
+              <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 text-green-600 rounded-full mb-4">
+                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <h3 className="text-2xl font-bold mb-2 text-text">Subscription activated!</h3>
+              <p className="text-mutedText mb-4">{billingSuccessPlan ? `Your ${billingSuccessPlan} plan is now active.` : 'Your plan is now active.'}</p>
+              <p className="text-sm text-mutedText">You can start using your new credits and features right away.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )
