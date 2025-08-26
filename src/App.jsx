@@ -667,6 +667,7 @@ function App() {
           onIdeaSubmit={handleIdeaSubmit}
           onPricingShown={() => setHasSeenPricing(true)}
           expandChat={expandChat}
+          onShowSignup={handleShowSignup}
         />
       )}
       {currentStep === 'hero' && (

@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { trackEvent } from '../utils/analytics'
 import PricingModal from './PricingModal'
-import useBillingPlan from '../utils/useBillingPlan'
 
-const ChatInputWithToggle = ({ onSubmit, onPricingShown, expandChat }) => {
+const ChatInputWithToggle = ({ onSubmit, onPricingShown, expandChat, onShowSignup }) => {
   const [idea, setIdea] = useState('')
   const [visibility, setVisibility] = useState('public')
   const [showModal, setShowModal] = useState(false)
@@ -127,7 +126,7 @@ const ChatInputWithToggle = ({ onSubmit, onPricingShown, expandChat }) => {
 
   const currentPlaceholder = baseText + typingText + (isTyping && !isReversing ? '|' : '')
 
-  const { plan } = useBillingPlan();
+  
 
   return (
     <div className={`max-w-4xl mx-auto transition-transform duration-500 ${expandChat ? 'scale-105 shadow-2xl' : 'scale-100'} `} style={{ zIndex: expandChat ? 50 : 'auto' }}>
@@ -267,13 +266,18 @@ const ChatInputWithToggle = ({ onSubmit, onPricingShown, expandChat }) => {
         <PricingModal
           onPlanSelect={(plan) => {
             setShowPricingModal(false)
-            setVisibility('private')
             // Track the pricing plan selection event
             trackEvent('pricing_plan_select', { plan: plan.type })
+            // Prefer in-app transition for instant navigation
+            if (typeof onShowSignup === 'function') {
+              onShowSignup()
+            } else {
+              // Fallback: URL param handled by App.jsx on initial load
+              try { window.location.href = '/?signup=1'; } catch (_) {}
+            }
           }}
           onClose={() => setShowPricingModal(false)}
           showUpgradeMessage={false}
-          currentPlanType={plan}
         />
       )}
     </div>

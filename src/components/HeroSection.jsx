@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import ChatInputWithToggle from './ChatInputWithToggle'
 import { trackEvent } from '../utils/analytics'
 
-const HeroSection = ({ onIdeaSubmit, onPricingShown, expandChat }) => {
+const HeroSection = ({ onIdeaSubmit, onPricingShown, expandChat, onShowSignup }) => {
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
@@ -38,7 +38,7 @@ const HeroSection = ({ onIdeaSubmit, onPricingShown, expandChat }) => {
 
         {/* Chat Input with Toggle */}
         <div className={`transition-all duration-1000 delay-600 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <ChatInputWithToggle onSubmit={handleIdeaSubmit} onPricingShown={onPricingShown} expandChat={expandChat} />
+          <ChatInputWithToggle onSubmit={handleIdeaSubmit} onPricingShown={onPricingShown} expandChat={expandChat} onShowSignup={onShowSignup} />
         </div>
 
         {/* Trust indicators */}
