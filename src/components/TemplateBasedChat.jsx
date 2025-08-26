@@ -6,6 +6,7 @@ import { getVercelApiBaseUrl } from '../config/environment';
 import { useAuth } from './auth/AuthProvider';
 import VisibilityToggle from './VisibilityToggle';
 import PricingModal from './PricingModal';
+import useBillingPlan from '../utils/useBillingPlan';
 
 import { getApiBaseUrl } from '../config/environment';
 
@@ -1706,6 +1707,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
 
 
   const effectivePreviewMode = isMobile ? 'phone' : previewMode;
+  const { plan } = useBillingPlan();
 
   return (
     <div className="flex flex-col lg:flex-row h-screen bg-gray-50 pb-24 lg:pb-0">
@@ -1719,7 +1721,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
           showUpgradeMessage={upgradeOutOfCredits}
           upgradeTitle="You're out of credits"
           upgradeDescription="Free plan includes 15 credits. Upgrade to a paid plan to get a higher monthly credit allowance and continue generating."
-          currentPlanType="free"
+          currentPlanType={plan}
         />
       )}
       {/* Left Side - Chat/Editor Panel */}

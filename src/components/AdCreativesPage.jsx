@@ -7,6 +7,7 @@ import InstagramSingleImageAdPreview from './ads-template/InstagramSingleImageAd
 import AdControls from './ads-template/AdControls';
 import { useAuth } from './auth/AuthProvider';
 import PricingModal from './PricingModal';
+import useBillingPlan from '../utils/useBillingPlan';
 
 const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNavigateToDataAnalytics }) => {
   const { session, loading: authLoading, signOut } = useAuth();
@@ -27,6 +28,8 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeOutOfCredits, setUpgradeOutOfCredits] = useState(false);
+
+  const { plan } = useBillingPlan();
 
   // Redirect unauthenticated users once auth has finished loading
   useEffect(() => {
@@ -603,7 +606,7 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
           onPlanSelect={() => { /* no-op for now */ }}
           onClose={() => setShowUpgradeModal(false)}
           showUpgradeMessage={upgradeOutOfCredits}
-          currentPlanType="free"
+          currentPlanType={plan}
           upgradeTitle="You're out of credits"
           upgradeDescription="Free plan includes 15 credits. Upgrade to a paid plan to get a higher monthly credit allowance and continue generating."
         />

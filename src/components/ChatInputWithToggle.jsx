@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { trackEvent } from '../utils/analytics'
 import PricingModal from './PricingModal'
+import useBillingPlan from '../utils/useBillingPlan'
 
 const ChatInputWithToggle = ({ onSubmit, onPricingShown, expandChat }) => {
   const [idea, setIdea] = useState('')
@@ -125,6 +126,8 @@ const ChatInputWithToggle = ({ onSubmit, onPricingShown, expandChat }) => {
   }
 
   const currentPlaceholder = baseText + typingText + (isTyping && !isReversing ? '|' : '')
+
+  const { plan } = useBillingPlan();
 
   return (
     <div className={`max-w-4xl mx-auto transition-transform duration-500 ${expandChat ? 'scale-105 shadow-2xl' : 'scale-100'} `} style={{ zIndex: expandChat ? 50 : 'auto' }}>
@@ -270,7 +273,7 @@ const ChatInputWithToggle = ({ onSubmit, onPricingShown, expandChat }) => {
           }}
           onClose={() => setShowPricingModal(false)}
           showUpgradeMessage={false}
-          currentPlanType="free"
+          currentPlanType={plan}
         />
       )}
     </div>

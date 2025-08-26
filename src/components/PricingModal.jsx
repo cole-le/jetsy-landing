@@ -262,25 +262,30 @@ const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBoo
                     {plan.buttonText}
                   </button>
                 ) : (
-                  <button
-                    onClick={() => {
-                      if (plan.type === 'pro' || plan.type === 'business') {
-                        startCheckout(plan.type)
-                      } else {
-                        handlePlanSelect(plan)
-                      }
-                    }}
-                    className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white mt-auto ${
-                      plan.popular 
-                        ? 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500 text-white' 
-                        : plan.type === 'free'
-                        ? 'bg-white hover:bg-gray-50 focus:ring-blue-500 text-blue-600 border border-blue-600'
-                        : getButtonColor(plan.color)
-                    }`}
-                    disabled={loadingPlan === plan.type}
-                  >
-                    {loadingPlan === plan.type ? 'Redirecting…' : plan.buttonText}
-                  </button>
+                  // Hide Free plan CTA when the user is already on a paid plan
+                  (currentPlanType && currentPlanType !== 'free' && plan.type === 'free') ? (
+                    <div className="mt-auto h-10" />
+                  ) : (
+                    <button
+                      onClick={() => {
+                        if (plan.type === 'pro' || plan.type === 'business') {
+                          startCheckout(plan.type)
+                        } else {
+                          handlePlanSelect(plan)
+                        }
+                      }}
+                      className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white mt-auto ${
+                        plan.popular 
+                          ? 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500 text-white' 
+                          : plan.type === 'free'
+                          ? 'bg-white hover:bg-gray-50 focus:ring-blue-500 text-blue-600 border border-blue-600'
+                          : getButtonColor(plan.color)
+                      }`}
+                      disabled={loadingPlan === plan.type}
+                    >
+                      {loadingPlan === plan.type ? 'Redirecting…' : plan.buttonText}
+                    </button>
+                  )
                 )}
               </div>
             ))}

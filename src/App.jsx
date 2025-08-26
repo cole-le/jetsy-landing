@@ -28,6 +28,7 @@ import { getCurrentSession } from './config/supabase'
 import VerifyEmailPage from './components/auth/VerifyEmailPage'
 import NameCaptureModal from './components/auth/NameCaptureModal'
 import CommunityShowcase from './components/CommunityShowcase'
+import useBillingPlan from './utils/useBillingPlan'
 
 function App() {
   const [currentStep, setCurrentStep] = useState('hero') // hero, faq, pricing, lead-capture, onboarding, login, signup, demo-booking, demo-thankyou, chat, profile
@@ -52,6 +53,7 @@ function App() {
   // Billing success modal state
   const [showBillingSuccess, setShowBillingSuccess] = useState(false);
   const [billingSuccessPlan, setBillingSuccessPlan] = useState(null);
+  const { plan } = useBillingPlan();
 
   // Fetch billing and broadcast to interested components
   const refreshBillingState = React.useCallback(async () => {
@@ -682,7 +684,7 @@ function App() {
           onPlanSelect={handlePlanSelect}
           onClose={() => setShowPricingModal(false)}
           onBookDemo={handleBookDemo}
-          currentPlanType={user ? 'free' : null}
+          currentPlanType={user ? plan : null}
         />
       )}
 
@@ -692,7 +694,7 @@ function App() {
           onPlanSelect={handleNavbarPlanSelect}
           onClose={() => setShowNavbarPricingModal(false)}
           onBookDemo={handleBookDemo}
-          currentPlanType={user ? 'free' : null}
+          currentPlanType={user ? plan : null}
         />
       )}
 

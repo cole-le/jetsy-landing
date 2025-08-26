@@ -3,6 +3,7 @@ import { useAuth } from './auth/AuthProvider';
 import DeploymentButton from './DeploymentButton';
 import WorkflowProgressBar from './WorkflowProgressBar';
 import { getApiBaseUrl } from '../config/environment';
+import useBillingPlan from '../utils/useBillingPlan';
 
 const Navbar = ({ 
   onPricingClick, 
@@ -26,6 +27,7 @@ const Navbar = ({
   onProfileClick
 }) => {
   const { session, loading: authLoading, signOut } = useAuth();
+  const { plan } = useBillingPlan();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [showPublishModal, setShowPublishModal] = useState(false);
@@ -451,12 +453,14 @@ const Navbar = ({
                   >
                     FAQ
                   </button>
-                  <button
-                    onClick={onPricingClick}
-                    className="text-gray-600 hover:text-gray-900 transition-colors"
-                  >
-                    Pricing
-                  </button>
+                  {plan === 'free' && (
+                    <button
+                      onClick={onPricingClick}
+                      className="text-gray-600 hover:text-gray-900 transition-colors"
+                    >
+                      Pricing
+                    </button>
+                  )}
                   <button
                     onClick={onLoginClick}
                     className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg transition-colors duration-200 font-medium"
@@ -723,12 +727,14 @@ const Navbar = ({
       {isMobileMenuOpen && !isAdCreativesMode && !isChatMode && (
         <div className="md:hidden bg-white/95 backdrop-blur-lg border-t border-gray-200/50">
           <div className="px-2 pt-2 pb-3 space-y-1">
-            <button 
-              onClick={handlePricingClick}
-              className="block w-full text-left px-3 py-2 text-text hover:text-accent transition-colors duration-200 font-medium"
-            >
-              Pricing
-            </button>
+            {plan === 'free' && (
+              <button 
+                onClick={handlePricingClick}
+                className="block w-full text-left px-3 py-2 text-text hover:text-accent transition-colors duration-200 font-medium"
+              >
+                Pricing
+              </button>
+            )}
             <button 
               onClick={handleFAQClick}
               className="block w-full text-left px-3 py-2 text-text hover:text-accent transition-colors duration-200 font-medium"

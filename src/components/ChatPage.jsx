@@ -6,6 +6,7 @@ import { getApiBaseUrl, getVercelApiBaseUrl } from '../config/environment';
 import { useAuth } from './auth/AuthProvider';
 import VisibilityToggle from './VisibilityToggle';
 import PricingModal from './PricingModal';
+import useBillingPlan from '../utils/useBillingPlan';
 
 const ChatPage = ({ onBackToHome }) => {
   const { user, session, isAuthenticated, loading: authLoading } = useAuth();
@@ -27,6 +28,8 @@ const ChatPage = ({ onBackToHome }) => {
   const [userCredits, setUserCredits] = useState(0);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeOutOfCredits, setUpgradeOutOfCredits] = useState(false);
+
+  const { plan } = useBillingPlan();
 
   // Load existing chat history when component mounts and session is available
   useEffect(() => {
@@ -879,7 +882,7 @@ const ChatPage = ({ onBackToHome }) => {
           onPlanSelect={() => { /* no-op */ }}
           onClose={() => setShowUpgradeModal(false)}
           showUpgradeMessage={upgradeOutOfCredits}
-          currentPlanType="free"
+          currentPlanType={plan}
           upgradeTitle="Upgrade your plan"
           upgradeDescription="Upgrade to unlock more monthly credits and premium features."
         />

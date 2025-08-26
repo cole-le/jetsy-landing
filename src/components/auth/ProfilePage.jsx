@@ -3,10 +3,12 @@ import { useAuth } from './AuthProvider';
 import { supabase, getCurrentSession } from '../../config/supabase';
 import { getApiBaseUrl } from '../../config/environment';
 import PricingModal from '../PricingModal';
+import useBillingPlan from '../../utils/useBillingPlan';
 
 const ProfilePage = ({ onBackToChat }) => {
   const { user, loading: authLoading, signOut } = useAuth();
   const [profile, setProfile] = useState(null);
+  const { plan } = useBillingPlan();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -390,12 +392,14 @@ const ProfilePage = ({ onBackToChat }) => {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">Plan & Credits</h2>
-                <button
-                  onClick={() => setShowPricing(true)}
-                  className="px-3 py-1 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  Upgrade plan
-                </button>
+                {plan === 'free' && (
+                  <button
+                    onClick={() => setShowPricing(true)}
+                    className="px-3 py-1 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    Upgrade plan
+                  </button>
+                )}
               </div>
 
               {billingLoading ? (
@@ -469,7 +473,7 @@ const ProfilePage = ({ onBackToChat }) => {
           <PricingModal
             onPlanSelect={() => setShowPricing(false)}
             onClose={() => setShowPricing(false)}
-            currentPlanType={billing?.plan || null}
+            currentPlanType={plan || billing?.plan || null}
           />
         )}
       </div>
