@@ -107,8 +107,10 @@ const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBoo
   const startCheckout = async (planType) => {
     try {
       if (!isAuthenticated || !user?.id) {
-        // You can swap this for a nicer modal/toast
-        alert('Please sign in to upgrade your plan.');
+        // Not authenticated: go to Create Account flow via parent handler
+        if (onPlanSelect) {
+          onPlanSelect({ type: planType });
+        }
         return;
       }
       setLoadingPlan(planType)

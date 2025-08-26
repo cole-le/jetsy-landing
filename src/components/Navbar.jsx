@@ -453,7 +453,7 @@ const Navbar = ({
                   >
                     FAQ
                   </button>
-                  {plan === 'free' && (
+                  {(isMainPage || plan === 'free') && (
                     <button
                       onClick={onPricingClick}
                       className="text-gray-600 hover:text-gray-900 transition-colors"
