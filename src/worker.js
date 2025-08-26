@@ -154,6 +154,14 @@ export default {
         return await handleTrackingData(request, env, corsHeaders);
       }
 
+      // --- Billing API ---
+      if (path === '/api/billing/me' && request.method === 'GET') {
+        return await getBillingMe(request, env, corsHeaders);
+      }
+      if (path === '/api/billing/me' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
       if (path === '/api/jetsy-analytics' && request.method === 'POST') {
         return await handleJetsyAnalytics(request, env, corsHeaders);
       }
@@ -11927,6 +11935,68 @@ Make each description specific, actionable, and optimized for the respective pla
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });
+  }
+}
+
+// --- Billing Handlers ---
+async function getBillingMe(request, env, corsHeaders) {
+  try {
+    const db = env.DB;
+    if (!db) {
+      return new Response(JSON.stringify({ error: 'Database not available' }), { status: 500, headers: corsHeaders });
+    }
+
+    // Attempt to extract user from Authorization header (Supabase JWT)
+    const authHeader = request.headers.get('Authorization');
+    let user_id = null;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      // TODO: parse JWT to get user_id. For now, we will fallback to latest record if parsing is not available.
+    }
+
+    let row;
+    if (user_id) {
+      row = await db.prepare(`
+        SELECT user_id, credits, plan_type, credits_per_month, last_refresh_date
+        FROM user_credits
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT 1
+      `).bind(user_id).first();
+    } else {
+      row = await db.prepare(`
+        SELECT user_id, credits, plan_type, credits_per_month, last_refresh_date
+        FROM user_credits
+        ORDER BY created_at DESC
+        LIMIT 1
+      `).first();
+    }
+
+    if (!row) {
+      // Default for new users without records yet
+      return new Response(JSON.stringify({ plan: 'free', credits: 15, credit_limit: 15, next_refresh_at: null }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    const plan = row.plan_type || 'free';
+    const credit_limit = row.credits_per_month || 15;
+    const next_refresh_at = row.last_refresh_date
+      ? new Date(new Date(row.last_refresh_date).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      : null;
+
+    return new Response(JSON.stringify({
+      plan,
+      credits: row.credits,
+      credit_limit,
+      next_refresh_at,
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  } catch (error) {
+    console.error('getBillingMe error:', error);
+    return new Response(JSON.stringify({ error: 'Failed to fetch billing', details: error.message }), { status: 500, headers: corsHeaders });
   }
 }
 
