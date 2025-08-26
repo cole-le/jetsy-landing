@@ -4,6 +4,124 @@ function getWorkerUrl(request) {
   return `${url.protocol}//${url.host}`;
 }
 
+// Helper: set plan to free without changing credits
+async function setPlanToFree(userId, env) {
+  const db = env.DB;
+  if (!db) throw new Error('Database not available');
+  const current = await db.prepare(`
+    SELECT user_id, credits, plan_type, credits_per_month
+    FROM user_credits
+    WHERE user_id = ?
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).bind(userId).first();
+  if (!current) return;
+  const updateRes = await db.prepare(`
+    UPDATE user_credits
+    SET plan_type = ?, credits_per_month = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE user_id = ?
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).bind('free', 15, userId).run();
+  if (!updateRes.success) throw new Error('Failed to update plan to free');
+}
+
+// Cancel Stripe subscription for a user and downgrade plan locally (only after Stripe success)
+async function cancelStripeSubscription(request, env, corsHeaders) {
+  try {
+    const secret = env.STRIPE_SECRET_KEY;
+    if (!secret) {
+      return new Response(JSON.stringify({ error: 'Stripe secret not configured' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+    const { user_id, cancel_at_period_end = true } = await request.json();
+    if (!user_id) {
+      return new Response(JSON.stringify({ error: 'Missing user_id' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+
+    // 1) Try: list subscriptions (all non-canceled) and match metadata.user_id
+    let targetSub = null;
+    try {
+      const listResp = await fetch('https://api.stripe.com/v1/subscriptions?limit=100', {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${secret}` },
+      });
+      const listJson = await listResp.json();
+      if (!listResp.ok) {
+        console.error('Stripe list subscriptions error:', listJson);
+      }
+      if (Array.isArray(listJson?.data)) {
+        targetSub = listJson.data.find(s => s?.metadata?.user_id === String(user_id) && s.status !== 'canceled');
+      }
+    } catch (e) {
+      console.error('Error listing subscriptions:', e);
+    }
+
+    // 2) Fallback: find customer via invoices metadata, then list subscriptions for that customer
+    if (!targetSub) {
+      try {
+        const invResp = await fetch('https://api.stripe.com/v1/invoices?limit=100', {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${secret}` },
+        });
+        const invJson = await invResp.json();
+        if (!invResp.ok) {
+          console.error('Stripe list invoices error:', invJson);
+        }
+        const invoice = Array.isArray(invJson?.data) ? invJson.data.find(inv => inv?.metadata?.user_id === String(user_id)) : null;
+        const customerId = invoice?.customer || null;
+        if (customerId) {
+          const subsByCustomerResp = await fetch(`https://api.stripe.com/v1/subscriptions?limit=100&customer=${encodeURIComponent(customerId)}`, {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${secret}` },
+          });
+          const subsByCustomerJson = await subsByCustomerResp.json();
+          if (!subsByCustomerResp.ok) {
+            console.error('Stripe list subscriptions by customer error:', subsByCustomerJson);
+          }
+          if (Array.isArray(subsByCustomerJson?.data)) {
+            targetSub = subsByCustomerJson.data.find(s => s.status !== 'canceled');
+          }
+        }
+      } catch (e) {
+        console.error('Fallback lookup via invoices/customer failed:', e);
+      }
+    }
+
+    if (!targetSub) {
+      const msg = `No subscription found in Stripe for user_id=${user_id}`;
+      console.warn(msg);
+      return new Response(JSON.stringify({ error: msg }), { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+
+    // Cancel at period end or immediately
+    const url = `https://api.stripe.com/v1/subscriptions/${targetSub.id}`;
+    const body = cancel_at_period_end ? formEncode({ cancel_at_period_end: 'true' }) : null;
+    const method = cancel_at_period_end ? 'POST' : 'DELETE';
+    const resp = await fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        ...(cancel_at_period_end ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}),
+      },
+      ...(cancel_at_period_end ? { body } : {}),
+    });
+    const json = await resp.json();
+    if (!resp.ok) {
+      console.error('Stripe cancel subscription error:', json);
+      const errMsg = json?.error?.message || 'Stripe cancellation failed';
+      return new Response(JSON.stringify({ error: errMsg, details: json }), { status: 502, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+
+    // Downgrade internally only after Stripe acknowledged the cancellation/update
+    await setPlanToFree(user_id, env);
+
+    return new Response(JSON.stringify({ success: true, subscription_id: targetSub.id }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  } catch (err) {
+    console.error('cancelStripeSubscription error:', err);
+    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  }
+}
+
 // Ensure preview columns exist on projects table
 async function ensurePreviewColumns(env) {
   const db = env.DB;
@@ -162,11 +280,17 @@ export default {
         return new Response(null, { status: 200, headers: corsHeaders });
       }
 
-      // --- Stripe Checkout API ---
+      // --- Stripe Checkout & Billing API ---
       if (path === '/api/stripe/create-checkout-session' && request.method === 'POST') {
         return await createStripeCheckoutSession(request, env, corsHeaders);
       }
       if (path === '/api/stripe/create-checkout-session' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+      if (path === '/api/stripe/cancel-subscription' && request.method === 'POST') {
+        return await cancelStripeSubscription(request, env, corsHeaders);
+      }
+      if (path === '/api/stripe/cancel-subscription' && request.method === 'OPTIONS') {
         return new Response(null, { status: 200, headers: corsHeaders });
       }
       if (path === '/api/stripe/webhook' && request.method === 'POST') {
@@ -12144,17 +12268,26 @@ async function createStripeCheckoutSession(request, env, corsHeaders) {
     const sep = hasQuery ? '&' : '?';
     const successUrl = `${origin}${backPath}${sep}billing=success&plan=${encodeURIComponent(plan)}`;
     const cancelUrl = `${origin}${backPath}${sep}billing=cancel`;
+    const desiredMode = mode || 'subscription';
     const sessionBody = {
-      mode: mode || 'subscription',
+      mode: desiredMode,
       success_url: successUrl,
       cancel_url: cancelUrl,
       'line_items[0][price]': conf.price,
       'line_items[0][quantity]': '1',
       client_reference_id: user_id,
       'metadata[plan]': plan,
-      // Expand for completeness if needed
-      // 'automatic_tax[enabled]': 'true',
+      // Ensure subscription carries user linkage; invoices in subscription mode will be created automatically
+      'subscription_data[metadata][user_id]': user_id,
+      'subscription_data[metadata][plan]': plan,
     };
+
+    // Only include invoice_creation when using payment mode
+    if (desiredMode === 'payment') {
+      sessionBody['invoice_creation[enabled]'] = 'true';
+      sessionBody['invoice_creation[invoice_data][metadata][user_id]'] = user_id;
+      sessionBody['invoice_creation[invoice_data][metadata][plan]'] = plan;
+    }
 
     const resp = await fetch('https://api.stripe.com/v1/checkout/sessions', {
       method: 'POST',
@@ -12199,7 +12332,7 @@ async function handleStripeWebhook(request, env) {
 
     const event = JSON.parse(payload);
     const type = event.type;
-    // Handle successful payments/subscriptions
+    // Handle successful payments/subscriptions and cancellations
     if (type === 'checkout.session.completed') {
       const session = event.data.object;
       const plan = (session.metadata && session.metadata.plan) || 'pro';
@@ -12221,6 +12354,17 @@ async function handleStripeWebhook(request, env) {
         const conf = resolvePlanConfig(env, plan);
         if (conf) {
           await grantCreditsAndSetPlan(userId, plan, conf.creditsMonthly, env);
+        }
+      }
+    } else if (type === 'customer.subscription.deleted') {
+      // Downgrade to free when subscription is canceled
+      const sub = event.data.object;
+      const userId = (sub.metadata && sub.metadata.user_id) || null;
+      if (userId) {
+        try {
+          await setPlanToFree(userId, env);
+        } catch (e) {
+          console.error('Failed to downgrade on subscription deleted:', e);
         }
       }
     }

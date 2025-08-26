@@ -19,6 +19,7 @@ const Navbar = ({
   previewMode = 'desktop', 
   onPreviewModeChange, 
   isMainPage = false,
+  isProfilePage = false,
   hideWorkflowAndAnalytics = false,
   // Add navigation callbacks for workflow stages
   onNavigateToWebsiteCreation,
@@ -453,7 +454,7 @@ const Navbar = ({
                   >
                     FAQ
                   </button>
-                  {(isMainPage || plan === 'free') && (
+                  {(isMainPage || isProfilePage || plan === 'free') && (
                     <button
                       onClick={onPricingClick}
                       className="text-gray-600 hover:text-gray-900 transition-colors"

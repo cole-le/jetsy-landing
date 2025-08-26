@@ -643,6 +643,7 @@ function App() {
           previewMode={previewMode}
           onPreviewModeChange={handlePreviewModeChange}
           isMainPage={currentStep === 'hero'}
+          isProfilePage={currentStep === 'profile'}
           hideWorkflowAndAnalytics={currentStep === 'login' || currentStep === 'signup' || currentStep === 'faq'}
           // Add navigation callbacks for workflow stages
           onNavigateToWebsiteCreation={(projectId) => {

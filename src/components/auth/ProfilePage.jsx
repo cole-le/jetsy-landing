@@ -8,10 +8,11 @@ import useBillingPlan from '../../utils/useBillingPlan';
 const ProfilePage = ({ onBackToChat }) => {
   const { user, loading: authLoading, signOut } = useAuth();
   const [profile, setProfile] = useState(null);
-  const { plan } = useBillingPlan();
+  const { plan, refresh: refreshBilling } = useBillingPlan();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [editForm, setEditForm] = useState({
     full_name: '',
     phone: ''
@@ -65,6 +66,34 @@ const ProfilePage = ({ onBackToChat }) => {
       console.error('Error loading profile:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!user?.id) return;
+    const confirmCancel = window.confirm('Cancel your subscription? You will be moved to the Free plan. Credits remain, but no future monthly refills.');
+    if (!confirmCancel) return;
+    try {
+      setIsCancelling(true);
+      const session = await getCurrentSession();
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      const res = await fetch(`${getApiBaseUrl()}/api/stripe/cancel-subscription`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ user_id: user.id, cancel_at_period_end: true })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || 'Failed to cancel subscription');
+      }
+      await refreshBilling();
+      window.alert('Subscription cancelled. Your plan has been set to Free.');
+    } catch (e) {
+      console.error(e);
+      window.alert(`Could not cancel subscription: ${e.message}`);
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -392,14 +421,25 @@ const ProfilePage = ({ onBackToChat }) => {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">Plan & Credits</h2>
-                {plan === 'free' && (
-                  <button
-                    onClick={() => setShowPricing(true)}
-                    className="px-3 py-1 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
-                  >
-                    Upgrade plan
-                  </button>
-                )}
+                <div className="flex items-center gap-4">
+                  {plan === 'free' ? (
+                    <button
+                      onClick={() => setShowPricing(true)}
+                      className="px-3 py-1 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                      Upgrade plan
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleCancelSubscription}
+                      disabled={isCancelling}
+                      className="text-sm underline text-gray-500 hover:text-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Cancel subscription"
+                    >
+                      {isCancelling ? 'Cancelling…' : 'Cancel subscription'}
+                    </button>
+                  )}
+                </div>
               </div>
 
               {billingLoading ? (

@@ -719,9 +719,6 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
             </h1>
             {!isMobile && (
               <div className="flex items-center gap-3">
-                <div className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-3 py-1.5 rounded-full text-sm font-medium shadow-sm">
-                  {creditsLoading ? 'Loading…' : `${userCredits || 0} Credits`}
-                </div>
                 <button
                   type="button"
                   onClick={() => { setUpgradeOutOfCredits(false); setShowUpgradeModal(true); }}
@@ -732,6 +729,9 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
                   </svg>
                   Upgrade your plan
                 </button>
+                <div className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-3 py-1.5 rounded-full text-sm font-medium shadow-sm">
+                  {creditsLoading ? 'Loading…' : `${userCredits || 0} Credits`}
+                </div>
               </div>
             )}
           </div>
