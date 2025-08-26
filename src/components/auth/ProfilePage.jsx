@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthProvider';
-import { supabase } from '../../config/supabase';
+import { supabase, getCurrentSession } from '../../config/supabase';
+import { getApiBaseUrl } from '../../config/environment';
+import PricingModal from '../PricingModal';
 
 const ProfilePage = ({ onBackToChat }) => {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -13,6 +15,10 @@ const ProfilePage = ({ onBackToChat }) => {
     phone: ''
   });
   const [errors, setErrors] = useState({});
+  const [billing, setBilling] = useState(null);
+  const [billingLoading, setBillingLoading] = useState(true);
+  const [billingError, setBillingError] = useState(null);
+  const [showPricing, setShowPricing] = useState(false);
 
   // Redirect unauthenticated users once auth has finished loading
   useEffect(() => {
@@ -25,6 +31,7 @@ const ProfilePage = ({ onBackToChat }) => {
   useEffect(() => {
     if (user) {
       loadUserProfile();
+      loadBillingInfo();
     }
   }, [user]);
 
@@ -56,6 +63,34 @@ const ProfilePage = ({ onBackToChat }) => {
       console.error('Error loading profile:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadBillingInfo = async () => {
+    setBillingLoading(true);
+    setBillingError(null);
+    try {
+      const session = await getCurrentSession();
+      const token = session?.access_token;
+      if (!token) {
+        setBilling(null);
+        return;
+      }
+      const res = await fetch(`${getApiBaseUrl()}/api/billing/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (!res.ok) {
+        throw new Error(`Failed to load billing (${res.status})`);
+      }
+      const data = await res.json();
+      setBilling(data);
+    } catch (e) {
+      console.error('Error loading billing:', e);
+      setBillingError(e.message || 'Failed to load billing');
+    } finally {
+      setBillingLoading(false);
     }
   };
 
@@ -351,6 +386,57 @@ const ProfilePage = ({ onBackToChat }) => {
               </div>
             </div>
 
+            {/* Plan & Credits */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Plan & Credits</h2>
+                <button
+                  onClick={() => setShowPricing(true)}
+                  className="px-3 py-1 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Upgrade plan
+                </button>
+              </div>
+
+              {billingLoading ? (
+                <p className="text-gray-600">Loading billing...</p>
+              ) : billingError ? (
+                <p className="text-red-600 text-sm">{billingError}</p>
+              ) : billing ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Current Plan</label>
+                    <p className="text-gray-900 capitalize">{billing?.plan || 'free'}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Credits remaining</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-gray-900 font-medium">{billing?.credits ?? 0}</span>
+                      <span className="text-gray-500 text-sm">of {billing?.credit_limit ?? billing?.limit ?? 0}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      {(() => {
+                        const used = Number(billing?.credits ?? 0);
+                        const limit = Number(billing?.credit_limit ?? billing?.limit ?? 0) || 0;
+                        const pct = limit > 0 ? Math.max(0, Math.min(100, Math.round((used / limit) * 100))) : 0;
+                        return (
+                          <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${pct}%` }}></div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                  {billing?.next_refresh_at && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Next refresh</label>
+                      <p className="text-gray-900">{new Date(billing.next_refresh_at).toLocaleDateString()}</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-gray-600">No billing data available.</p>
+              )}
+            </div>
+
             {/* Security Section */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">Security</h2>
@@ -379,6 +465,13 @@ const ProfilePage = ({ onBackToChat }) => {
             </div>
           </div>
         </div>
+        {showPricing && (
+          <PricingModal
+            onPlanSelect={() => setShowPricing(false)}
+            onClose={() => setShowPricing(false)}
+            currentPlanType={billing?.plan || null}
+          />
+        )}
       </div>
     </div>
   );

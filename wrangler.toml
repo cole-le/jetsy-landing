@@ -19,7 +19,7 @@ database_id = "682478d4-6494-4f47-93e6-be1b6397fe92"
 [[r2_buckets]]
 binding = "IMAGES_BUCKET"
 bucket_name = "jetsy-images-prod"
-preview_bucket_name = "jetsy-images-dev"
+preview_bucket_name = "jetsy-images-prod" # Use an existing bucket in preview/dev to avoid 400 errors
 experimental_remote = true
 
 # Environment variables
@@ -53,7 +53,7 @@ database_id = "682478d4-6494-4f47-93e6-be1b6397fe92"
 [[env.development.r2_buckets]]
 binding = "IMAGES_BUCKET"
 bucket_name = "jetsy-images-prod"
-preview_bucket_name = "jetsy-images-dev"
+preview_bucket_name = "jetsy-images-prod" # Align preview bucket with an existing bucket for local dev
 experimental_remote = true
 
 # Add environment variables for development
