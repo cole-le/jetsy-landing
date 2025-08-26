@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { trackEvent } from '../utils/analytics'
 import { useAuth } from './auth/AuthProvider'
@@ -8,11 +8,31 @@ const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBoo
   const [mounted, setMounted] = useState(false)
   const [loadingPlan, setLoadingPlan] = useState(null)
   const { user, isAuthenticated } = useAuth()
+  const plansContainerRef = useRef(null)
 
   useEffect(() => {
     setMounted(true)
     return () => setMounted(false)
   }, [])
+
+  // On mobile, scroll to the user's current plan card when the modal opens
+  useEffect(() => {
+    if (!mounted) return
+    if (!currentPlanType) return
+    // Tailwind md breakpoint is ~768px; treat below that as mobile
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+    if (!isMobile) return
+    // Wait for layout
+    const id = window.setTimeout(() => {
+      try {
+        const el = document.querySelector(`[data-plan-card="${currentPlanType}"]`)
+        if (el && typeof el.scrollIntoView === 'function') {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      } catch {}
+    }, 50)
+    return () => window.clearTimeout(id)
+  }, [mounted, currentPlanType])
 
   const plans = [
     {
@@ -178,10 +198,11 @@ const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBoo
           </div>
 
           {/* Plans Grid */}
-          <div className="grid md:grid-cols-4 gap-6 mb-8">
+          <div ref={plansContainerRef} className="grid md:grid-cols-4 gap-6 mb-8">
             {plans.map((plan) => (
               <div
                 key={plan.type}
+                data-plan-card={plan.type}
                 className={`relative p-6 rounded-xl border-2 transition-all duration-200 hover:scale-105 flex flex-col h-full ${
                   plan.popular ? 'border-blue-500 bg-blue-50 shadow-lg' : plan.type === 'enterprise' ? 'border-gray-400 bg-gray-50' : 'border-gray-200 bg-white'
                 }`}
