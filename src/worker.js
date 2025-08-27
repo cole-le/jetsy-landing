@@ -296,6 +296,9 @@ export default {
       if (path === '/api/stripe/webhook' && request.method === 'POST') {
         return await handleStripeWebhook(request, env);
       }
+      if (path === '/stripe-webhook' && request.method === 'POST') {
+        return await handleStripeWebhook(request, env);
+      }
 
       if (path === '/api/jetsy-analytics' && request.method === 'POST') {
         return await handleJetsyAnalytics(request, env, corsHeaders);
@@ -12011,7 +12014,7 @@ Make each description specific, actionable, and optimized for the respective pla
     // Validate the response structure
     if (!targetAudience.linkedin || !targetAudience.meta || !targetAudience.instagram) {
       throw new Error('Invalid target audience response structure from OpenAI');
-    }
+}
 
     return new Response(JSON.stringify({
       success: true,
@@ -12150,26 +12153,45 @@ function timingSafeEqual(a, b) {
 
 // Plan mapping: set via environment variables for flexibility
 function resolvePlanConfig(env, plan) {
+  console.log(`[PlanConfig] 🔍 Resolving plan config for: ${plan}`);
+  console.log(`[PlanConfig] 🔑 Environment variables:`, {
+    STRIPE_PRICE_PRO: env.STRIPE_PRICE_PRO ? '***configured***' : 'NOT_SET',
+    STRIPE_PRICE_BUSINESS: env.STRIPE_PRICE_BUSINESS ? '***configured***' : 'NOT_SET',
+    CREDITS_PRO: env.CREDITS_PRO || '100 (default)',
+    CREDITS_BUSINESS: env.CREDITS_BUSINESS || '300 (default)'
+  });
+  
   // Expected env vars:
   // STRIPE_PRICE_PRO, STRIPE_PRICE_BUSINESS
-  // CREDITS_PRO=200, CREDITS_BUSINESS=1000
+  // CREDITS_PRO=100, CREDITS_BUSINESS=300
   const map = {
     pro: {
       price: env.STRIPE_PRICE_PRO,
-      creditsMonthly: parseInt(env.CREDITS_PRO || '200', 10),
+      creditsMonthly: parseInt(env.CREDITS_PRO || '100', 10),
     },
     business: {
       price: env.STRIPE_PRICE_BUSINESS,
-      creditsMonthly: parseInt(env.CREDITS_BUSINESS || '1000', 10),
+      creditsMonthly: parseInt(env.CREDITS_BUSINESS || '300', 10),
     },
   };
-  return map[plan];
+  
+  const result = map[plan];
+  console.log(`[PlanConfig] 📊 Result for plan ${plan}:`, result);
+  
+  return result;
 }
 
 async function grantCreditsAndSetPlan(userId, plan, creditsToGrant, env) {
+  console.log(`[Credits] 🚀 Starting credit grant for user: ${userId}, plan: ${plan}, credits: ${creditsToGrant}`);
+  
   const db = env.DB;
-  if (!db) throw new Error('Database not available');
+  if (!db) {
+    console.error('[Credits] ❌ Database not available');
+    throw new Error('Database not available');
+  }
 
+  console.log(`[Credits] 🔍 Fetching current user credits for: ${userId}`);
+  
   // Fetch latest row for user
   const current = await db.prepare(`
     SELECT user_id, credits, plan_type, credits_per_month, last_refresh_date
@@ -12178,6 +12200,8 @@ async function grantCreditsAndSetPlan(userId, plan, creditsToGrant, env) {
     ORDER BY created_at DESC
     LIMIT 1
   `).bind(userId).first();
+
+  console.log(`[Credits] 📊 Current user data:`, current);
 
   const now = new Date().toISOString();
   let creditsBefore = 0;
@@ -12204,24 +12228,45 @@ async function grantCreditsAndSetPlan(userId, plan, creditsToGrant, env) {
 
   // Log credit grant transaction
   const creditsAfter = creditsBefore + creditsToGrant;
-  await db.prepare(`
-    INSERT INTO credit_transactions (
-      user_id, transaction_type, feature_name, credits_before,
-      credits_after, credits_change, metadata, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-  `).bind(userId, 'grant', 'plan_upgrade', creditsBefore, creditsAfter, creditsToGrant, JSON.stringify({ plan })).run();
+  console.log(`[Credits] 📝 Logging credit transaction for: ${userId}`);
+  
+  try {
+    await db.prepare(`
+      INSERT INTO credit_transactions (
+        user_id, transaction_type, feature_name, credits_before,
+        credits_after, credits_change, metadata, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `).bind(userId, 'grant', 'plan_upgrade', creditsBefore, creditsAfter, creditsToGrant, JSON.stringify({ plan })).run();
+    
+    console.log(`[Credits] ✅ Successfully logged credit transaction for: ${userId}`);
+  } catch (error) {
+    console.error(`[Credits] ⚠️ Warning: Failed to log credit transaction for: ${userId}:`, error);
+    // Don't fail the whole operation if logging fails
+  }
 
+  console.log(`[Credits] 🎉 Credit grant completed successfully for user: ${userId}`);
+  console.log(`[Credits] 📊 Final result:`, { creditsBefore, creditsAfter, plan, creditsToGrant });
+  
   return { creditsBefore, creditsAfter };
 }
 
 async function createStripeCheckoutSession(request, env, corsHeaders) {
   try {
+    console.log(`[Checkout] 🚀 Creating checkout session`);
+    
     const { plan, user_id, mode, return_to } = await request.json();
+    console.log(`[Checkout] 📋 Request data:`, { plan, user_id, mode, return_to });
+    
     if (!plan || !user_id) {
+      console.error(`[Checkout] ❌ Missing plan or user_id`);
       return new Response(JSON.stringify({ error: 'Missing plan or user_id' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
     }
+    
     const conf = resolvePlanConfig(env, plan);
+    console.log(`[Checkout] 📊 Plan config:`, conf);
+    
     if (!conf || !conf.price) {
+      console.error(`[Checkout] ❌ Invalid plan or price not configured for plan: ${plan}`);
       return new Response(JSON.stringify({ error: 'Invalid plan or price not configured' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
     }
     // Validate that the configured price looks like a Stripe price ID
@@ -12259,6 +12304,10 @@ async function createStripeCheckoutSession(request, env, corsHeaders) {
       'subscription_data[metadata][user_id]': user_id,
       'subscription_data[metadata][plan]': plan,
     };
+    
+    console.log(`[Checkout] 📦 Session body:`, sessionBody);
+    console.log(`[Checkout] 🔗 Success URL:`, successUrl);
+    console.log(`[Checkout] 🔗 Cancel URL:`, cancelUrl);
 
     // Only include invoice_creation when using payment mode
     if (desiredMode === 'payment') {
@@ -12310,41 +12359,127 @@ async function handleStripeWebhook(request, env) {
 
     const event = JSON.parse(payload);
     const type = event.type;
+    
+    console.log(`[Webhook] Processing event: ${type}`);
+    
     // Handle successful payments/subscriptions and cancellations
     if (type === 'checkout.session.completed') {
       const session = event.data.object;
       const plan = (session.metadata && session.metadata.plan) || 'pro';
       const userId = session.client_reference_id;
+      
+      console.log(`[Webhook] Checkout completed - Plan: ${plan}, User: ${userId}`);
+      
       if (userId) {
         const conf = resolvePlanConfig(env, plan);
         if (conf) {
+          console.log(`[Webhook] Granting credits: ${conf.creditsMonthly} for plan: ${plan}`);
           await grantCreditsAndSetPlan(userId, plan, conf.creditsMonthly, env);
+          console.log(`[Webhook] Successfully granted credits for user: ${userId}`);
+        }
+      }
+    } else if (type === 'customer.subscription.created') {
+      // Handle new subscription creation
+      const subscription = event.data.object;
+      const plan = (subscription.metadata && subscription.metadata.plan) || 'pro';
+      const userId = (subscription.metadata && subscription.metadata.user_id) || null;
+      
+      console.log(`[Webhook] Subscription created - Plan: ${plan}, User: ${userId}`);
+      
+      if (userId) {
+        const conf = resolvePlanConfig(env, plan);
+        if (conf) {
+          console.log(`[Webhook] Granting credits for new subscription: ${conf.creditsMonthly} for plan: ${plan}`);
+          await grantCreditsAndSetPlan(userId, plan, conf.creditsMonthly, env);
+          console.log(`[Webhook] Successfully granted credits for new subscription user: ${userId}`);
+        }
+      }
+    } else if (type === 'customer.subscription.updated') {
+      // Handle subscription updates (e.g., plan changes)
+      const subscription = event.data.object;
+      const plan = (subscription.metadata && subscription.metadata.plan) || 'pro';
+      const userId = (subscription.metadata && subscription.metadata.user_id) || null;
+      
+      console.log(`[Webhook] Subscription updated - Plan: ${plan}, User: ${userId}`);
+      
+      if (userId && subscription.status === 'active') {
+        const conf = resolvePlanConfig(env, plan);
+        if (conf) {
+          console.log(`[Webhook] Updating plan for subscription change: ${conf.creditsMonthly} for plan: ${plan}`);
+          await grantCreditsAndSetPlan(userId, plan, conf.creditsMonthly, env);
+          console.log(`[Webhook] Successfully updated plan for subscription user: ${userId}`);
         }
       }
     } else if (type === 'invoice.paid') {
       // Recurring monthly credit refresh for subscriptions
       const invoice = event.data.object;
       const sub = invoice.subscription;
+      
+      console.log(`[Webhook] Invoice paid - Subscription: ${sub}`);
+      
       // Try to get customer/user linkage via metadata on subscription or invoice
-      const plan = (invoice.metadata && invoice.metadata.plan) || 'pro';
-      const userId = (invoice.metadata && invoice.metadata.user_id) || null;
+      let plan = null;
+      let userId = null;
+      
+      // First try to get from invoice metadata
+      if (invoice.metadata && invoice.metadata.plan) {
+        plan = invoice.metadata.plan;
+        userId = invoice.metadata.user_id;
+      }
+      
+      // If not found, try to get from subscription metadata (requires fetching subscription)
+      if (!userId && sub) {
+        try {
+          const secret = env.STRIPE_SECRET_KEY;
+          if (secret) {
+            const subResp = await fetch(`https://api.stripe.com/v1/subscriptions/${sub}`, {
+              method: 'GET',
+              headers: { Authorization: `Bearer ${secret}` },
+            });
+            if (subResp.ok) {
+              const subData = await subResp.json();
+              if (subData.metadata && subData.metadata.user_id) {
+                userId = subData.metadata.user_id;
+                plan = subData.metadata.plan || plan || 'pro';
+              }
+            }
+          }
+        } catch (e) {
+          console.error('[Webhook] Error fetching subscription data:', e);
+        }
+      }
+      
+      // Fallback to default plan if still not found
+      if (!plan) plan = 'pro';
+      
+      console.log(`[Webhook] Invoice paid - Plan: ${plan}, User: ${userId}`);
+      
       if (userId) {
         const conf = resolvePlanConfig(env, plan);
         if (conf) {
+          console.log(`[Webhook] Granting monthly credits: ${conf.creditsMonthly} for plan: ${plan}`);
           await grantCreditsAndSetPlan(userId, plan, conf.creditsMonthly, env);
+          console.log(`[Webhook] Successfully granted monthly credits for user: ${userId}`);
         }
       }
     } else if (type === 'customer.subscription.deleted') {
       // Downgrade to free when subscription is canceled
       const sub = event.data.object;
       const userId = (sub.metadata && sub.metadata.user_id) || null;
+      
+      console.log(`[Webhook] Subscription deleted - User: ${userId}`);
+      
       if (userId) {
         try {
+          console.log(`[Webhook] Downgrading user to free plan: ${userId}`);
           await setPlanToFree(userId, env);
+          console.log(`[Webhook] Successfully downgraded user to free: ${userId}`);
         } catch (e) {
-          console.error('Failed to downgrade on subscription deleted:', e);
+          console.error('[Webhook] Failed to downgrade on subscription deleted:', e);
         }
       }
+    } else {
+      console.log(`[Webhook] Unhandled event type: ${type}`);
     }
 
     return new Response(JSON.stringify({ received: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
