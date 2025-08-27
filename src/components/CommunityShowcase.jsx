@@ -118,23 +118,23 @@ const CommunityShowcase = () => {
   };
 
   return (
-    <section className="py-12 md:py-16 bg-white">
-      <div className="max-w-screen-xl mx-auto px-4">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl md:text-2xl font-bold text-gray-900">From the Community</h2>
+    <section className="py-8 md:py-12 bg-white rounded-3xl shadow-lg border border-gray-100 mx-0 md:mx-8">
+      <div className="max-w-screen-xl mx-auto px-4 md:px-8">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-xl md:text-2xl font-semibold text-gray-900">From the Community</h2>
           {/* Placeholder for filters or View All */}
-          <a href="#" className="text-sm text-blue-600 hover:underline">View All</a>
+          <a href="#" className="text-sm text-black hover:underline font-medium">View All</a>
         </div>
         {loading && (
-          <div className="text-gray-500 text-sm">Loading public projects…</div>
+          <div className="text-gray-500 text-sm text-center py-8">Loading public projects…</div>
         )}
         {error && (
-          <div className="text-red-600 text-sm mb-3">{error}</div>
+          <div className="text-red-600 text-sm mb-3 text-center">{error}</div>
         )}
         {!loading && projects.length === 0 && (
-          <div className="text-gray-500 text-sm">No public projects yet.</div>
+          <div className="text-gray-500 text-sm text-center py-8">No public projects yet.</div>
         )}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {projects.map((p) => (
             <ProjectCard key={p.id} project={p} onRemixClick={handleRemixClick} />)
           )}

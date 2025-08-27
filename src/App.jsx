@@ -27,7 +27,7 @@ import ProfilePage from './components/auth/ProfilePage'
 import { getCurrentSession } from './config/supabase'
 import VerifyEmailPage from './components/auth/VerifyEmailPage'
 import NameCaptureModal from './components/auth/NameCaptureModal'
-import CommunityShowcase from './components/CommunityShowcase'
+
 import useBillingPlan from './utils/useBillingPlan'
 import OAuthCallbackHandler from './components/OAuthCallbackHandler'
 
@@ -681,9 +681,7 @@ function App() {
           onShowSignup={handleShowSignup}
         />
       )}
-      {currentStep === 'hero' && (
-        <CommunityShowcase />
-      )}
+
 
       {/* FAQ Section */}
       {currentStep === 'faq' && (

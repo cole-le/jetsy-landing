@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import ChatInputWithToggle from './ChatInputWithToggle'
+import CommunityShowcase from './CommunityShowcase'
 import { trackEvent } from '../utils/analytics'
 
 const HeroSection = ({ onIdeaSubmit, onPricingShown, expandChat, onShowSignup }) => {
@@ -17,9 +18,8 @@ const HeroSection = ({ onIdeaSubmit, onPricingShown, expandChat, onShowSignup })
   }
 
   return (
-    <section className="min-h-screen flex items-start justify-center px-4 pt-8 md:pt-12 pb-12 relative lovable-gradient">
-      <div className="max-w-screen-xl mx-auto text-center relative z-10">
-
+    <section className="min-h-screen flex flex-col items-start justify-start px-4 pt-8 md:pt-12 pb-12 relative lovable-gradient">
+      <div className="max-w-screen-xl mx-auto text-center relative z-10 w-full">
 
         {/* Headline */}
         <h1 className={`text-3xl md:text-5xl font-bold mb-6 mt-2 md:mt-6 transition-all duration-1000 delay-200 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
@@ -53,6 +53,11 @@ const HeroSection = ({ onIdeaSubmit, onPricingShown, expandChat, onShowSignup })
             <span>💵 Real proof: will it sell or not?</span>
           </div>
         </div>
+      </div>
+
+      {/* Community Showcase - positioned to be visible like Lovable website */}
+      <div className={`w-full mt-16 transition-all duration-1000 delay-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+        <CommunityShowcase />
       </div>
     </section>
   )
