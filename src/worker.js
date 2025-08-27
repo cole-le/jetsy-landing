@@ -131,9 +131,9 @@ async function ensurePreviewColumns(env) {
 }
 
 // Capture screenshot via Cloudflare Browser Rendering REST API and persist to DB
-async function captureAndPersistProjectScreenshot(projectId, projectUrl, request, env) {
+async function captureAndPersistProjectScreenshot(projectId, htmlContent, request, env) {
   console.log(`📸 captureAndPersistProjectScreenshot called for project ${projectId}`);
-  if (!projectUrl) throw new Error('Missing projectUrl');
+  if (!htmlContent) throw new Error('Missing htmlContent');
   const accountId = env.CF_ACCOUNT_ID;
   const apiToken = env.CLOUDFLARE_API_TOKEN;
   console.log(`📸 CF_ACCOUNT_ID: ${accountId ? 'Set' : 'Missing'}`);
@@ -143,10 +143,9 @@ async function captureAndPersistProjectScreenshot(projectId, projectUrl, request
   const apiUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/browser-rendering/screenshot`;
   console.log(`📸 Calling Cloudflare Browser Rendering API: ${apiUrl}`);
   const body = {
-    url: projectUrl,
+    html: htmlContent,
     screenshotOptions: { type: 'webp' },
-    viewport: { width: 1200, height: 630 },
-    gotoOptions: { waitUntil: 'networkidle0', timeout: 45000 }
+    viewport: { width: 1200, height: 630 }
   };
   console.log(`📸 Screenshot request body:`, JSON.stringify(body, null, 2));
 
@@ -176,6 +175,11 @@ async function captureAndPersistProjectScreenshot(projectId, projectUrl, request
 
   // Persist on project
   const now = new Date().toISOString();
+  try {
+    await ensurePreviewColumns(env);
+  } catch (e) {
+    console.warn('ensurePreviewColumns failed (non-fatal):', e?.message || e);
+  }
   await env.DB.prepare(`UPDATE projects SET preview_image_url = ?, preview_image_updated_at = ? WHERE id = ?`)
     .bind(publicUrl, now, projectId)
     .run();
@@ -189,7 +193,7 @@ async function captureAndPersistProjectScreenshot(projectId, projectUrl, request
 
 // Public project route: GET /{projectId}
 // Serves the project website and triggers screenshot capture if needed
-async function handleProjectRoute(projectId, request, env) {
+async function handleProjectRoute(projectId, request, env, ctx) {
   const db = env.DB;
   const project = await db.prepare('SELECT id, template_data, project_name, preview_image_url FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) {
@@ -199,23 +203,50 @@ async function handleProjectRoute(projectId, request, env) {
   // Check if we need to capture a screenshot
   if (!project.preview_image_url) {
     console.log(`📸 Screenshot capture needed for project ${projectId}`);
-    // Trigger screenshot capture in background (don't wait for it)
-    const projectUrl = `${new URL(request.url).origin}/${projectId}`;
-    console.log(`📸 Starting screenshot capture for URL: ${projectUrl}`);
-    captureAndPersistProjectScreenshot(projectId, projectUrl, request, env).catch(err => {
-      console.error('Background screenshot capture failed:', err);
-    });
+    // Generate HTML content for screenshot capture
+    let templateData = {};
+    try {
+      templateData = project.template_data
+        ? (typeof project.template_data === 'string' ? JSON.parse(project.template_data) : project.template_data)
+        : {};
+    } catch (e) {
+      console.warn(`⚠️ Failed to parse template_data for project ${projectId}:`, e?.message || e);
+    }
+    console.log(`📸 Template data for project ${projectId}:`, JSON.stringify(templateData, null, 2));
+    
+    let htmlContent;
+    try {
+      htmlContent = createCompleteStaticSite(templateData || {}, projectId);
+      console.log(`📸 HTML content generated successfully (${htmlContent.length} chars)`);
+      console.log(`📸 HTML preview (first 200 chars):`, htmlContent.substring(0, 200));
+    } catch (e) {
+      console.error(`❌ Failed to generate HTML content for project ${projectId}:`, e?.message || e);
+      throw new Error(`HTML generation failed: ${e?.message || e}`);
+    }
+    console.log(`📸 Starting screenshot capture with HTML content (${htmlContent.length} chars)`);
+    if (ctx && typeof ctx.waitUntil === 'function') {
+      ctx.waitUntil(
+        captureAndPersistProjectScreenshot(projectId, htmlContent, request, env).catch(err => {
+          console.error('Background screenshot capture failed:', err);
+        })
+      );
+    } else {
+      // Fallback (less reliable without waitUntil)
+      captureAndPersistProjectScreenshot(projectId, htmlContent, request, env).catch(err => {
+        console.error('Background screenshot capture failed:', err);
+      });
+    }
   } else {
     console.log(`✅ Project ${projectId} already has screenshot: ${project.preview_image_url}`);
   }
 
+  // Generate HTML content for the response
   let templateData = {};
   try {
     templateData = project.template_data
       ? (typeof project.template_data === 'string' ? JSON.parse(project.template_data) : project.template_data)
       : {};
   } catch {}
-  
   const html = createCompleteStaticSite(templateData || {}, projectId);
   return new Response(html, { 
     status: 200, 
@@ -254,7 +285,7 @@ export default {
       const projectRouteMatch = path.match(/^\/(\d+)$/);
       if (projectRouteMatch && request.method === 'GET') {
         console.log(`🚀 Project route matched: ${path} -> Project ID: ${projectRouteMatch[1]}`);
-        return await handleProjectRoute(projectRouteMatch[1], request, env);
+        return await handleProjectRoute(projectRouteMatch[1], request, env, ctx);
       }
 
       // API routes
