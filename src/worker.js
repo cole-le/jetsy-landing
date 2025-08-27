@@ -12370,14 +12370,7 @@ async function handleStripeWebhook(request, env) {
       
       console.log(`[Webhook] Checkout completed - Plan: ${plan}, User: ${userId}`);
       
-      if (userId) {
-        const conf = resolvePlanConfig(env, plan);
-        if (conf) {
-          console.log(`[Webhook] Granting credits: ${conf.creditsMonthly} for plan: ${plan}`);
-          await grantCreditsAndSetPlan(userId, plan, conf.creditsMonthly, env);
-          console.log(`[Webhook] Successfully granted credits for user: ${userId}`);
-        }
-      }
+      // Do not grant credits here; rely on invoice.payment_succeeded for billing-confirmed credit grants
     } else if (type === 'customer.subscription.created') {
       // Handle new subscription creation
       const subscription = event.data.object;
@@ -12386,14 +12379,7 @@ async function handleStripeWebhook(request, env) {
       
       console.log(`[Webhook] Subscription created - Plan: ${plan}, User: ${userId}`);
       
-      if (userId) {
-        const conf = resolvePlanConfig(env, plan);
-        if (conf) {
-          console.log(`[Webhook] Granting credits for new subscription: ${conf.creditsMonthly} for plan: ${plan}`);
-          await grantCreditsAndSetPlan(userId, plan, conf.creditsMonthly, env);
-          console.log(`[Webhook] Successfully granted credits for new subscription user: ${userId}`);
-        }
-      }
+      // Do not grant credits on subscription created. Credits will be granted on invoice.payment_succeeded
     } else if (type === 'customer.subscription.updated') {
       // Handle subscription updates (e.g., plan changes)
       const subscription = event.data.object;
@@ -12402,20 +12388,13 @@ async function handleStripeWebhook(request, env) {
       
       console.log(`[Webhook] Subscription updated - Plan: ${plan}, User: ${userId}`);
       
-      if (userId && subscription.status === 'active') {
-        const conf = resolvePlanConfig(env, plan);
-        if (conf) {
-          console.log(`[Webhook] Updating plan for subscription change: ${conf.creditsMonthly} for plan: ${plan}`);
-          await grantCreditsAndSetPlan(userId, plan, conf.creditsMonthly, env);
-          console.log(`[Webhook] Successfully updated plan for subscription user: ${userId}`);
-        }
-      }
-    } else if (type === 'invoice.paid') {
+      // Do not grant credits on subscription.updated. Handle plan changes via next invoice.payment_succeeded.
+    } else if (type === 'invoice.payment_succeeded') {
       // Recurring monthly credit refresh for subscriptions
       const invoice = event.data.object;
-      const sub = invoice.subscription;
+      let sub = invoice.subscription;
       
-      console.log(`[Webhook] Invoice paid - Subscription: ${sub}`);
+      console.log(`[Webhook] Invoice payment succeeded - Subscription: ${sub}`);
       
       // Try to get customer/user linkage via metadata on subscription or invoice
       let plan = null;
@@ -12448,11 +12427,43 @@ async function handleStripeWebhook(request, env) {
           console.error('[Webhook] Error fetching subscription data:', e);
         }
       }
+
+      // Fallback: if still no userId (and subscription id was missing), use invoice.customer to look up the active subscription
+      if (!userId && invoice.customer) {
+        try {
+          const secret = env.STRIPE_SECRET_KEY;
+          if (secret) {
+            const url = `https://api.stripe.com/v1/subscriptions?customer=${encodeURIComponent(invoice.customer)}&status=all&limit=10`;
+            const subsResp = await fetch(url, { method: 'GET', headers: { Authorization: `Bearer ${secret}` } });
+            if (subsResp.ok) {
+              const subsJson = await subsResp.json();
+              if (Array.isArray(subsJson?.data) && subsJson.data.length > 0) {
+                // Prefer the most recent non-canceled subscription
+                const sorted = subsJson.data.sort((a, b) => (b.created || 0) - (a.created || 0));
+                const best = sorted.find(s => s.status !== 'canceled') || sorted[0];
+                if (best?.metadata?.user_id) {
+                  userId = best.metadata.user_id;
+                  plan = best.metadata.plan || plan || 'pro';
+                }
+                // If we didn't have a subscription id earlier, keep it for logging
+                if (!sub && best?.id) {
+                  sub = best.id;
+                }
+              }
+            } else {
+              const errTxt = await subsResp.text();
+              console.warn('[Webhook] Unable to list subscriptions by customer:', errTxt);
+            }
+          }
+        } catch (e) {
+          console.error('[Webhook] Error listing subscriptions by customer:', e);
+        }
+      }
       
       // Fallback to default plan if still not found
       if (!plan) plan = 'pro';
       
-      console.log(`[Webhook] Invoice paid - Plan: ${plan}, User: ${userId}`);
+      console.log(`[Webhook] Invoice payment succeeded - Plan: ${plan}, User: ${userId}`);
       
       if (userId) {
         const conf = resolvePlanConfig(env, plan);
