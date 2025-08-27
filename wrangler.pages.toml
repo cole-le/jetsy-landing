@@ -3,7 +3,7 @@ pages_build_output_dir = "dist"
 # Only Pages-allowed keys in this file
 # Environments supported: preview, production (not staging/development)
 
-name = "jetsy-landing"
+name = "jetsy-pages"
 compatibility_date = "2024-01-01"
 pages_build_output_dir = "./dist"
 

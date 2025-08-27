@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { trackEvent } from '../utils/analytics'
 import { useAuth } from './auth/AuthProvider'
+import { getApiBaseUrl } from '../config/environment'
 
 const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBookDemo, upgradeTitle = 'Upgrade required', upgradeDescription = 'You have reached your current plan limit. Upgrade to continue.', currentPlanType = null }) => {
   const [selectedPlan, setSelectedPlan] = useState(null)
@@ -117,7 +118,7 @@ const PricingModal = ({ onPlanSelect, onClose, showUpgradeMessage = false, onBoo
       trackEvent('upgrade_click', { plan: planType })
       // Capture the current location to return after Stripe checkout
       const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`
-      const res = await fetch('/api/stripe/create-checkout-session', {
+      const res = await fetch(`${getApiBaseUrl()}/api/stripe/create-checkout-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan: planType, user_id: user.id, mode: 'subscription', return_to: returnTo })
