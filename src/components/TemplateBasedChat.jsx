@@ -866,14 +866,12 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         headers['Authorization'] = `Bearer ${session.access_token}`;
       }
       
-      const resp = await fetch(`${getApiBaseUrl()}/api/generate-image`, {
+      const resp = await fetch(`${getApiBaseUrl()}/api/regenerate-background`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
           project_id: currentProject.id,
-          prompt: `Ultra-relevant background image for ${templateData.businessName || 'Your Business'} hero section. 16:9 cinematic background, photographic or high-quality illustration, darker tones or strong contrast to support overlay text readability. No text of any kind: no words, no lettering, no logos, no watermarks. Avoid brand names and copyrighted content.`,
-          aspect_ratio: '16:9',
-          number_of_images: 1
+          target: 'hero_background'
         })
       });
       if (resp.status === 402) {
@@ -987,14 +985,12 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         headers['Authorization'] = `Bearer ${session.access_token}`;
       }
 
-      const resp = await fetch(`${getApiBaseUrl()}/api/generate-image`, {
+      const resp = await fetch(`${getApiBaseUrl()}/api/regenerate-background`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
           project_id: currentProject.id,
-          prompt: `Ultra-relevant background image for ${templateData.businessName || 'Your Business'} about section. 16:9 cinematic background, photographic or high-quality illustration, darker tones or strong contrast to support overlay text readability. No text of any kind: no words, no lettering, no logos, no watermarks. Avoid brand names and copyrighted content.`,
-          aspect_ratio: '16:9',
-          number_of_images: 1
+          target: 'about_background'
         })
       });
       if (resp.status === 402) {

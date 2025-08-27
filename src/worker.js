@@ -532,6 +532,14 @@ export default {
         return new Response(null, { status: 200, headers: corsHeaders });
       }
 
+      // --- Context-aware Background Regeneration API ---
+      if (path === '/api/regenerate-background' && request.method === 'POST') {
+        return await handleBackgroundRegeneration(request, env, corsHeaders);
+      }
+      if (path === '/api/regenerate-background' && request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: corsHeaders });
+      }
+
       // --- Image Upload API (user-provided images e.g., logo) ---
       if (path === '/api/upload-image' && request.method === 'POST') {
         return await handleUploadImage(request, env, corsHeaders);
@@ -7419,6 +7427,72 @@ async function handleImageGeneration(request, env, corsHeaders) {
       error: 'Failed to generate image',
       details: error.message
     }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+}
+
+// Regenerate hero/about background images using business info and initial chat context
+async function handleBackgroundRegeneration(request, env, corsHeaders) {
+  try {
+    const { project_id, target } = await request.json();
+    if (!project_id || !target || !['hero_background', 'about_background'].includes(target)) {
+      return new Response(JSON.stringify({ error: 'project_id and valid target (hero_background|about_background) are required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    if (!env.OPENAI_API_KEY) {
+      throw new Error('Missing OPENAI_API_KEY');
+    }
+
+    const db = env.DB;
+    // Load project
+    const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(project_id).first();
+    if (!project) {
+      return new Response(JSON.stringify({ error: 'Project not found' }), { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+
+    // Parse template_data for business name if present
+    let templateData = {};
+    if (project.template_data) {
+      try {
+        templateData = typeof project.template_data === 'string' ? JSON.parse(project.template_data) : project.template_data;
+      } catch (_) {}
+    }
+
+    // Fetch chat to get initial user message
+    const chatRes = await db.prepare('SELECT * FROM chat_messages WHERE project_id = ? ORDER BY timestamp ASC').bind(project_id).all();
+    const chatMessages = chatRes.results || [];
+    const initialUserMessage = chatMessages.find(m => m.role === 'user')?.message || templateData.initialUserMessage || project.project_name || 'Generate a landing page';
+
+    // Detect business type and info similar to template flow
+    const businessType = await detectBusinessType(initialUserMessage, env);
+    const businessInfo = generateBusinessInfo(initialUserMessage, businessType);
+    const businessNameForAssets = templateData.businessName || businessInfo.name;
+
+    // Get web-searched prompts
+    const prompts = await generateWebSearchedBackgroundPrompts(initialUserMessage, businessType, businessNameForAssets, env);
+    const prompt = target === 'hero_background' ? prompts.hero_background_prompt : prompts.about_background_prompt;
+
+    // Forward to existing generator (deduct credits like normal regeneration)
+    const imgReq = new Request(`${new URL(request.url).origin}/api/generate-image`, {
+      method: 'POST',
+      headers: request.headers,
+      body: JSON.stringify({
+        project_id,
+        prompt,
+        aspect_ratio: '16:9',
+        number_of_images: 1
+      })
+    });
+
+    return await handleImageGeneration(imgReq, env, corsHeaders);
+  } catch (error) {
+    console.error('Background regeneration error:', error);
+    return new Response(JSON.stringify({ error: 'Failed to regenerate background', details: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });
