@@ -131,19 +131,24 @@ async function ensurePreviewColumns(env) {
 }
 
 // Capture screenshot via Cloudflare Browser Rendering REST API and persist to DB
-async function captureAndPersistProjectScreenshot(projectId, deploymentUrl, request, env) {
-  if (!deploymentUrl) throw new Error('Missing deploymentUrl');
+async function captureAndPersistProjectScreenshot(projectId, projectUrl, request, env) {
+  console.log(`📸 captureAndPersistProjectScreenshot called for project ${projectId}`);
+  if (!projectUrl) throw new Error('Missing projectUrl');
   const accountId = env.CF_ACCOUNT_ID;
   const apiToken = env.CLOUDFLARE_API_TOKEN;
+  console.log(`📸 CF_ACCOUNT_ID: ${accountId ? 'Set' : 'Missing'}`);
+  console.log(`📸 CLOUDFLARE_API_TOKEN: ${apiToken ? 'Set' : 'Missing'}`);
   if (!accountId || !apiToken) throw new Error('Cloudflare account or API token not configured');
 
   const apiUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/browser-rendering/screenshot`;
+  console.log(`📸 Calling Cloudflare Browser Rendering API: ${apiUrl}`);
   const body = {
-    url: deploymentUrl,
+    url: projectUrl,
     screenshotOptions: { type: 'webp' },
     viewport: { width: 1200, height: 630 },
     gotoOptions: { waitUntil: 'networkidle0', timeout: 45000 }
   };
+  console.log(`📸 Screenshot request body:`, JSON.stringify(body, null, 2));
 
   const res = await fetch(apiUrl, {
     method: 'POST',
@@ -153,10 +158,13 @@ async function captureAndPersistProjectScreenshot(projectId, deploymentUrl, requ
     },
     body: JSON.stringify(body)
   });
+  console.log(`📸 Cloudflare API response status: ${res.status} ${res.statusText}`);
   if (!res.ok) {
     const txt = await res.text();
+    console.error(`❌ Browser Rendering failed: ${res.status} ${txt}`);
     throw new Error(`Browser Rendering failed: ${res.status} ${txt}`);
   }
+  console.log(`✅ Cloudflare API call successful, processing screenshot data...`);
   const bytes = new Uint8Array(await res.arrayBuffer());
 
   // Upload to R2 (flat key to match /api/serve-image/<filename>)
@@ -172,53 +180,59 @@ async function captureAndPersistProjectScreenshot(projectId, deploymentUrl, requ
     .bind(publicUrl, now, projectId)
     .run();
 
+  console.log(`🎉 Screenshot successfully captured and stored for project ${projectId}!`);
+  console.log(`🖼️ Screenshot URL: ${publicUrl}`);
+  console.log(`📅 Timestamp: ${now}`);
+
   return { url: publicUrl };
 }
 
-// HTTP handler for POST /api/projects/:id/preview/screenshot
-async function captureProjectScreenshot(projectId, request, env, corsHeaders) {
-  try {
-    await ensurePreviewColumns(env);
-    const db = env.DB;
-    const project = await db.prepare('SELECT id, current_deployment_url FROM projects WHERE id = ?').bind(projectId).first();
-    if (!project) {
-      return new Response(JSON.stringify({ success: false, error: 'Project not found' }), { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
-    }
-    // Prefer deployed URL; otherwise fallback to local preview route so we can capture immediately after generation
-    let url = project.current_deployment_url;
-    if (!url) {
-      const origin = request.headers.get('origin') || new URL(request.url).origin;
-      url = `${origin}/preview/${projectId}`;
-    }
-    const result = await captureAndPersistProjectScreenshot(projectId, url, request, env);
-    return new Response(JSON.stringify({ success: true, preview_image_url: result.url }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
-  } catch (err) {
-    return new Response(JSON.stringify({ success: false, error: err.message || 'Failed to capture screenshot' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
-  }
-}
-
-// Public preview route: GET /preview/:projectId
-// Serves the latest generated HTML from template_data for Browser Rendering and manual preview
-async function handlePreviewRoute(projectId, request, env) {
+// Public project route: GET /{projectId}
+// Serves the project website and triggers screenshot capture if needed
+async function handleProjectRoute(projectId, request, env) {
   const db = env.DB;
-  const project = await db.prepare('SELECT id, template_data, project_name FROM projects WHERE id = ?').bind(projectId).first();
+  const project = await db.prepare('SELECT id, template_data, project_name, preview_image_url FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) {
-    return new Response('Not found', { status: 404 });
+    return new Response('Project not found', { status: 404 });
   }
+
+  // Check if we need to capture a screenshot
+  if (!project.preview_image_url) {
+    console.log(`📸 Screenshot capture needed for project ${projectId}`);
+    // Trigger screenshot capture in background (don't wait for it)
+    const projectUrl = `${new URL(request.url).origin}/${projectId}`;
+    console.log(`📸 Starting screenshot capture for URL: ${projectUrl}`);
+    captureAndPersistProjectScreenshot(projectId, projectUrl, request, env).catch(err => {
+      console.error('Background screenshot capture failed:', err);
+    });
+  } else {
+    console.log(`✅ Project ${projectId} already has screenshot: ${project.preview_image_url}`);
+  }
+
   let templateData = {};
   try {
     templateData = project.template_data
       ? (typeof project.template_data === 'string' ? JSON.parse(project.template_data) : project.template_data)
       : {};
   } catch {}
+  
   const html = createCompleteStaticSite(templateData || {}, projectId);
-  return new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+  return new Response(html, { 
+    status: 200, 
+    headers: { 
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'public, max-age=300' // Cache for 5 minutes
+    } 
+  });
 }
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
+    console.log(`🌐 Worker received request: ${request.method} ${path}`);
+    console.log(`🌐 Full URL: ${url.toString()}`);
+    console.log(`🌐 Hostname: ${url.hostname}`);
 
     // CORS headers
     const corsHeaders = {
@@ -236,10 +250,11 @@ export default {
     }
 
     try {
-      // --- Public Preview Route (for screenshot fallback) ---
-      const previewRouteTopMatch = path.match(/^\/preview\/(\d+)$/);
-      if (previewRouteTopMatch && request.method === 'GET') {
-        return await handlePreviewRoute(previewRouteTopMatch[1], request, env);
+      // --- Public Project Route ---
+      const projectRouteMatch = path.match(/^\/(\d+)$/);
+      if (projectRouteMatch && request.method === 'GET') {
+        console.log(`🚀 Project route matched: ${path} -> Project ID: ${projectRouteMatch[1]}`);
+        return await handleProjectRoute(projectRouteMatch[1], request, env);
       }
 
       // API routes
@@ -450,18 +465,6 @@ export default {
           if (request.method === 'GET') {
             // GET /api/projects/:id/visibility - get project visibility
             return await getProjectVisibility(pid, env, corsHeaders);
-          }
-        }
-
-        // --- Project Preview Screenshot API ---
-        const previewMatch = path.match(/^\/api\/projects\/(\d+)\/preview\/screenshot$/);
-        if (previewMatch) {
-          const pid = previewMatch[1];
-          if (request.method === 'POST') {
-            return await captureProjectScreenshot(pid, request, env, corsHeaders);
-          }
-          if (request.method === 'OPTIONS') {
-            return new Response(null, { status: 200, headers: corsHeaders });
           }
         }
       }
@@ -5930,8 +5933,8 @@ async function handleLLMOrchestration(request, env, corsHeaders) {
                           user_message.toLowerCase().includes('image') || 
                           user_message.toLowerCase().includes('photo') || 
                           user_message.toLowerCase().includes('picture') ||
-                          user_message.toLowerCase().includes('add') && user_message.toLowerCase().includes('image') ||
-                          user_message.toLowerCase().includes('new') && user_message.toLowerCase().includes('image') ||
+                          user_message.toLowerCase().includes('add') && user_message.toLowerCase().includes('image') || 
+                          user_message.toLowerCase().includes('new') && user_message.toLowerCase().includes('image') || 
                           user_message.toLowerCase().includes('generate') && user_message.toLowerCase().includes('image');
     
     // Detect specific section requests
@@ -6866,7 +6869,7 @@ IMAGE PLACEHOLDER REQUIREMENTS:
 - Background images: Use <img src="{GENERATED_IMAGE_URL_BACKGROUND}" alt="Background" className="..." />
 
 7. SMART IMAGE GENERATION RULES:
-- ALWAYS generate images for the initial prompt in a project (when no existing files or empty project)
+- ALWAYS generate images for the initial prompt in a project (when no existing files or empty project), REGARDLESS of user message content
 - For subsequent prompts, only generate images when user specifically requests them
 - If user asks for styling changes only, reuse existing images
 - If user asks for "new images" or "different images", then generate

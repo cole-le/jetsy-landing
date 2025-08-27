@@ -315,7 +315,6 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const [isRegeneratingHeroBg, setIsRegeneratingHeroBg] = useState(false);
   const [isRegeneratingAboutBg, setIsRegeneratingAboutBg] = useState(false);
   const isInitialLoadRef = useRef(true);
-  const screenshotTriggeredRef = useRef({}); // { [projectId]: true }
   // Mobile responsiveness: toggle Chat/Preview panes on small screens
   const [mobileView, setMobileView] = useState('chat');
   const [isMobile, setIsMobile] = useState(false);
@@ -379,29 +378,8 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     }
   }, [mobileView, isMobile]);
 
-  // One-time: trigger backend screenshot capture once Live Preview is ready for a project
-  useEffect(() => {
-    const projectId = currentProject?.id;
-    if (!projectId) return;
-    // Avoid duplicate triggers per project
-    if (screenshotTriggeredRef.current[projectId]) return;
-
-    // Heuristic: wait briefly to allow template_data to be saved and preview to render
-    const timeout = setTimeout(async () => {
-      try {
-        const resp = await fetch(`${getApiBaseUrl()}/api/projects/${projectId}/preview/screenshot`, {
-          method: 'POST'
-        });
-        // Fire-and-forget; ignore errors
-      } catch (e) {
-        // no-op
-      } finally {
-        screenshotTriggeredRef.current[projectId] = true;
-      }
-    }, 1200);
-
-    return () => clearTimeout(timeout);
-  }, [currentProject?.id]);
+  // Screenshot capture is now handled automatically when someone visits the project URL
+  // No need to trigger it manually from the chat page
 
   // Listen for project panel toggle from Navbar
   useEffect(() => {
