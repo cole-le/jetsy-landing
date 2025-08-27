@@ -74,7 +74,7 @@ const VerifyEmailPage = () => {
       return;
     }
     try {
-      const redirectUrl = (import.meta?.env?.VITE_AUTH_REDIRECT_URL) || `${window.location.origin}/verify_email`;
+      const redirectUrl = import.meta.env.VITE_AUTH_REDIRECT_URL || `${window.location.origin}/verify_email`;
       const { data, error } = await supabase.auth.resend({
         type: 'signup',
         email,

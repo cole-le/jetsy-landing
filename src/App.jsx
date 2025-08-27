@@ -29,6 +29,7 @@ import VerifyEmailPage from './components/auth/VerifyEmailPage'
 import NameCaptureModal from './components/auth/NameCaptureModal'
 import CommunityShowcase from './components/CommunityShowcase'
 import useBillingPlan from './utils/useBillingPlan'
+import OAuthCallbackHandler from './components/OAuthCallbackHandler'
 
 function App() {
   const [currentStep, setCurrentStep] = useState('hero') // hero, faq, pricing, lead-capture, onboarding, login, signup, demo-booking, demo-thankyou, chat, profile
@@ -109,6 +110,15 @@ function App() {
     console.log('URL pathname:', path);
     const params = new URLSearchParams(window.location.search);
     const wantSignup = params.get('signup') === '1';
+    
+    // Detect OAuth callback in URL fragment
+    const hash = window.location.hash;
+    if (hash && (hash.includes('access_token') || hash.includes('code'))) {
+      console.log('🔑 OAuth callback detected in URL fragment');
+      setCurrentStep('oauth-callback');
+      return;
+    }
+    
     // Detect billing success flag from Stripe redirect and show confirmation modal
     const billingFlag = params.get('billing');
     if (billingFlag === 'success') {
@@ -864,6 +874,11 @@ function App() {
             setCurrentStep('launch-monitor');
           }}
         />
+      )}
+
+      {/* OAuth Callback Handler */}
+      {currentStep === 'oauth-callback' && (
+        <OAuthCallbackHandler />
       )}
 
       {/* Ad Creatives Page */}

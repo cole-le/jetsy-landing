@@ -69,10 +69,11 @@ const LoginForm = ({ onBackToSignup, onSuccess }) => {
     setIsGoogleLoading(true)
     
     try {
+      const redirectUrl = import.meta.env.VITE_AUTH_REDIRECT_URL || `${window.location.origin}/chat`
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/chat`
+          redirectTo: `${redirectUrl}/chat`
         }
       })
 
