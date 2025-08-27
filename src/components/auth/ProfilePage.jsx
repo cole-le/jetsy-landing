@@ -4,6 +4,7 @@ import { supabase, getCurrentSession } from '../../config/supabase';
 import { getApiBaseUrl } from '../../config/environment';
 import PricingModal from '../PricingModal';
 import useBillingPlan from '../../utils/useBillingPlan';
+import AutoFitText from '../AutoFitText';
 
 const ProfilePage = ({ onBackToChat }) => {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -365,7 +366,7 @@ const ProfilePage = ({ onBackToChat }) => {
                   <label className="block text-sm font-medium text-gray-500 mb-1">
                     Email Address
                   </label>
-                  <p className="text-gray-900">{profile.email}</p>
+                  <AutoFitText text={profile.email} max={16} min={12} className="font-normal" />
                   <div className="flex items-center mt-1">
                     {profile.email_verified ? (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
