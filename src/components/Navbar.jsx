@@ -29,7 +29,7 @@ const Navbar = ({
 }) => {
   const { session, loading: authLoading, signOut } = useAuth();
   const { plan } = useBillingPlan();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [isAdGenerating, setIsAdGenerating] = useState(false);
@@ -704,18 +704,17 @@ const Navbar = ({
                   </div>
                 </div>
               ) : (
-                <div className="md:hidden">
+                <div className="md:hidden flex items-center space-x-2">
                   <button
-                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                    className="p-2 rounded-md text-text hover:text-accent focus:outline-none focus:ring-2 focus:ring-accent"
+                    onClick={onLoginClick}
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg transition-colors duration-200 font-medium text-xs"
                   >
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      {isMobileMenuOpen ? (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      ) : (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                      )}
-                    </svg>
+                    Log in
+                  </button>
+                  <button 
+                    onClick={handleGetStartedClick}
+                    className="px-4 py-2 bg-black hover:bg-gray-800 text-white rounded-lg transition-colors duration-200 font-semibold text-xs">
+                    Get started
                   </button>
                 </div>
               )}
@@ -724,38 +723,7 @@ const Navbar = ({
         </div>
       </div>
 
-      {/* Mobile menu */}
-      {isMobileMenuOpen && !isAdCreativesMode && !isChatMode && (
-        <div className="md:hidden bg-white/95 backdrop-blur-lg border-t border-gray-200/50">
-          <div className="px-2 pt-2 pb-3 space-y-1">
-            {plan === 'free' && (
-              <button 
-                onClick={handlePricingClick}
-                className="block w-full text-left px-3 py-2 text-text hover:text-accent transition-colors duration-200 font-medium"
-              >
-                Pricing
-              </button>
-            )}
-            <button 
-              onClick={handleFAQClick}
-              className="block w-full text-left px-3 py-2 text-text hover:text-accent transition-colors duration-200 font-medium"
-            >
-              FAQ
-            </button>
-            <button 
-              onClick={onLoginClick}
-              className="block w-full text-left px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg transition-colors duration-200 font-medium"
-            >
-              Log in
-            </button>
-            <button 
-              onClick={handleGetStartedClick}
-              className="block w-full text-left px-3 py-2 bg-accent hover:bg-buttonHover text-white rounded-lg transition-colors duration-200 font-semibold">
-              Get started
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Mobile menu - Removed since we now show buttons directly */}
     </nav>
   )
 }
