@@ -132,24 +132,16 @@ async function ensurePreviewColumns(env) {
 }
 
 // Capture screenshot via Cloudflare Browser Rendering REST API and persist to DB
-async function captureAndPersistProjectScreenshot(projectId, templateData, request, env) {
+async function captureAndPersistProjectScreenshot(projectId, htmlContent, request, env) {
   console.log(`📸 captureAndPersistProjectScreenshot called for project ${projectId}`);
-  if (!templateData) throw new Error('Missing templateData');
+  if (!htmlContent) throw new Error('Missing htmlContent');
+  
   const accountId = env.CF_ACCOUNT_ID;
   const apiToken = env.CLOUDFLARE_API_TOKEN;
   console.log(`📸 CF_ACCOUNT_ID: ${accountId ? 'Set' : 'Missing'}`);
   console.log(`📸 CLOUDFLARE_API_TOKEN: ${apiToken ? 'Set' : 'Missing'}`);
+  
   if (!accountId || !apiToken) throw new Error('Cloudflare account or API token not configured');
-
-  // Generate HTML content from template data
-  let htmlContent;
-  try {
-    htmlContent = createCompleteStaticSite(templateData, projectId);
-    console.log(`📸 HTML content generated successfully (${htmlContent.length} chars)`);
-  } catch (e) {
-    console.error(`❌ Failed to generate HTML content for project ${projectId}:`, e?.message || e);
-    throw new Error(`HTML generation failed: ${e?.message || e}`);
-  }
 
   const apiUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/browser-rendering/screenshot`;
   console.log(`📸 Calling Cloudflare Browser Rendering API: ${apiUrl}`);
@@ -158,7 +150,7 @@ async function captureAndPersistProjectScreenshot(projectId, templateData, reque
     screenshotOptions: { type: 'webp' },
     viewport: { width: 1200, height: 630 }
   };
-  console.log(`📸 Screenshot request body:`, JSON.stringify(body, null, 2));
+  console.log(`📸 Screenshot request body (html mode): { htmlLength: ${htmlContent.length}, type: webp, viewport: 1200x630 }`);
 
   const res = await fetch(apiUrl, {
     method: 'POST',
@@ -179,18 +171,30 @@ async function captureAndPersistProjectScreenshot(projectId, templateData, reque
 
   // Upload to R2 (flat key to match /api/serve-image/<filename>)
   const filename = `screenshot-${projectId}-${Date.now()}.webp`;
+  console.log(`📸 About to upload to R2 with filename: ${filename}`);
+  console.log(`📸 IMAGES_BUCKET exists: ${!!env.IMAGES_BUCKET}`);
+  console.log(`📸 About to call R2 put...`);
+  
   await env.IMAGES_BUCKET.put(filename, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), {
     httpMetadata: { contentType: 'image/webp', cacheControl: 'public, max-age=31536000, immutable' }
   });
+  console.log(`✅ R2 upload successful for filename: ${filename}`);
+  
   const publicUrl = `${new URL(request.url).origin}/api/serve-image/${filename}`;
+  console.log(`📸 Generated public URL: ${publicUrl}`);
 
   // Persist on project
   const now = new Date().toISOString();
+  console.log(`📸 About to ensure preview columns exist...`);
   try {
     await ensurePreviewColumns(env);
+    console.log(`✅ Preview columns ensured`);
   } catch (e) {
     console.warn('ensurePreviewColumns failed (non-fatal):', e?.message || e);
   }
+  
+  console.log(`📸 About to update database with preview_image_url: ${publicUrl}`);
+  console.log(`📸 Database update timestamp: ${now}`);
   await env.DB.prepare(`UPDATE projects SET preview_image_url = ?, preview_image_updated_at = ? WHERE id = ?`)
     .bind(publicUrl, now, projectId)
     .run();
@@ -286,10 +290,14 @@ async function handleScreenshotCapture(request, env, ctx, corsHeaders) {
     
     console.log(`📸 Starting screenshot capture for project ${projectId} with ${templateData ? Object.keys(templateData).length : 0} template properties`);
     
+    // Generate the project URL for screenshot capture
+    const projectUrl = `${new URL(request.url).origin.replace('/api/projects', '')}/${projectId}`;
+    console.log(`📸 Project URL for screenshot capture: ${projectUrl}`);
+    
     // Use waitUntil for background processing
     if (ctx && typeof ctx.waitUntil === 'function') {
       ctx.waitUntil(
-        captureAndPersistProjectScreenshot(projectId, templateData, request, env).catch(async (err) => {
+        captureAndPersistProjectScreenshot(projectId, projectUrl, request, env).catch(async (err) => {
           console.error(`❌ Background screenshot capture failed for project ${projectId}:`, err);
           // Reset flag on error
           try {
@@ -301,7 +309,7 @@ async function handleScreenshotCapture(request, env, ctx, corsHeaders) {
       );
     } else {
       // Fallback without waitUntil
-      captureAndPersistProjectScreenshot(projectId, templateData, request, env).catch(async (err) => {
+      captureAndPersistProjectScreenshot(projectId, projectUrl, request, env).catch(async (err) => {
         console.error(`❌ Screenshot capture failed for project ${projectId}:`, err);
         // Reset flag on error
         try {
@@ -341,8 +349,27 @@ async function handleProjectRoute(projectId, request, env, ctx) {
   }
 
   // Screenshot capture is now handled in the chat page when website generation succeeds
-  // This route only serves the project website
-  console.log(`✅ Project ${projectId} being served (screenshot capture handled separately)`);
+  // Check if we need to capture a screenshot
+  if (!project.preview_image_url) {
+    console.log(`📸 Screenshot capture needed for project ${projectId}`);
+    // Trigger screenshot capture in background (don't wait for it)
+    const projectUrl = `${new URL(request.url).origin}/${projectId}`;
+    console.log(`📸 Starting screenshot capture for URL: ${projectUrl}`);
+    if (ctx && typeof ctx.waitUntil === 'function') {
+      ctx.waitUntil(
+        captureAndPersistProjectScreenshot(projectId, projectUrl, request, env).catch(err => {
+          console.error('Background screenshot capture failed:', err);
+        })
+      );
+    } else {
+      // Fallback (less reliable without waitUntil)
+      captureAndPersistProjectScreenshot(projectId, projectUrl, request, env).catch(err => {
+        console.error('Background screenshot capture failed:', err);
+      });
+    }
+  } else {
+    console.log(`✅ Project ${projectId} already has screenshot: ${project.preview_image_url}`);
+  }
 
   // Generate HTML content for the response
   let templateData = {};
@@ -360,7 +387,6 @@ async function handleProjectRoute(projectId, request, env, ctx) {
     } 
   });
 }
-
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -520,6 +546,33 @@ export default {
         return new Response(null, { status: 200, headers: corsHeaders });
       }
 
+      // --- Render exact Live Preview HTML for Browser Rendering ---
+      const renderMatch = path.match(/^\/api\/render-html\/(\d+)$/);
+      if (renderMatch && request.method === 'GET') {
+        const projectId = renderMatch[1];
+        try {
+          const db = env.DB;
+          const project = await db
+            .prepare('SELECT id, template_data FROM projects WHERE id = ?')
+            .bind(projectId)
+            .first();
+          if (!project) {
+            return new Response('Project not found', { status: 404, headers: corsHeaders });
+          }
+          let templateData = {};
+          try {
+            templateData = project.template_data
+              ? (typeof project.template_data === 'string' ? JSON.parse(project.template_data) : project.template_data)
+              : {};
+          } catch {}
+          const html = createCompleteStaticSite(templateData || {}, projectId);
+          return new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+        } catch (e) {
+          console.error('render-html error:', e);
+          return new Response('Failed to render HTML', { status: 500, headers: corsHeaders });
+        }
+      }
+
       // --- Project Tracking API ---
       if (path === '/api/project-tracking' && request.method === 'GET') {
         return await handleProjectTracking(request, env, corsHeaders);
@@ -562,7 +615,7 @@ export default {
         }
         if (request.method === 'PUT' && projectIdMatch) {
           // PUT /api/projects/:id
-          return await updateProjectFiles(projectIdMatch[1], request, env, corsHeaders);
+          return await updateProjectFiles(projectIdMatch[1], request, env, corsHeaders, ctx);
         }
         if (request.method === 'DELETE' && projectIdMatch) {
           // DELETE /api/projects/:id
@@ -931,7 +984,6 @@ async function ensureRemixCountColumn(env) {
     // Ignore
   }
 }
-
 // Generate a new ads image only (no DB saves) and return the URL/imageId
 async function handleGenerateAdsImageOnly(request, env, corsHeaders) {
   try {
@@ -1286,7 +1338,6 @@ async function getProjectMetrics(projectId, env, corsHeaders) {
     return new Response(JSON.stringify({ error: 'Failed to compute metrics' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
   }
 }
-
 // --- Jetsy Validation Score ---
 async function getProjectScore(projectId, env, corsHeaders) {
   try {
@@ -1579,7 +1630,6 @@ async function handleLeadSubmission(request, env, corsHeaders) {
     });
   }
 }
-
   // Add the new handler logic (align with functions/api/leads.js and UI expectations)
 async function handleLeadSubmissionV2(request, env, corsHeaders) {
   try {
@@ -1769,7 +1819,6 @@ async function handleOnboardingSubmission(request, env, corsHeaders) {
     });
   }
 }
-
 // Handle priority access attempts
 async function handlePriorityAccess(request, env, corsHeaders) {
   try {
@@ -2226,7 +2275,6 @@ async function getLeads(request, env, corsHeaders) {
     });
   }
 }
-
 // Get analytics data (for admin purposes)
 async function getAnalytics(request, env, corsHeaders) {
   try {
@@ -2447,7 +2495,7 @@ async function createProject(request, env, corsHeaders) {
     return new Response(JSON.stringify({ error: 'Failed to create project', details: error.message, stack: error.stack }), { status: 500, headers: corsHeaders });
   }
 }
-async function updateProjectFiles(id, request, env, corsHeaders) {
+async function updateProjectFiles(id, request, env, corsHeaders, ctx) {
   const db = env.DB;
   try {
     // Ensure ads columns exist
@@ -2502,6 +2550,52 @@ async function updateProjectFiles(id, request, env, corsHeaders) {
     if (!result.success) {
       throw new Error('Failed to update project');
     }
+
+    // Auto-trigger screenshot capture if template_data was updated and no preview image exists
+    if (template_data) {
+      try {
+        // Check if project has a preview image
+        const project = await db.prepare('SELECT preview_image_url FROM projects WHERE id = ?').bind(id).first();
+        if (project && !project.preview_image_url) {
+          console.log(`📸 Auto-triggering screenshot capture for project ${id} after template update`);
+          
+          // Generate exact HTML from template_data and capture via Browser Rendering (HTML mode)
+          let templateData = {};
+          try {
+            templateData = template_data ? (typeof template_data === 'string' ? JSON.parse(template_data) : template_data) : {};
+          } catch (e) {
+            console.error('❌ Failed to parse template_data for screenshot capture:', e);
+            templateData = {};
+          }
+          let htmlContent = '';
+          try {
+            htmlContent = createCompleteStaticSite(templateData || {}, id);
+            console.log(`📄 Generated HTML for capture: ${htmlContent.length} chars`);
+          } catch (e) {
+            console.error('❌ Failed to generate HTML for screenshot capture:', e);
+            htmlContent = '';
+          }
+          if (!htmlContent) {
+            console.warn('⚠️ Skipping screenshot capture due to empty HTML');
+          } else if (ctx && typeof ctx.waitUntil === 'function') {
+            ctx.waitUntil(
+              captureAndPersistProjectScreenshot(id, htmlContent, request, env).catch(err => {
+                console.error(`❌ Background screenshot capture failed for project ${id}:`, err);
+              })
+            );
+          } else {
+            // Fallback without waitUntil
+            captureAndPersistProjectScreenshot(id, htmlContent, request, env).catch(err => {
+              console.error(`❌ Screenshot capture failed for project ${id}:`, err);
+            });
+          }
+        }
+      } catch (screenshotError) {
+        console.error(`❌ Failed to auto-trigger screenshot capture for project ${id}:`, screenshotError);
+        // Don't fail the main update operation if screenshot capture fails
+      }
+    }
+
     return new Response(JSON.stringify({ success: true }), { status: 200, headers: corsHeaders });
   } catch (error) {
     return new Response(JSON.stringify({ error: 'Failed to update project' }), { status: 500, headers: corsHeaders });
@@ -2639,7 +2733,6 @@ async function getProjectVisibility(projectId, env, corsHeaders) {
     return new Response(JSON.stringify({ error: 'Failed to get project visibility', details: error.message }), { status: 500, headers: corsHeaders });
   }
 }
-
 async function remixProject(sourceProjectId, request, env, corsHeaders) {
   const db = env.DB;
   try {
@@ -2719,7 +2812,6 @@ async function remixProject(sourceProjectId, request, env, corsHeaders) {
     return new Response(JSON.stringify({ error: 'Failed to remix project', details: error.message }), { status: 500, headers: corsHeaders });
   }
 }
-
 // --- Vercel Deployment Handlers ---
 async function deployProjectToVercel(projectId, request, env, corsHeaders) {
   try {
@@ -3103,7 +3195,6 @@ async function addVercelCustomDomain(projectId, request, env, corsHeaders) {
     });
   }
 }
-
 async function getVercelDomainStatus(projectId, env, corsHeaders) {
   try {
     const db = env.DB;
@@ -3368,7 +3459,6 @@ async function handleGeneratePlatformAdCopy(request, env, corsHeaders) {
     });
   }
 }
-
 // --- Generate Business Name (no DB save) ---
 async function handleGenerateBusinessName(request, env, corsHeaders) {
   try {
@@ -3919,10 +4009,10 @@ function getExceptionalTemplateComponentCode() {
     };
     // ExceptionalTemplate component (same as in ExceptionalTemplate.jsx)
     const ExceptionalTemplate = ({ 
-      businessName = 'Your Amazing Startup',
+      businessName = 'Your Amazing Business',
       seoTitle = null,
       businessLogoUrl = null,
-      tagline = 'Transform your idea into reality with our innovative solution',
+      tagline = 'Idea into Business in 24 hours',
       isLiveWebsite = false,
       heroDescription = 'Join thousands of satisfied customers who have already made the leap.',
       ctaButtonText = 'Start Building Free',
@@ -5193,7 +5283,6 @@ function createCompleteStaticSite(templateData, projectId) {
             </div>
         </div>
     </div>
-
     <script>
         // Lead modal functionality
         function openLeadModal() {
@@ -5498,7 +5587,7 @@ function createExceptionalTemplateStaticSite(templateData, projectId) {
         justify-content: center;
         align-items: center;
         min-height: 100vh;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
       }
       
       .spinner {
@@ -5668,7 +5757,6 @@ function createExceptionalTemplateStaticSite(templateData, projectId) {
 </body>
 </html>`;
 }
-
 // Create static site from files (same approach as Live Preview)
 function createStaticSiteFromFiles(projectFiles, projectId, templateData = null) {
   // Get the main App component and CSS
@@ -5769,7 +5857,7 @@ function createStaticSiteFromFiles(projectFiles, projectId, templateData = null)
         justify-content: center;
         align-items: center;
         min-height: 100vh;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
       }
       
       .spinner {
@@ -5856,7 +5944,7 @@ function createStaticSiteFromFiles(projectFiles, projectId, templateData = null)
             align-items: center; 
             justify-content: center; 
             padding: 2rem;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
           ">
             <div style="
               text-align: center; 
@@ -6432,7 +6520,6 @@ async function callOpenAINano(userMessage, env) {
   const openaiUrl = 'https://api.openai.com/v1/responses';
   
             const nanoPrompt = `USER REQUEST: ${userMessage}
-
 CRITICAL SYSTEM REQUIREMENTS:
 - You MUST respond with ONLY valid JSON
 - No explanations, no markdown formatting, no code blocks
@@ -6713,6 +6800,7 @@ ADVANCED DESIGN PATTERNS:
    - Style Quiz: Interactive quiz for fashion
    - Trial Signup: Business information + trial access
    - Demo Request: Company details + demo scheduling
+   - Beta Signup: Email + preferences
 
 SOPHISTICATED COLOR SCHEMES:
 - ecommerce_fashion: Rose pink (#FF6B9D), Sky blue (#4A90E2), Golden yellow (#F8B500)
@@ -6964,7 +7052,6 @@ IMAGE PLACEHOLDER REQUIREMENTS:
 - Form validation and error handling
 - Lead form must be positioned prominently in the Hero section with high visibility
 - Use proper z-index, background overlays, and contrast to ensure form is always visible
-
 4. CTA BUTTON REQUIREMENTS:
 - Hero section MUST have a prominent CTA button
 - For restaurants/bars: "Book Table", "Reserve Now", "Order Online"
@@ -7062,7 +7149,6 @@ IMPORTANT:
   * "add image", "add photo", "add picture" to any section
   * Any request mentioning "image", "photo", "picture"
 - For all other requests (styling, content, features, navigation without image mentions), do NOT generate image_requests - keep existing images and placeholders
-
 AUTOMATIC PLACEHOLDER GENERATION:
 - The system will automatically detect which sections need images and include the correct placeholders
 - When user says "add image to About Us section" → Automatically include {GENERATED_IMAGE_URL_ABOUT} in the About section
@@ -7217,10 +7303,10 @@ function App() {
       <div className="container mx-auto px-4 py-16">
         <div className="text-center">
           <h1 className="text-5xl font-bold text-gray-900 mb-6">
-            Your Amazing Startup
+            Your Amazing Business
           </h1>
           <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-            Transform your idea into reality with our innovative solution. 
+            Idea into Business in 24 hours. 
             Join thousands of satisfied customers who have already made the leap.
           </p>
           <div className="space-x-4">
@@ -7453,7 +7539,6 @@ async function getIndexHTML() {
 </body>
 </html>`;
 }
-
 // --- Image Generation and Management Functions ---
 
 // Handle image generation using Google Gemini Imagen 3 Generate
@@ -7711,7 +7796,6 @@ async function generateImageWithGemini(prompt, aspectRatio, env) {
     };
   }
 }
-
 // Upload image to Cloudflare R2
 async function uploadImageToR2(imageBytes, env, request, mimeType = 'image/jpeg') {
   try {
@@ -7952,7 +8036,6 @@ async function handleGetImage(request, env, corsHeaders) {
     });
   }
 }
-
 // Delete image
 async function handleDeleteImage(request, env, corsHeaders) {
   try {
@@ -8845,7 +8928,6 @@ async function detectBusinessType(userMessage, env) {
     return 'local_service'; // Default fallback
   }
 }
-
 // Check if a prompt is vague and needs clarification
 function isVaguePrompt(messageLower) {
   const vagueKeywords = [
@@ -9341,7 +9423,6 @@ async function analyzeUserRequest(userMessage, projectFiles, env, projectId = nu
     'image': ['image', 'img', 'photo', 'picture'],
     'text': ['text', 'content', 'paragraph', 'p']
   };
-  
   for (const [element, keywords] of Object.entries(elementPatterns)) {
     if (keywords.some(keyword => messageLower.includes(keyword))) {
       analysis.specificTargets.push(element);
@@ -9814,7 +9895,6 @@ DO NOT SKIP ANY SECTION OR FEATURE!
   
   return requirements[businessType] || '';
 }
-
 // === TARGETED CODE EDITING SYSTEM ===
 
 // Apply targeted updates to preserve existing code
@@ -10273,9 +10353,7 @@ Return ONLY the business type code (e.g., "saas_b2b") with no other text.`;
     throw error;
   }
 }
-
 // Detect business type from user message using GPT-4o-mini
-
 // Always use OpenAI web search to craft background image prompts (no internal fallback)
 async function generateWebSearchedBackgroundPrompts(businessIdeaText, businessType, businessName, env) {
   const responsesUrl = 'https://api.openai.com/v1/responses';
@@ -10798,7 +10876,6 @@ Return ONLY a JSON object with these fields. Keep the structure exactly the same
     return currentTemplateData;
   }
 }
-
 // --- Ad Copy Generation Handler ---
 async function handleAdCopyGeneration(request, env, corsHeaders) {
   try {
@@ -10916,18 +10993,15 @@ async function handleAdCreativeGeneration(request, env, corsHeaders) {
 
     // Step 1: Use AI web search to research optimal background image prompts
     const researchPrompt = `Research the best background image styles for ${adData.businessName} ads targeting ${adData.targetAudience}. 
-    
 Business: ${adData.businessName}
 Description: ${adData.businessDescription}
 Target Audience: ${adData.targetAudience}
 Ad Text: "${adData.mainHeadline}" / "${adData.punchline}" / "${adData.callToAction}"
-
 Generate an optimal image generation prompt for a high-converting ad creative background image. The image should:
 - Be relevant to the business and appeal to the target audience
 - Have good contrast for text overlay
 - Look professional and trustworthy
 - Follow current advertising design trends
-
 Return ONLY the image generation prompt, no additional text.`;
 
     const researchResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -11227,536 +11301,48 @@ async function handleGenerateAdsWithAI(request, env, corsHeaders) {
   }
 }
 
-// Helper function to generate ads content using OpenAI with Sabri Suby's copywriting style
+// Helper function to generate ads content. If advanced generation is unavailable, fall back to sane defaults.
 async function generateAdsContent(businessName, templateData, businessType, env) {
-  const prompt = `You are a marketing genius and expert copywriter specializing in the direct response copywriting style of Sabri Suby. Your mission is to create ads that grab attention, create desire, and drive action.
-
-SABRI SUBY COPYWRITING PRINCIPLES:
-- **Hook First**: Start with a powerful, attention-grabbing statement that stops the scroll
-- **Problem-Agitation-Solution**: Identify the problem, agitate it, then present your solution
-- **Specificity**: Use specific numbers, results, and outcomes
-- **Urgency & Scarcity**: Create FOMO (Fear of Missing Out) and urgency
-- **Social Proof**: Include testimonials, case studies, or proof elements
-- **Risk Reversal**: Remove risk with guarantees or free trials
-- **Emotional Triggers**: Use words that evoke emotion and desire
-- **Clear CTA**: Make the next step crystal clear and compelling
-
-Business Context:
-- Name: ${businessName}
-- Type: ${businessType}
-- Description: ${templateData.businessDescription || templateData.aboutContent || 'Innovative business solution'}
-- Target Audience: ${templateData.targetAudience || 'Professionals and businesses'}
-- Value Proposition: ${templateData.tagline || 'Transform your business'}
-
-Generate high-converting ad copy for three platforms using Sabri Suby's style:
-
-1. LinkedIn Ads (Professional/B2B):
-- Primary Text: 150-200 characters, professional but attention-grabbing
-- Headline: 40 characters max, compelling and specific
-- Description: 60 characters max, benefit-focused with social proof
-- CTA: "LEARN_MORE", "GET_DEMO", "CONTACT_US", or similar
-
-2. Meta Ads (Facebook/Instagram):
-- Primary Text: 125 characters max, conversational and engaging
-- Headline: 40 characters max, attention-grabbing with specificity
-- Description: 30 characters max, benefit-focused with urgency
-- CTA: "SIGN_UP", "GET_STARTED", "LEARN_MORE", or similar
-
-3. Instagram Ads:
-- Description: 125 characters max, visually appealing and engaging
-- Headline: 40 characters max, trendy and modern with emotional triggers
-- CTA: "GET_STARTED", "SHOP_NOW", "LEARN_MORE", or similar
-
-COPYWRITING TECHNIQUES TO USE:
-- Start with a hook that stops the scroll
-- Use specific numbers and results
-- Create urgency and scarcity
-- Include social proof elements
-- Use emotional trigger words
-- Make benefits clear and compelling
-- End with a strong, clear CTA
-
-Return ONLY a JSON object with this exact structure:
-{
-  "linkedIn": {
-    "primaryText": "text here",
-    "headline": "text here",
-    "description": "text here",
-    "cta": "LEARN_MORE"
-  },
-  "meta": {
-    "primaryText": "text here",
-    "headline": "text here",
-    "description": "text here",
-    "cta": "SIGN_UP"
-  },
-  "instagram": {
-    "description": "text here",
-    "headline": "text here",
-    "cta": "GET_STARTED"
-  }
-}`;
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'developer', content: 'You are an expert ad copywriter specialized in high-converting ad creatives for all social media platforms.' },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 500
-    })
-  });
-
-  if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.status}`);
-  }
-
-  const result = await response.json();
-  // Cost log for multi-platform ad copy generation
-  if (result.usage) {
-    const inputTokens = result.usage.prompt_tokens || 0;
-    const outputTokens = result.usage.completion_tokens || 0;
-    const cost = logApiCost('gpt-4o-mini', inputTokens, outputTokens, 'mini');
-    totalCost.mini.input_tokens = inputTokens;
-    totalCost.mini.output_tokens = outputTokens;
-    totalCost.mini.cost = cost;
-    totalCost.total += cost;
-  }
-  const aiResponse = result.choices[0].message.content.trim();
-
-  // Parse the JSON response (robust to code fences/backticks)
   try {
-    let jsonText = aiResponse;
-    // If wrapped in code fences like ```json ... ``` or ``` ... ```
-    const fenceMatch = aiResponse.match(/```(?:json)?\n([\s\S]*?)```/i);
-    if (fenceMatch && fenceMatch[1]) {
-      jsonText = fenceMatch[1].trim();
-    }
-    // Fallback: extract first {...} block
-    if (!jsonText.trim().startsWith('{')) {
-      const start = jsonText.indexOf('{');
-      const end = jsonText.lastIndexOf('}');
-      if (start !== -1 && end !== -1 && end > start) {
-        jsonText = jsonText.slice(start, end + 1);
-      }
-    }
-    return JSON.parse(jsonText);
-  } catch (parseError) {
-    console.error('Failed to parse AI response:', parseError);
-    // Fallback content
-    return {
-      linkedIn: {
-        primaryText: `Transform your business with ${businessName}. Professional solutions for modern companies.`,
-        headline: 'Transform Your Business',
-        description: 'Professional solutions',
-        cta: 'LEARN_MORE'
-      },
-      meta: {
-        primaryText: `Discover how ${businessName} can revolutionize your business. Get started today!`,
-        headline: 'Revolutionize Your Business',
-        description: 'Get started today',
-        cta: 'SIGN_UP'
-      },
-      instagram: {
-        description: `Transform your business with ${businessName}. Professional solutions that deliver results.`,
-        headline: 'Transform Your Business',
+    const name = businessName || templateData?.businessName || 'Your Business';
+    const tagline = templateData?.tagline || 'Transform your business';
+    const website = templateData?.websiteUrl || 'https://yourwebsite.com';
+
+    // Minimal heuristic copy based on business type
+    const isB2B = /saas|b2b|software|tech|consult/i.test(businessType || '') || /SaaS|AI|Platform|Analytics/i.test(tagline);
+
+    const linkedIn = {
+      primaryText: isB2B
+        ? `${name} — ${tagline}. See how teams like yours get results faster.`
+        : `${name}: ${tagline}. See what makes us different today.`,
+      headline: isB2B ? 'Drive measurable results' : 'Experience the difference',
+      description: isB2B ? 'Trusted by growing teams' : 'Loved by customers',
+      cta: isB2B ? 'GET_DEMO' : 'LEARN_MORE'
+    };
+
+    const meta = {
+      primaryText: isB2B
+        ? `${name} helps you work smarter. Try it today.`
+        : `${name} — ${tagline}. Tap to explore.`,
+      headline: isB2B ? 'Work smarter' : 'Discover more',
+      description: isB2B ? 'Start in minutes' : 'Limited time',
+      cta: isB2B ? 'SIGN_UP' : 'GET_STARTED'
+    };
+
+    const instagram = {
+      description: `${tagline}`,
+      headline: isB2B ? `${name}` : `${name}`,
         cta: 'GET_STARTED'
-      }
     };
-  }
-}
 
-// Helper function to generate image prompt for ads - attention-grabbing images without text
-async function generateImagePromptForAds(businessName, templateData, businessType, env) {
-  const prompt = `You are a marketing genius specializing in creating attention-grabbing ad images. Generate an optimal image generation prompt for ${businessName}, a ${businessType} business.
-
-Business Context:
-- Name: ${businessName}
-- Type: ${businessType}
-- Description: ${templateData.businessDescription || templateData.aboutContent || 'Innovative business solution'}
-- Industry: ${businessType}
-
-IMPORTANT IMAGE REQUIREMENTS:
-- **NO TEXT WHATSOEVER**: The image must contain absolutely no text, letters, numbers, or written content
-- **NO LOGOS**: No business logos, watermarks, or brand elements
-- **ATTENTION-GRABBING**: Create an image that stops the scroll and captures attention
-- **EMOTIONAL IMPACT**: Use visual elements that evoke desire, success, or aspiration
-- **UNIVERSAL APPEAL**: Image should work across all social media platforms
-
-CREATIVE APPROACH:
-Sometimes the most effective ad images are NOT directly related to the business but convey the feeling of success, wealth, or desire that the target audience wants. For example:
-- For a business validation tool like Jetsy: A luxury supercar (conveys success/wealth)
-- For a fitness app: A fit person achieving their goals (conveys transformation)
-- For a business consulting service: A person in a luxury office (conveys success)
-
-IMAGE CHARACTERISTICS:
-- High contrast for text overlay
-- Modern, professional aesthetic
-- Visually striking and memorable
-- Suitable for text overlay (not too busy)
-- Follows current advertising design trends
-- Appeals to the target audience's aspirations
-
-Return ONLY the image generation prompt, no additional text or formatting. Make it specific and detailed for the AI image generator.`;
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'developer', content: 'You are an expert in advertising design and image generation prompts, specializing in attention-grabbing visuals without text.' },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 200
-    })
-  });
-
-  if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.status}`);
-  }
-
-  const result = await response.json();
-  // Cost log for ad image prompt generation
-  if (result.usage) {
-    const inputTokens = result.usage.prompt_tokens || 0;
-    const outputTokens = result.usage.completion_tokens || 0;
-    const cost = logApiCost('gpt-4o-mini', inputTokens, outputTokens, 'mini');
-    totalCost.mini.input_tokens = inputTokens;
-    totalCost.mini.output_tokens = outputTokens;
-    totalCost.mini.cost = cost;
-    totalCost.total += cost;
-  }
-  const aiResponse = result.choices[0].message.content.trim();
-  
-  // Clean up the response and ensure it's a good prompt
-  return aiResponse.replace(/^["']|["']$/g, '').trim();
-}
-
-// --- Business Info Auto-fill Handler ---
-async function handleAutoFillBusinessInfo(request, env, corsHeaders) {
-  try {
-    const { projectId } = await request.json();
-    
-    if (!projectId) {
-      return new Response(JSON.stringify({ error: 'projectId is required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders }
-      });
-    }
-
-    if (!env.OPENAI_API_KEY) {
-      throw new Error('OpenAI API key is required but not found');
-    }
-
-    // Get project data from database
-    const db = env.DB;
-    const projectResult = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
-    
-    if (!projectResult) {
-      return new Response(JSON.stringify({ error: 'Project not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders }
-      });
-    }
-
-    const project = projectResult;
-    
-    // Get chat messages to understand the business idea
-    const chatResult = await db.prepare('SELECT * FROM chat_messages WHERE project_id = ? ORDER BY timestamp ASC').bind(projectId).all();
-    const chatMessages = chatResult.results || [];
-    
-    // Get the initial user message (business idea)
-    const initialMessage = chatMessages.find(msg => msg.role === 'user');
-    if (!initialMessage) {
-      return new Response(JSON.stringify({ error: 'No initial business idea found' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders }
-      });
-    }
-
-    // Parse template data if it exists
-    let templateData = {};
-    if (project.template_data) {
-      try {
-        templateData = typeof project.template_data === 'string' 
-          ? JSON.parse(project.template_data) 
-          : project.template_data;
+    return { linkedIn, meta, instagram };
       } catch (e) {
-        console.log('Failed to parse template data:', e);
-      }
-    }
-
-    // Build context for AI analysis
-    const businessContext = {
-      projectName: project.project_name,
-      initialIdea: initialMessage.message,
-      templateData: templateData,
-      chatHistory: chatMessages.slice(0, 5).map(msg => `${msg.role}: ${msg.message}`).join('\n')
+    // Final safety fallback to avoid breaking callers
+    return {
+      linkedIn: { primaryText: '', headline: '', description: '', cta: 'LEARN_MORE' },
+      meta: { primaryText: '', headline: '', description: '', cta: 'GET_STARTED' },
+      instagram: { description: '', headline: '', cta: 'GET_STARTED' }
     };
-
-    // Extract existing business information from template data
-    let existingBusinessName = '';
-    let existingBusinessDescription = '';
-    let existingTargetAudience = '';
-
-    if (templateData) {
-      // Look for business name in various possible fields
-      existingBusinessName = templateData.businessName || 
-                           templateData.companyName || 
-                           templateData.brandName || 
-                           templateData.name || 
-                           project.project_name || '';
-
-      // Look for business description
-      existingBusinessDescription = templateData.businessDescription || 
-                                  templateData.description || 
-                                  templateData.about || 
-                                  templateData.summary || '';
-
-      // Look for target audience
-      existingTargetAudience = templateData.targetAudience || 
-                             templateData.targetMarket || 
-                             templateData.audience || 
-                             templateData.customerSegment || '';
-    }
-
-    // Log what we found for debugging
-    console.log('Extracted existing business info:', {
-      existingBusinessName,
-      existingBusinessDescription,
-      existingTargetAudience,
-      templateDataKeys: templateData ? Object.keys(templateData) : 'No template data'
-    });
-
-    // Use OpenAI to analyze and enhance existing business information
-    const prompt = `Analyze the following business information and enhance/complete the missing details:
-
-PROJECT CONTEXT:
-- Project Name: ${businessContext.projectName}
-- Initial Business Idea: ${businessContext.initialIdea}
-- Template Data: ${JSON.stringify(businessContext.templateData, null, 2)}
-- Chat History: ${businessContext.chatHistory}
-
-EXISTING BUSINESS INFORMATION:
-- Business Name: ${existingBusinessName || 'NOT PROVIDED'}
-- Business Description: ${existingBusinessDescription || 'NOT PROVIDED'}
-- Target Audience: ${existingTargetAudience || 'NOT PROVIDED'}
-
-INSTRUCTIONS:
-1. Business Name: Use the existing business name if provided, otherwise generate a professional one (max 50 characters)
-2. Business Description: Enhance the existing description or generate a new one if missing (max 200 characters)
-3. Target Audience: Enhance the existing audience description or generate a new one if missing (max 100 characters)
-
-IMPORTANT RULES:
-- If a business name already exists, USE IT - do not change it
-- Only enhance descriptions and target audience if they are missing or incomplete
-- Maintain consistency with the existing business concept
-- Return ONLY a raw JSON object without any markdown formatting
-
-Example response format:
-{"businessName": "EXISTING_OR_NEW_NAME", "businessDescription": "ENHANCED_DESCRIPTION", "targetAudience": "ENHANCED_AUDIENCE"}`;
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: 'You are an expert business analyst and naming consultant. Your job is to enhance existing business information, not replace it. If a business name already exists, you MUST use it exactly as provided. Only generate new information for missing fields. Always respond with raw JSON only, no markdown formatting.' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.7,
-        max_tokens: 300
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
-    const result = await response.json();
-    // Cost log for auto-fill business info
-    if (result.usage) {
-      const inputTokens = result.usage.prompt_tokens || 0;
-      const outputTokens = result.usage.completion_tokens || 0;
-      const cost = logApiCost('gpt-4o-mini', inputTokens, outputTokens, 'mini');
-      totalCost.mini.input_tokens = inputTokens;
-      totalCost.mini.output_tokens = outputTokens;
-      totalCost.mini.cost = cost;
-      totalCost.total += cost;
-    }
-    const aiResponse = result.choices[0].message.content.trim();
-    
-    // Parse the JSON response - handle markdown formatting
-    let businessInfo;
-    try {
-      // Clean up the response - remove markdown formatting if present
-      let cleanResponse = aiResponse.trim();
-      
-      // Remove markdown code blocks if present
-      if (cleanResponse.startsWith('```json')) {
-        cleanResponse = cleanResponse.replace(/^```json\s*/, '');
-      }
-      if (cleanResponse.endsWith('```')) {
-        cleanResponse = cleanResponse.replace(/\s*```$/, '');
-      }
-      
-      // Remove any leading/trailing whitespace
-      cleanResponse = cleanResponse.trim();
-      
-      businessInfo = JSON.parse(cleanResponse);
-    } catch (parseError) {
-      // Fallback if JSON parsing fails
-      console.error('Failed to parse AI response:', parseError);
-      console.error('Raw AI response:', aiResponse);
-      businessInfo = {
-        businessName: project.project_name || 'My Business',
-        businessDescription: `Professional ${project.project_name || 'business'} services`,
-        targetAudience: 'Business professionals and individuals'
-      };
-    }
-
-    // Validate business info before saving
-    if (!businessInfo.businessName || !businessInfo.businessDescription || !businessInfo.targetAudience) {
-      console.error('Invalid business info generated:', businessInfo);
-      throw new Error('Generated business information is incomplete');
-    }
-
-    // Ensure we preserve the existing business name if it was already provided
-    if (existingBusinessName && existingBusinessName.trim()) {
-      businessInfo.businessName = existingBusinessName.trim();
-      console.log('Preserved existing business name:', businessInfo.businessName);
-    }
-
-    // Save the generated business info to the database
-    await db.prepare(`
-      UPDATE projects 
-      SET business_name = ?, business_description = ?, target_audience = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).bind(businessInfo.businessName, businessInfo.businessDescription, businessInfo.targetAudience, projectId).run();
-
-    return new Response(JSON.stringify({
-      success: true,
-      businessInfo: businessInfo
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders }
-    });
-
-  } catch (error) {
-    console.error('Business info auto-fill error:', error);
-    return new Response(JSON.stringify({ error: 'Failed to auto-fill business information' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders }
-    });
-  }
-}
-
-// --- Save Business Info Handler ---
-async function handleSaveBusinessInfo(request, env, corsHeaders) {
-  try {
-    const { projectId, businessName, businessDescription, targetAudience } = await request.json();
-    
-    if (!projectId || !businessName || !businessDescription || !targetAudience) {
-      return new Response(JSON.stringify({ error: 'All fields are required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders }
-      });
-    }
-
-    // Save business info to database
-    const db = env.DB;
-    await db.prepare(`
-      UPDATE projects 
-      SET business_name = ?, business_description = ?, target_audience = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).bind(businessName, businessDescription, targetAudience, projectId).run();
-
-    return new Response(JSON.stringify({
-      success: true,
-      message: 'Business information saved successfully'
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders }
-    });
-
-  } catch (error) {
-    console.error('Save business info error:', error);
-    return new Response(JSON.stringify({ error: 'Failed to save business information' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders }
-    });
-  }
-}
-
-// --- Comprehensive Analytics API Functions ---
-
-async function getAnalyticsOverview(request, env, corsHeaders) {
-  try {
-    const db = env.DB;
-    
-    // Get total leads (from lead capture events) - only from main Jetsy website
-    const leadsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('lead_form_submit').first()
-    const totalLeads = leadsResult?.count || 0
-
-    // Get total events (streamlined events only) - only from main Jetsy website
-    const eventsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name IN (?, ?, ?, ?, ?, ?) AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').first()
-    const totalEvents = eventsResult?.count || 0
-
-    // Get priority access attempts (from tracking events) - only from main Jetsy website
-    const priorityResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('priority_access_attempt').first()
-    const priorityAccessAttempts = priorityResult?.count || 0
-
-    // Get today's leads - only from main Jetsy website
-    const todayLeadsResult = await db.prepare(`
-      SELECT COUNT(*) as count FROM tracking_events 
-      WHERE event_name = ? AND DATE(created_at) = DATE('now') AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")
-    `).bind('lead_form_submit').first()
-    const todayLeads = todayLeadsResult?.count || 0
-
-    // Get today's events - only from main Jetsy website
-    const todayEventsResult = await db.prepare(`
-      SELECT COUNT(*) as count FROM tracking_events 
-      WHERE event_name IN (?, ?, ?, ?, ?, ?) AND DATE(created_at) = DATE('now') AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")
-    `).bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').first()
-    const todayEvents = todayEventsResult?.count || 0
-
-    // Calculate conversion rate (leads who reached queue view) - only from main Jetsy website
-    const queueViewsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('queue_view').first()
-    const queueViews = queueViewsResult?.count || 0
-    const conversionRate = totalLeads > 0 ? Math.round((queueViews / totalLeads) * 100) : 0
-
-    return new Response(JSON.stringify({
-      totalLeads,
-      totalEvents,
-      priorityAccessAttempts,
-      conversionRate,
-      todayLeads,
-      todayEvents
-    }), {
-      headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders,
-      },
-    })
-  } catch (error) {
-    console.error('Error getting analytics overview:', error)
-    throw error
   }
 }
 
@@ -12145,7 +11731,6 @@ IMPORTANT: You must respond with ONLY a valid JSON object. Do not include any ot
   "meta": "Meta targeting description here", 
   "instagram": "Instagram targeting description here"
 }
-
 Make each description specific, actionable, and optimized for the respective platform's advertising system.`;
 
     // Call OpenAI GPT-4o-mini
@@ -12255,7 +11840,6 @@ Make each description specific, actionable, and optimized for the respective pla
     });
   }
 }
-
 // --- Billing Handlers ---
 async function getBillingMe(request, env, corsHeaders) {
   try {
@@ -12719,7 +12303,6 @@ async function handleStripeWebhook(request, env) {
     return new Response('Webhook error', { status: 400 });
   }
 }
-
 // --- Credit Deduction Function ---
 async function deductCredits(userId, amount, featureName, transactionType = 'deduction', metadata = null, env) {
   try {
@@ -12791,85 +12374,5 @@ async function deductCredits(userId, amount, featureName, transactionType = 'ded
   } catch (error) {
     console.error(`[Credits Transaction] ❌ Credit deduction failed:`, error);
     throw error;
-  }
-}
-
-// --- User Credits API Handler ---
-async function handleGetUserCredits(request, env, corsHeaders) {
-  try {
-    // Get the Authorization header
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'Authorization header required' 
-      }), { 
-        status: 401, 
-        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
-      });
-    }
-
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    const claims = parseJwt(token);
-    const userId = claims?.sub || claims?.user?.id || null;
-    if (!userId) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'Invalid token: user not found' 
-      }), { 
-        status: 401, 
-        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
-      });
-    }
-
-    const db = env.DB;
-    if (!db) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'Database not available' 
-      }), { 
-        status: 500, 
-        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
-      });
-    }
-
-    // Fetch or create per-user credits row
-    let userCredits = await db.prepare(`
-      SELECT user_id, credits, plan_type, credits_per_month, last_refresh_date 
-      FROM user_credits 
-      WHERE user_id = ?
-      ORDER BY created_at DESC 
-      LIMIT 1
-    `).bind(userId).first();
-
-    if (!userCredits) {
-      const nowIso = new Date().toISOString();
-      const insertRes = await db.prepare(`
-        INSERT INTO user_credits (user_id, credits, plan_type, credits_per_month, last_refresh_date, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      `).bind(userId, 15, 'free', 15, nowIso).run();
-      if (!insertRes.success) {
-        return new Response(JSON.stringify({ success: false, error: 'Failed to initialize user credits' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
-      }
-      userCredits = { user_id: userId, credits: 15, plan_type: 'free', credits_per_month: 15, last_refresh_date: nowIso };
-    }
-
-    return new Response(JSON.stringify({ 
-      success: true, 
-      ...userCredits 
-    }), { 
-      status: 200, 
-      headers: { 'Content-Type': 'application/json', ...corsHeaders } 
-    });
-  } catch (error) {
-    console.error('Error getting user credits:', error);
-    return new Response(JSON.stringify({ 
-      success: false, 
-      error: 'Failed to get user credits',
-      details: error.message 
-    }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders }
-    });
   }
 }

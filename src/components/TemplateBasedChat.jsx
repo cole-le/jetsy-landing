@@ -168,10 +168,10 @@ const getMobileViewportStyles = (previewMode) => {
 
 // Default template data for new projects
 export const DEFAULT_TEMPLATE_DATA = {
-  businessName: 'Your Amazing Startup',
+  businessName: 'Your Amazing Business',
   seoTitle: 'Transform your idea into reality',
   businessLogoUrl: null,
-  tagline: 'Transform your idea into reality with our innovative solution',
+  tagline: 'Idea into Business in 24 hours',
   heroDescription: 'Join thousands of satisfied customers who have already made the leap.',
   ctaButtonText: 'Start Building Free',
   sectionType: 'features', // 'features' for SaaS/tech, 'services' for restaurants/bars, 'highlights' for other businesses
@@ -669,7 +669,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   useEffect(() => {
     if (templateData?.businessName && templateData.businessName !== currentProject?.project_name && isEditorMode && currentProject?.id) {
       // Only update if we're not in the process of creating a new project
-      if (currentProject.project_name !== 'New business' || templateData.businessName !== 'Your Amazing Startup') {
+      if (currentProject.project_name !== 'New business' || templateData.businessName !== 'Your Amazing Business') {
         // Update currentProject state with new business name
         setCurrentProject(prev => ({
           ...prev,

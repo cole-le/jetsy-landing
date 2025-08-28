@@ -114,10 +114,10 @@ const getSessionId = () => {
 };
 
 const ExceptionalTemplate = ({ 
-  businessName = 'Your Amazing Startup',
+  businessName = 'Your Amazing Business',
   seoTitle = null,
   businessLogoUrl = null,
-  tagline = 'Transform your idea into reality with our innovative solution',
+  tagline = 'Idea into Business in 24 hours',
   isLiveWebsite = false,
   heroDescription = 'Join thousands of satisfied customers who have already made the leap.',
   ctaButtonText = 'Start Building Free',
