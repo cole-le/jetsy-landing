@@ -11905,6 +11905,69 @@ async function getBillingMe(request, env, corsHeaders) {
   }
 }
 
+// Back-compat: lightweight credits endpoint consumed by frontend
+async function handleGetUserCredits(request, env, corsHeaders) {
+  try {
+    const db = env.DB;
+    if (!db) {
+      return new Response(JSON.stringify({ success: false, error: 'Database not available' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ success: false, error: 'Authorization header required' }), { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+    const token = authHeader.slice('Bearer '.length).trim();
+    const claims = parseJwt(token);
+    const user_id = claims?.sub || claims?.user?.id || null;
+    if (!user_id) {
+      return new Response(JSON.stringify({ success: false, error: 'Invalid token: user not found' }), { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+
+    let row = await db.prepare(`
+      SELECT user_id, credits, plan_type, credits_per_month, last_refresh_date
+      FROM user_credits
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+      LIMIT 1
+    `).bind(user_id).first();
+
+    if (!row) {
+      const nowIso = new Date().toISOString();
+      const insertRes = await db.prepare(`
+        INSERT INTO user_credits (user_id, credits, plan_type, credits_per_month, last_refresh_date, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `).bind(user_id, 15, 'free', 15, nowIso).run();
+      if (!insertRes.success) {
+        throw new Error('Failed to initialize user credits');
+      }
+      row = { user_id, credits: 15, plan_type: 'free', credits_per_month: 15, last_refresh_date: nowIso };
+    }
+
+    const plan = row.plan_type || 'free';
+    const credit_limit = row.credits_per_month || 15;
+    const next_refresh_at = plan === 'free'
+      ? null
+      : (row.last_refresh_date
+        ? new Date(new Date(row.last_refresh_date).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        : null);
+
+    return new Response(JSON.stringify({
+      success: true,
+      credits: row.credits,
+      plan,
+      credit_limit,
+      next_refresh_at
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  } catch (error) {
+    console.error('handleGetUserCredits error:', error);
+    return new Response(JSON.stringify({ success: false, error: 'Failed to fetch user credits' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  }
+}
+
 // --- Stripe Helpers & Handlers ---
 // Utility: URL-encode form body for Stripe REST API
 function formEncode(obj) {
