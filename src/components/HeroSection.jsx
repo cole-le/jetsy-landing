@@ -18,7 +18,13 @@ const HeroSection = ({ onIdeaSubmit, onPricingShown, expandChat, onShowSignup })
   }
 
   return (
-    <section className="min-h-screen flex flex-col items-start justify-start px-4 pt-8 md:pt-12 pb-12 relative lovable-gradient">
+    <section className="min-h-screen flex flex-col items-start justify-start px-4 pt-8 md:pt-12 pb-12 relative">
+      {/* Mobile-specific background container */}
+      <div className="mobile-top-gradient absolute inset-0 pointer-events-none"></div>
+      
+      {/* Desktop background */}
+      <div className="hidden lg:block lovable-gradient absolute inset-0 pointer-events-none"></div>
+      
       <div className="max-w-screen-xl mx-auto text-center relative z-10 w-full">
 
         {/* Headline */}

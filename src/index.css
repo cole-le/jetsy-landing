@@ -64,6 +64,51 @@
     position: relative;
   }
   
+  /* Mobile-specific background confinement */
+  @media (max-width: 1023px) {
+    .lovable-gradient {
+      background: 
+        linear-gradient(to bottom, #FFFFFF 0%, #F8F9FA 10%, #E8F2FF 25%, #D1DDFE 40%, #E8D8FF 55%, #F8A9A5 70%, #FFB3B3 80%, transparent 80%);
+      background-attachment: scroll;
+      background-size: 100% 80vh;
+      background-repeat: no-repeat;
+    }
+    
+    .lovable-gradient::before {
+      background: 
+        linear-gradient(to bottom, rgba(244, 244, 244, 0.7) 0%, rgba(232, 242, 255, 0.5) 10%, rgba(209, 221, 254, 0.6) 25%, rgba(232, 216, 255, 0.4) 40%, rgba(248, 169, 165, 0.5) 55%, rgba(255, 179, 179, 0.4) 70%, rgba(255, 229, 229, 0.3) 80%, transparent 80%);
+      background-size: 100% 80vh;
+      background-repeat: no-repeat;
+    }
+  }
+  
+  /* Mobile-specific top-only background */
+  @media (max-width: 1023px) {
+    .mobile-top-gradient {
+      background: 
+        linear-gradient(to bottom, #FFFFFF 0%, #F8F9FA 10%, #E8F2FF 25%, #D1DDFE 40%, #E8D8FF 55%, #F8A9A5 70%, #FFB3B3 80%, #FFE5E5 90%, transparent 95%);
+      background-size: 100% 95vh;
+      background-repeat: no-repeat;
+      background-position: top center;
+    }
+    
+    .mobile-top-gradient::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 95vh;
+      background: 
+        linear-gradient(to bottom, rgba(244, 244, 244, 0.7) 0%, rgba(232, 242, 255, 0.5) 10%, rgba(209, 221, 254, 0.6) 25%, rgba(232, 216, 255, 0.4) 40%, rgba(248, 169, 165, 0.5) 55%, rgba(255, 179, 179, 0.4) 70%, rgba(255, 229, 229, 0.3) 80%, rgba(255, 229, 229, 0.2) 90%, transparent 95%);
+      background-size: 100% 95vh;
+      background-repeat: no-repeat;
+      background-position: top center;
+      pointer-events: none;
+      z-index: -1;
+    }
+  }
+  
   .lovable-gradient::before {
     content: '';
     position: absolute;
