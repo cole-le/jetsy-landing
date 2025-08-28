@@ -64,7 +64,7 @@ export default {
       },
       backgroundImage: {
         'radial-gradient': 'radial-gradient(circle at center, white 0%, #F9F9F9 100%)',
-        'lovable-gradient': 'radial-gradient(circle at 50% 30%, #F4F4F4 0%, #D1DDFE 40%, #F8A9A5 80%)',
+        'lovable-gradient': 'radial-gradient(circle at 50% 85%, #F4F4F4 0%, #E8F2FF 15%, #D1DDFE 30%, #E8D8FF 50%, #F8A9A5 70%, #FFB3B3 85%, #FFE5E5 100%)',
       },
     },
   },
