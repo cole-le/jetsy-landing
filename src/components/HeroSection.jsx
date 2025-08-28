@@ -5,11 +5,34 @@ import { trackEvent } from '../utils/analytics'
 
 const HeroSection = ({ onIdeaSubmit, onPricingShown, expandChat, onShowSignup }) => {
   const [isVisible, setIsVisible] = useState(false)
+  const [currentProofIndex, setCurrentProofIndex] = useState(0)
+  const [isTransitioning, setIsTransitioning] = useState(false)
+
+  const proofTexts = [
+    { text: "🌐 No code — just your idea, live", icon: "🌐" },
+    { text: "📢 Real ads, real traffic", icon: "📢" },
+    { text: "💵 Real proof: will it sell or not?", icon: "💵" }
+  ]
 
   useEffect(() => {
     // Animate in the hero section
     const timer = setTimeout(() => setIsVisible(true), 100)
     return () => clearTimeout(timer)
+  }, [])
+
+  // Rotate proof texts on mobile with smooth transitions
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsTransitioning(true)
+      
+      // Wait for fade out, then change text and fade in
+      setTimeout(() => {
+        setCurrentProofIndex((prev) => (prev + 1) % proofTexts.length)
+        setIsTransitioning(false)
+      }, 1000) // Increased to 1000ms for 1 second fade-out
+    }, 3000) // Increased to 3 seconds to accommodate 2s display + 1s fade-out
+
+    return () => clearInterval(interval)
   }, [])
 
   const handleIdeaSubmit = (idea, visibility) => {
@@ -48,15 +71,27 @@ const HeroSection = ({ onIdeaSubmit, onPricingShown, expandChat, onShowSignup })
         </div>
 
         {/* Trust indicators */}
-        <div className={`mt-16 flex flex-wrap justify-center items-center gap-8 text-mutedText transition-all duration-1000 delay-800 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <div className="flex items-center gap-2">
-            <span>🌐 No code — just your idea, live</span>
+        <div className={`mt-16 transition-all duration-1000 delay-800 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          {/* Mobile: Single rotating text with smooth transitions */}
+          <div className="lg:hidden flex justify-center items-center">
+            <div className="text-sm text-mutedText min-h-[1.5rem] flex items-center justify-center">
+              <span 
+                className={`transition-all duration-800 ease-in-out ${
+                  isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
+                }`}
+              >
+                {proofTexts[currentProofIndex].text}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span>📢 Real ads, real traffic</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span>💵 Real proof: will it sell or not?</span>
+          
+          {/* Desktop: All three texts horizontally */}
+          <div className="hidden lg:flex flex-wrap justify-center items-center gap-8 text-mutedText">
+            {proofTexts.map((proof, index) => (
+              <div key={index} className="flex items-center gap-2">
+                <span>{proof.text}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
