@@ -99,11 +99,12 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
         // Reload projects to get authoritative data (visibility, timestamps, etc.)
         await loadProjects();
         // Create a complete project object with all necessary fields
+        // The visibility will be set by the backend based on user plan
         const newProject = { 
           id: result.project_id, 
           user_id: session?.user?.id || 1,
           project_name: 'New business', // Explicitly set to "New business"
-          visibility: 'private', // Default visibility for new projects
+          visibility: 'public', // Will be updated with actual visibility from backend
           files: projectData.files,
           updated_at: new Date().toISOString()
         };

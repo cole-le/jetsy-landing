@@ -475,6 +475,68 @@ export default {
       if (path === '/stripe-webhook' && request.method === 'POST') {
         return await handleStripeWebhook(request, env);
       }
+      if (path === '/webhook' && request.method === 'POST') {
+        return await handleStripeWebhook(request, env);
+      }
+      
+      // Test endpoint to verify database connection
+      if (path === '/api/test-db' && request.method === 'GET') {
+        try {
+          const db = env.DB;
+          if (!db) {
+            return new Response(JSON.stringify({ error: 'Database not available' }), { 
+              status: 500, 
+              headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+            });
+          }
+          
+          // Test a simple query
+          const result = await db.prepare('SELECT 1 as test').first();
+          return new Response(JSON.stringify({ 
+            success: true, 
+            database: 'connected',
+            test_result: result 
+          }), { 
+            status: 200, 
+            headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+          });
+        } catch (error) {
+          return new Response(JSON.stringify({ 
+            error: 'Database test failed', 
+            details: error.message 
+          }), { 
+            status: 500, 
+            headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+          });
+        }
+      }
+      
+      // Test webhook endpoint without signature verification for debugging
+      if (path === '/api/test-webhook' && request.method === 'POST') {
+        try {
+          const payload = await request.text();
+          const event = JSON.parse(payload);
+          console.log(`[TestWebhook] Received event: ${event.type}`);
+          console.log(`[TestWebhook] Event data:`, JSON.stringify(event.data.object, null, 2));
+          
+          return new Response(JSON.stringify({ 
+            success: true, 
+            message: 'Test webhook received',
+            event_type: event.type 
+          }), { 
+            status: 200, 
+            headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+          });
+        } catch (error) {
+          return new Response(JSON.stringify({ 
+            error: 'Test webhook failed', 
+            details: error.message 
+          }), { 
+            status: 500, 
+            headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+          });
+        }
+      }
 
       if (path === '/api/jetsy-analytics' && request.method === 'POST') {
         return await handleJetsyAnalytics(request, env, corsHeaders);
@@ -2474,15 +2536,34 @@ async function createProject(request, env, corsHeaders) {
       return new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: corsHeaders });
     }
     
+    // Get user's billing plan to determine default visibility
+    let defaultVisibility = 'public'; // Default to public for free users
+    
+    try {
+      const userCreditsRow = await db.prepare(`
+        SELECT plan_type FROM user_credits 
+        WHERE user_id = ? 
+        ORDER BY created_at DESC 
+        LIMIT 1
+      `).bind(user_id).first();
+      
+      if (userCreditsRow && userCreditsRow.plan_type && userCreditsRow.plan_type !== 'free') {
+        defaultVisibility = 'private'; // Private for paid users
+      }
+    } catch (error) {
+      console.log('Could not determine user plan, defaulting to public visibility:', error.message);
+      // Default to public if we can't determine the plan
+    }
+    
     const now = new Date().toISOString();
     
     let query, params;
     if (template_data) {
       query = 'INSERT INTO projects (user_id, project_name, files, template_data, visibility, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)';
-      params = [user_id, project_name, JSON.stringify(files), JSON.stringify(template_data), 'private', now, now];
+      params = [user_id, project_name, JSON.stringify(files), JSON.stringify(template_data), defaultVisibility, now, now];
     } else {
       query = 'INSERT INTO projects (user_id, project_name, files, visibility, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)';
-      params = [user_id, project_name, JSON.stringify(files), 'private', now, now];
+      params = [user_id, project_name, JSON.stringify(files), defaultVisibility, now, now];
     }
     
     const result = await db.prepare(query).bind(...params).run();
@@ -2765,18 +2846,38 @@ async function remixProject(sourceProjectId, request, env, corsHeaders) {
       return new Response(JSON.stringify({ error: 'Project not found or not accessible for remixing' }), { status: 404, headers: corsHeaders });
     }
     
+    // Get user's billing plan to determine default visibility for remixed project
+    let defaultVisibility = 'public'; // Default to public for free users
+    
+    try {
+      const userCreditsRow = await db.prepare(`
+        SELECT plan_type FROM user_credits 
+        WHERE user_id = ? 
+        ORDER BY created_at DESC 
+        LIMIT 1
+      `).bind(user_id).first();
+      
+      if (userCreditsRow && userCreditsRow.plan_type && userCreditsRow.plan_type !== 'free') {
+        defaultVisibility = 'private'; // Private for paid users
+      }
+    } catch (error) {
+      console.log('Could not determine user plan for remix, defaulting to public visibility:', error.message);
+      // Default to public if we can't determine the plan
+    }
+    
     // Create a new project based on the source
     const now = new Date().toISOString();
     const remixedName = `${sourceProject.project_name} (Remix)`;
     
     const result = await db.prepare(`
       INSERT INTO projects (user_id, project_name, files, template_data, visibility, created_at, updated_at) 
-      VALUES (?, ?, ?, ?, 'public', ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `).bind(
       user_id,
       remixedName,
       sourceProject.files,
       sourceProject.template_data,
+      defaultVisibility,
       now,
       now
     ).run();
@@ -2804,7 +2905,7 @@ async function remixProject(sourceProjectId, request, env, corsHeaders) {
       project: {
         id: newProjectId,
         project_name: remixedName,
-        visibility: 'public'
+        visibility: defaultVisibility
       }
     }), { status: 201, headers: corsHeaders });
   } catch (error) {
@@ -3354,7 +3455,7 @@ async function ensureVisibilityColumn(env) {
   
   // Add visibility column to projects table if it doesn't exist
   try {
-    await db.prepare(`ALTER TABLE projects ADD COLUMN visibility TEXT DEFAULT 'private' CHECK (visibility IN ('public', 'private'))`).run();
+    await db.prepare(`ALTER TABLE projects ADD COLUMN visibility TEXT DEFAULT 'public' CHECK (visibility IN ('public', 'private'))`).run();
     console.log('Added visibility column to projects table');
   } catch (e) {
     // Column probably already exists
@@ -3367,9 +3468,9 @@ async function ensureVisibilityColumn(env) {
     // Index probably already exists
   }
   
-  // Update existing projects to have 'private' visibility by default
+  // Update existing projects to have 'public' visibility by default (for free users)
   try {
-    await db.prepare(`UPDATE projects SET visibility = 'private' WHERE visibility IS NULL`).run();
+    await db.prepare(`UPDATE projects SET visibility = 'public' WHERE visibility IS NULL`).run();
   } catch (e) {
     // May fail if column doesn't exist yet, which is fine
   }
@@ -12027,6 +12128,12 @@ function resolvePlanConfig(env, plan) {
     CREDITS_PRO: env.CREDITS_PRO || '100 (default)',
     CREDITS_BUSINESS: env.CREDITS_BUSINESS || '300 (default)'
   });
+  console.log(`[PlanConfig] 🔑 Raw env values:`, {
+    STRIPE_PRICE_PRO: env.STRIPE_PRICE_PRO,
+    STRIPE_PRICE_BUSINESS: env.STRIPE_PRICE_BUSINESS,
+    CREDITS_PRO: env.CREDITS_PRO,
+    CREDITS_BUSINESS: env.CREDITS_BUSINESS
+  });
   
   // Expected env vars:
   // STRIPE_PRICE_PRO, STRIPE_PRICE_BUSINESS
@@ -12050,6 +12157,11 @@ function resolvePlanConfig(env, plan) {
 
 async function grantCreditsAndSetPlan(userId, plan, creditsToGrant, env) {
   console.log(`[Credits] 🚀 Starting credit grant for user: ${userId}, plan: ${plan}, credits: ${creditsToGrant}`);
+  console.log(`[Credits] 🔑 Environment check:`, {
+    hasDB: !!env.DB,
+    hasStripeKey: !!env.STRIPE_SECRET_KEY,
+    hasWebhookSecret: !!env.STRIPE_WEBHOOK_SECRET
+  });
   
   const db = env.DB;
   if (!db) {
@@ -12207,20 +12319,39 @@ async function handleStripeWebhook(request, env) {
   try {
     const sig = request.headers.get('Stripe-Signature');
     const secret = env.STRIPE_WEBHOOK_SECRET;
+    console.log(`[Webhook] 🔐 Signature verification:`, {
+      hasSignature: !!sig,
+      hasSecret: !!secret,
+      signatureLength: sig ? sig.length : 0,
+      secretLength: secret ? secret.length : 0
+    });
+    
     if (!sig || !secret) {
+      console.log('[Webhook] Missing signature or secret');
       return new Response('Missing signature or secret', { status: 400 });
     }
+    
+    console.log(`[Webhook] 🔐 Webhook secret starts with: ${secret.substring(0, 10)}...`);
     const payload = await request.text(); // RAW body for signature
 
     // Parse Stripe-Signature header: t=timestamp, v1=signature
     const parts = Object.fromEntries(sig.split(',').map(kv => kv.split('=')));
     const timestamp = parts.t;
     const v1 = parts.v1;
+    console.log(`[Webhook] 🔐 Parsed signature parts:`, { timestamp, v1, parts });
+    
     if (!timestamp || !v1) return new Response('Invalid signature header', { status: 400 });
 
     const signedPayload = `${timestamp}.${payload}`;
     const computed = await hmacSha256Hex(secret, signedPayload);
+    console.log(`[Webhook] 🔐 Signature comparison:`, {
+      computed: computed.substring(0, 10) + '...',
+      received: v1.substring(0, 10) + '...',
+      match: timingSafeEqual(computed, v1)
+    });
+    
     if (!timingSafeEqual(computed, v1)) {
+      console.log('[Webhook] Signature verification failed');
       return new Response('Signature verification failed', { status: 400 });
     }
 
@@ -12228,6 +12359,24 @@ async function handleStripeWebhook(request, env) {
     const type = event.type;
     
     console.log(`[Webhook] Processing event: ${type}`);
+    console.log(`[Webhook] Event data:`, JSON.stringify(event.data.object, null, 2));
+    
+    // Verify we have the required environment variables
+    if (!env.STRIPE_SECRET_KEY) {
+      console.error('[Webhook] ❌ STRIPE_SECRET_KEY not configured');
+      return new Response(JSON.stringify({ error: 'Stripe secret not configured' }), { 
+        status: 500, 
+        headers: { 'Content-Type': 'application/json' } 
+      });
+    }
+    
+    if (!env.DB) {
+      console.error('[Webhook] ❌ Database not available');
+      return new Response(JSON.stringify({ error: 'Database not available' }), { 
+        status: 500, 
+        headers: { 'Content-Type': 'application/json' } 
+      });
+    }
     
     // Handle successful payments/subscriptions and cancellations
     if (type === 'checkout.session.completed') {
@@ -12237,7 +12386,18 @@ async function handleStripeWebhook(request, env) {
       
       console.log(`[Webhook] Checkout completed - Plan: ${plan}, User: ${userId}`);
       
-      // Do not grant credits here; rely on invoice.payment_succeeded for billing-confirmed credit grants
+      // For subscription mode, credits will be granted on invoice.payment_succeeded
+      // For payment mode, we can grant credits immediately
+      if (session.mode === 'payment' && userId) {
+        const conf = resolvePlanConfig(env, plan);
+        if (conf) {
+          console.log(`[Webhook] Granting credits for one-time payment: ${conf.creditsMonthly} for plan: ${plan}`);
+          await grantCreditsAndSetPlan(userId, plan, conf.creditsMonthly, env);
+          console.log(`[Webhook] Successfully granted credits for one-time payment user: ${userId}`);
+        }
+      } else {
+        console.log(`[Webhook] Subscription mode - credits will be granted on invoice.payment_succeeded`);
+      }
     } else if (type === 'customer.subscription.created') {
       // Handle new subscription creation
       const subscription = event.data.object;
@@ -12262,6 +12422,8 @@ async function handleStripeWebhook(request, env) {
       let sub = invoice.subscription;
       
       console.log(`[Webhook] Invoice payment succeeded - Subscription: ${sub}`);
+      console.log(`[Webhook] Invoice metadata:`, invoice.metadata);
+      console.log(`[Webhook] Invoice customer:`, invoice.customer);
       
       // Try to get customer/user linkage via metadata on subscription or invoice
       let plan = null;
@@ -12271,6 +12433,7 @@ async function handleStripeWebhook(request, env) {
       if (invoice.metadata && invoice.metadata.plan) {
         plan = invoice.metadata.plan;
         userId = invoice.metadata.user_id;
+        console.log(`[Webhook] Found plan and userId in invoice metadata:`, { plan, userId });
       }
       
       // If not found, try to get from subscription metadata (requires fetching subscription)
@@ -12278,16 +12441,21 @@ async function handleStripeWebhook(request, env) {
         try {
           const secret = env.STRIPE_SECRET_KEY;
           if (secret) {
+            console.log(`[Webhook] Fetching subscription data for: ${sub}`);
             const subResp = await fetch(`https://api.stripe.com/v1/subscriptions/${sub}`, {
               method: 'GET',
               headers: { Authorization: `Bearer ${secret}` },
             });
             if (subResp.ok) {
               const subData = await subResp.json();
+              console.log(`[Webhook] Subscription data:`, subData.metadata);
               if (subData.metadata && subData.metadata.user_id) {
                 userId = subData.metadata.user_id;
                 plan = subData.metadata.plan || plan || 'pro';
+                console.log(`[Webhook] Found plan and userId in subscription metadata:`, { plan, userId });
               }
+            } else {
+              console.log(`[Webhook] Failed to fetch subscription:`, subResp.status, subResp.statusText);
             }
           }
         } catch (e) {
@@ -12300,17 +12468,21 @@ async function handleStripeWebhook(request, env) {
         try {
           const secret = env.STRIPE_SECRET_KEY;
           if (secret) {
+            console.log(`[Webhook] Fallback: Looking up subscriptions for customer: ${invoice.customer}`);
             const url = `https://api.stripe.com/v1/subscriptions?customer=${encodeURIComponent(invoice.customer)}&status=all&limit=10`;
             const subsResp = await fetch(url, { method: 'GET', headers: { Authorization: `Bearer ${secret}` } });
             if (subsResp.ok) {
               const subsJson = await subsResp.json();
+              console.log(`[Webhook] Found ${subsJson?.data?.length || 0} subscriptions for customer`);
               if (Array.isArray(subsJson?.data) && subsJson.data.length > 0) {
                 // Prefer the most recent non-canceled subscription
                 const sorted = subsJson.data.sort((a, b) => (b.created || 0) - (a.created || 0));
                 const best = sorted.find(s => s.status !== 'canceled') || sorted[0];
+                console.log(`[Webhook] Best subscription:`, { id: best?.id, status: best?.status, metadata: best?.metadata });
                 if (best?.metadata?.user_id) {
                   userId = best.metadata.user_id;
                   plan = best.metadata.plan || plan || 'pro';
+                  console.log(`[Webhook] Found userId and plan in fallback lookup:`, { userId, plan });
                 }
                 // If we didn't have a subscription id earlier, keep it for logging
                 if (!sub && best?.id) {
@@ -12330,15 +12502,27 @@ async function handleStripeWebhook(request, env) {
       // Fallback to default plan if still not found
       if (!plan) plan = 'pro';
       
-      console.log(`[Webhook] Invoice payment succeeded - Plan: ${plan}, User: ${userId}`);
+      console.log(`[Webhook] Invoice payment succeeded - Final values: Plan: ${plan}, User: ${userId}`);
       
       if (userId) {
         const conf = resolvePlanConfig(env, plan);
         if (conf) {
           console.log(`[Webhook] Granting monthly credits: ${conf.creditsMonthly} for plan: ${plan}`);
-          await grantCreditsAndSetPlan(userId, plan, conf.creditsMonthly, env);
-          console.log(`[Webhook] Successfully granted monthly credits for user: ${userId}`);
+          try {
+            await grantCreditsAndSetPlan(userId, plan, conf.creditsMonthly, env);
+            console.log(`[Webhook] Successfully granted monthly credits for user: ${userId}`);
+          } catch (error) {
+            console.error(`[Webhook] Failed to grant credits for user ${userId}:`, error);
+          }
+        } else {
+          console.error(`[Webhook] Could not resolve plan config for plan: ${plan}`);
         }
+      } else {
+        console.error(`[Webhook] No userId found, cannot grant credits. Invoice data:`, {
+          subscription: sub,
+          customer: invoice.customer,
+          metadata: invoice.metadata
+        });
       }
     } else if (type === 'customer.subscription.deleted') {
       // Downgrade to free when subscription is canceled
@@ -12360,10 +12544,28 @@ async function handleStripeWebhook(request, env) {
       console.log(`[Webhook] Unhandled event type: ${type}`);
     }
 
-    return new Response(JSON.stringify({ received: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    console.log(`[Webhook] ✅ Successfully processed event: ${type}`);
+    return new Response(JSON.stringify({ received: true }), { 
+      status: 200, 
+      headers: { 
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST',
+        'Access-Control-Allow-Headers': 'Content-Type, Stripe-Signature'
+      } 
+    });
   } catch (err) {
-    console.error('handleStripeWebhook error:', err);
-    return new Response('Webhook error', { status: 400 });
+    console.error('[Webhook] ❌ Error processing webhook:', err);
+    console.error('[Webhook] ❌ Error stack:', err.stack);
+    return new Response(JSON.stringify({ error: err.message }), { 
+      status: 400,
+      headers: { 
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST',
+        'Access-Control-Allow-Headers': 'Content-Type, Stripe-Signature'
+      }
+    });
   }
 }
 // --- Credit Deduction Function ---

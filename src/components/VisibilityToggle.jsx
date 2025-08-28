@@ -2,12 +2,16 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { getApiBaseUrl } from '../config/environment';
 import { useAuth } from './auth/AuthProvider';
+import useBillingPlan from '../utils/useBillingPlan';
+import PricingModal from './PricingModal';
 
 const VisibilityToggle = ({ project, onVisibilityChange, className = "" }) => {
   const { session } = useAuth();
+  const { plan } = useBillingPlan();
   const [isOpen, setIsOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [currentVisibility, setCurrentVisibility] = useState(project?.visibility || 'private');
+  const [showPricingModal, setShowPricingModal] = useState(false);
   const dropdownRef = useRef(null);
   const buttonRef = useRef(null);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 192 }); // width ~ w-48
@@ -62,6 +66,18 @@ const VisibilityToggle = ({ project, onVisibilityChange, className = "" }) => {
   useEffect(() => {
     setCurrentVisibility(project?.visibility || 'private');
   }, [project?.visibility]);
+
+  const handleVisibilityChange = (newVisibility) => {
+    // If user is trying to set private visibility and is on free plan, show pricing modal
+    if (newVisibility === 'private' && plan === 'free') {
+      setShowPricingModal(true);
+      setIsOpen(false);
+      return;
+    }
+    
+    // Otherwise, proceed with normal visibility update
+    updateVisibility(newVisibility);
+  };
 
   const updateVisibility = async (newVisibility) => {
     if (!project?.id || !session?.access_token || isUpdating) return;
@@ -129,7 +145,7 @@ const VisibilityToggle = ({ project, onVisibilityChange, className = "" }) => {
           Project Visibility
         </div>
         <button
-          onClick={() => updateVisibility('private')}
+          onClick={() => handleVisibilityChange('private')}
           className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center space-x-2 ${
             currentVisibility === 'private' ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
           }`}
@@ -139,11 +155,13 @@ const VisibilityToggle = ({ project, onVisibilityChange, className = "" }) => {
           </svg>
           <div>
             <div className="font-medium">Private</div>
-            <div className="text-xs text-gray-500">Only you can access this project</div>
+            <div className="text-xs text-gray-500">
+              {plan === 'free' ? 'Project only visible to yourself' : 'Only you can access this project'}
+            </div>
           </div>
         </button>
         <button
-          onClick={() => updateVisibility('public')}
+          onClick={() => handleVisibilityChange('public')}
           className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center space-x-2 ${
             currentVisibility === 'public' ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
           }`}
@@ -161,27 +179,40 @@ const VisibilityToggle = ({ project, onVisibilityChange, className = "" }) => {
   );
 
   return (
-    <div className={`relative ${className}`}>
-      <button
-        ref={buttonRef}
-        onClick={(e) => {
-          e.stopPropagation();
-          setIsOpen(!isOpen);
-        }}
-        disabled={isUpdating}
-        className={`inline-flex items-center space-x-1 px-2 py-1 text-xs font-medium rounded-md border transition-colors ${getVisibilityColor(currentVisibility)} hover:opacity-80 disabled:opacity-50`}
-        title={`Project is ${currentVisibility}. Click to change visibility.`}
-      >
-        {getVisibilityIcon(currentVisibility)}
-        <span className="capitalize">
-          {isUpdating ? 'Updating...' : `${currentVisibility}`}
-        </span>
-        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-      {isOpen && !isUpdating && createPortal(dropdownMenu, document.body)}
-    </div>
+    <>
+      <div className={`relative ${className}`}>
+        <button
+          ref={buttonRef}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen(!isOpen);
+          }}
+          disabled={isUpdating}
+          className={`inline-flex items-center space-x-1 px-2 py-1 text-xs font-medium rounded-md border transition-colors ${getVisibilityColor(currentVisibility)} hover:opacity-80 disabled:opacity-50`}
+          title={`Project is ${currentVisibility}. Click to change visibility.`}
+        >
+          {getVisibilityIcon(currentVisibility)}
+          <span className="capitalize">
+            {isUpdating ? 'Updating...' : `${currentVisibility}`}
+          </span>
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {isOpen && !isUpdating && createPortal(dropdownMenu, document.body)}
+      </div>
+
+      {/* Pricing Modal for free users trying to set private visibility */}
+      {showPricingModal && (
+        <PricingModal
+          onClose={() => setShowPricingModal(false)}
+          showUpgradeMessage={true}
+          upgradeTitle="Upgrade Required"
+          upgradeDescription="You need to upgrade to a paid plan to switch project visibility to private."
+          currentPlanType="free"
+        />
+      )}
+    </>
   );
 };
 

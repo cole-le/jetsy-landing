@@ -374,7 +374,8 @@ const ChatPage = ({ onBackToHome }) => {
 
       if (response.ok) {
         const result = await response.json();
-        const newProject = { id: result.project_id, visibility: 'private', ...projectData };
+        // The visibility will be set by the backend based on user plan
+        const newProject = { id: result.project_id, visibility: 'public', ...projectData };
         setCurrentProject(newProject);
         setStoredProjectId(result.project_id);
         setCachedProjectName(newProject.project_name, result.project_id);

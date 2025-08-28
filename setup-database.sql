@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS ideas (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   email TEXT,
   idea_text TEXT,
-  visibility TEXT DEFAULT 'private',
+  visibility TEXT DEFAULT 'public',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

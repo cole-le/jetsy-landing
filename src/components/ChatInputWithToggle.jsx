@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { trackEvent } from '../utils/analytics'
 import PricingModal from './PricingModal'
+import useBillingPlan from '../utils/useBillingPlan'
 
 const ChatInputWithToggle = ({ onSubmit, onPricingShown, expandChat, onShowSignup }) => {
   const [idea, setIdea] = useState('')
@@ -13,6 +14,7 @@ const ChatInputWithToggle = ({ onSubmit, onPricingShown, expandChat, onShowSignu
   const [isTyping, setIsTyping] = useState(false)
   const [isReversing, setIsReversing] = useState(false)
   const modalRef = useRef(null)
+  const { plan } = useBillingPlan()
 
   const baseText = "Ask Jetsy to create "
   const businessIdeas = [
@@ -110,18 +112,21 @@ const ChatInputWithToggle = ({ onSubmit, onPricingShown, expandChat, onShowSignu
   }
 
   const handleVisibilityChange = (newVisibility) => {
-    if (newVisibility === 'private') {
-      setShowPricingModal(true)
-      setShowModal(false)
+    // If user is trying to set private visibility and is on free plan, show pricing modal
+    if (newVisibility === 'private' && plan === 'free') {
+      setShowPricingModal(true);
+      setShowModal(false);
       // Notify parent that pricing modal has been shown
       if (onPricingShown) {
         onPricingShown()
       }
-    } else {
-      setVisibility(newVisibility)
-      setShowModal(false)
-      trackEvent('visibility_toggle', { visibility: newVisibility })
+      return;
     }
+    
+    // Otherwise, proceed with normal visibility update
+    setVisibility(newVisibility)
+    setShowModal(false)
+    trackEvent('visibility_toggle', { visibility: newVisibility })
   }
 
   const currentPlaceholder = baseText + typingText + (isTyping && !isReversing ? '|' : '')
@@ -238,7 +243,9 @@ const ChatInputWithToggle = ({ onSubmit, onPricingShown, expandChat, onShowSignu
                   </svg>
                   <div>
                     <div className="font-semibold">Personal</div>
-                    <div className="text-sm text-gray-500 font-normal">Only visible to yourself, unless shared</div>
+                    <div className="text-sm text-gray-500 font-normal">
+                      {plan === 'free' ? 'Project only visible to yourself' : 'Only visible to yourself, unless shared'}
+                    </div>
                   </div>
                   {visibility === 'private' && (
                     <svg className="w-5 h-5 text-blue-600 ml-auto" fill="currentColor" viewBox="0 0 20 20">
