@@ -68,7 +68,7 @@ const ChatPage = ({ onBackToHome }) => {
     };
   }, []);
 
-  // Add custom CSS for mobile full-height loading animation
+  // Add custom CSS for mobile full-height loading animation and slow bounce
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
@@ -84,6 +84,23 @@ const ChatPage = ({ onBackToHome }) => {
           min-height: calc(var(--vh, 1vh) * 100) !important;
           height: 100vh !important;
         }
+      }
+      @keyframes bounce-slow {
+        0%, 20%, 53%, 80%, 100% {
+          transform: translate3d(0, 0, 0);
+        }
+        40%, 43% {
+          transform: translate3d(0, -30px, 0);
+        }
+        70% {
+          transform: translate3d(0, -15px, 0);
+        }
+        90% {
+          transform: translate3d(0, -4px, 0);
+        }
+      }
+      .animate-bounce-slow {
+        animation: bounce-slow 3s infinite;
       }
     `;
     document.head.appendChild(style);
@@ -1187,7 +1204,7 @@ const ChatPage = ({ onBackToHome }) => {
                     {/* Magic wand icon with rotation animation */}
                     <div className="w-24 h-24 mx-auto mb-4 relative">
                       <svg 
-                        className="w-full h-full text-purple-500 animate-pulse" 
+                        className={`w-full h-full text-purple-500 ${isLoading ? 'animate-pulse' : 'animate-bounce-slow'}`}
                         viewBox="0 0 24 24" 
                         fill="currentColor"
                       >
@@ -1195,22 +1212,26 @@ const ChatPage = ({ onBackToHome }) => {
                         <path d="M19.5 4.5l-2.1 2.1-1.4-1.4 2.1-2.1 1.4 1.4z"/>
                         <path d="M12 2l-1.4 1.4L9.2 2 10.6.6 12 2z"/>
                       </svg>
-                      {/* Sparkles around the wand */}
+                      {/* Sparkles around the wand - more active when generating */}
                       <div className="absolute inset-0">
-                        <div className="absolute top-0 left-1/2 w-2 h-2 bg-yellow-400 rounded-full animate-ping" style={{ animationDelay: '0s' }}></div>
-                        <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-pink-400 rounded-full animate-ping" style={{ animationDelay: '0.5s' }}></div>
-                        <div className="absolute bottom-2 left-2 w-1 h-1 bg-blue-400 rounded-full animate-ping" style={{ animationDelay: '1s' }}></div>
-                        <div className="absolute bottom-0 right-1/2 w-1.5 h-1.5 bg-green-400 rounded-full animate-ping" style={{ animationDelay: '1.5s' }}></div>
+                        <div className={`absolute top-0 left-1/2 w-2 h-2 bg-yellow-400 rounded-full ${isLoading ? 'animate-ping' : 'animate-pulse'}`} style={{ animationDelay: '0s' }}></div>
+                        <div className={`absolute top-2 right-2 w-1.5 h-1.5 bg-pink-400 rounded-full ${isLoading ? 'animate-ping' : 'animate-pulse'}`} style={{ animationDelay: '0.5s' }}></div>
+                        <div className={`absolute bottom-2 left-2 w-1 h-1 bg-blue-400 rounded-full ${isLoading ? 'animate-ping' : 'animate-pulse'}`} style={{ animationDelay: '1s' }}></div>
+                        <div className={`absolute bottom-0 right-1/2 w-1.5 h-1.5 bg-green-400 rounded-full ${isLoading ? 'animate-ping' : 'animate-pulse'}`} style={{ animationDelay: '1.5s' }}></div>
                       </div>
                     </div>
                   </div>
                   
                   <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                    ✨ Magic in Progress ✨
+                    {isLoading ? '✨ Magic in Progress ✨' : '✨ Waiting for your business idea ✨'}
                   </h3>
                   <p className="text-gray-600 max-w-md mx-auto leading-relaxed">
-                    Jetsy is crafting your perfect website based on your business idea. 
-                    This will only take a moment...
+                    {isLoading 
+                      ? 'Jetsy is crafting your perfect website based on your business idea. This will only take a moment...'
+                      : messages.length === 0 
+                        ? 'Jetsy will create the perfect website based on your business idea. Share your idea in the chat to get started!'
+                        : 'Jetsy is ready to generate your website. The magic will begin soon!'
+                    }
                   </p>
                   
                   {/* Animated dots */}
