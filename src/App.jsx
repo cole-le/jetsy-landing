@@ -27,6 +27,7 @@ import ProfilePage from './components/auth/ProfilePage'
 import { getCurrentSession } from './config/supabase'
 import VerifyEmailPage from './components/auth/VerifyEmailPage'
 import NameCaptureModal from './components/auth/NameCaptureModal'
+import UpgradePlanPage from './components/UpgradePlanPage'
 
 import useBillingPlan from './utils/useBillingPlan'
 import OAuthCallbackHandler from './components/OAuthCallbackHandler'
@@ -122,9 +123,14 @@ function App() {
     // Detect billing success flag from Stripe redirect and show confirmation modal
     const billingFlag = params.get('billing');
     if (billingFlag === 'success') {
-      setShowBillingSuccess(true);
       const planParam = params.get('plan');
       if (planParam) setBillingSuccessPlan(planParam);
+      
+      // Only show global modal if not on chat page
+      if (path !== '/chat' && !path.startsWith('/chat/')) {
+        setShowBillingSuccess(true);
+      }
+      
       // Do not mutate URL here to avoid losing state if user reloads; we'll clean on modal close
       // Refresh billing state as soon as we detect success
       (async () => { await refreshBillingState(); })();
@@ -144,6 +150,8 @@ function App() {
       }
     } else if (path === '/profile') {
       setCurrentStep('profile');
+    } else if (path === '/upgrade_plan') {
+      setCurrentStep('upgrade-plan');
     } else if (path.startsWith('/ad-creatives/')) {
       // Handle /ad-creatives/{project-id} routes
       const projectIdStr = path.slice('/ad-creatives/'.length);
@@ -317,6 +325,8 @@ function App() {
       window.history.pushState({}, '', `/data_analytics/project_${analyticsProjectId}`);
     } else if (currentStep === 'faq' && path !== '/faq') {
       window.history.pushState({}, '', '/faq');
+    } else if (currentStep === 'upgrade-plan' && path !== '/upgrade_plan') {
+      window.history.pushState({}, '', '/upgrade_plan');
     } else if (currentStep === 'template' && path !== '/template') {
       window.history.pushState({}, '', '/template');
     } else if (currentStep === 'hero' && path !== '/') {
@@ -775,6 +785,14 @@ function App() {
         />
       )}
 
+      {/* Upgrade Plan Page */}
+      {currentStep === 'upgrade-plan' && (
+        <UpgradePlanPage 
+          onBackToChat={handleBackToChat}
+          onNavigateToProfile={() => setCurrentStep('profile')}
+        />
+      )}
+
       {/* Success State */}
       {currentStep === 'success' && (
         <div className="min-h-screen flex items-center justify-center px-4 pt-20 pb-12 radial-bg">
@@ -871,6 +889,9 @@ function App() {
             setRouteProjectId(projectId);
             setCurrentStep('launch-monitor');
           }}
+          billingSuccess={showBillingSuccess}
+          billingSuccessPlan={billingSuccessPlan}
+          onBillingSuccessClose={() => setShowBillingSuccess(false)}
         />
       )}
 

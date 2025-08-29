@@ -2,9 +2,12 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { getVercelApiBaseUrl, getApiBaseUrl } from '../config/environment';
 import { useAuth } from './auth/AuthProvider';
+import useBillingPlan from '../utils/useBillingPlan';
+
 
 const DeploymentButton = ({ projectId, showAsModal = false }) => {
   const { session } = useAuth();
+  const { plan } = useBillingPlan();
   const [deploymentStatus, setDeploymentStatus] = useState(null);
   const [domainStatus, setDomainStatus] = useState(null);
   const [isDeploying, setIsDeploying] = useState(false);
@@ -16,6 +19,12 @@ const DeploymentButton = ({ projectId, showAsModal = false }) => {
 
   // Function to open modal and clear any previous input
   const openDomainModal = () => {
+    // Check if user is on free plan - redirect to upgrade page instead
+    if (plan === 'free') {
+      window.location.href = '/upgrade_plan';
+      return;
+    }
+    
     setCustomDomain(''); // Clear any previous domain input
     setError(null); // Clear any previous errors
     setShowDomainModal(true);
@@ -27,6 +36,8 @@ const DeploymentButton = ({ projectId, showAsModal = false }) => {
     setError(null); // Clear errors
     setShowDomainModal(false);
   };
+
+
 
   // Load deployment and domain status on component mount
   useEffect(() => {
@@ -627,6 +638,8 @@ const DeploymentButton = ({ projectId, showAsModal = false }) => {
         </div>,
         document.body
       )}
+
+
     </>
   );
 };

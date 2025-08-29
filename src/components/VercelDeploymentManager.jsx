@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { getVercelApiBaseUrl } from '../config/environment';
+import useBillingPlan from '../utils/useBillingPlan';
 
 const VercelDeploymentManager = ({ projectId, templateData }) => {
+  const { plan } = useBillingPlan();
   const [deploymentStatus, setDeploymentStatus] = useState(null);
   const [domainStatus, setDomainStatus] = useState(null);
   const [isDeploying, setIsDeploying] = useState(false);
@@ -92,6 +94,12 @@ const VercelDeploymentManager = ({ projectId, templateData }) => {
   };
 
   const addCustomDomain = async () => {
+    // Check if user is on free plan - redirect to upgrade page instead
+    if (plan === 'free') {
+      window.location.href = '/upgrade_plan';
+      return;
+    }
+
     if (!customDomain.trim()) {
       setError('Please enter a valid domain name');
       return;
