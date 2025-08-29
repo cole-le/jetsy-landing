@@ -190,12 +190,12 @@ const UpgradePlanPage = ({ onBackToChat, onNavigateToProfile }) => {
     <div className="min-h-screen bg-gray-50">
       {/* Header with Navbar-like structure */}
       <nav className="sticky top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
-        <div className="flex items-center h-16">
-          {/* Logo - positioned at far left with some padding */}
-          <div className="flex items-center pl-3 sm:pl-6 lg:pl-8 flex-shrink-0 min-w-[72px]">
+        <div className="flex items-center justify-between h-16 px-4">
+          {/* Logo - positioned at far left */}
+          <div className="flex items-center">
             <button 
               onClick={onBackToChat}
-              className="flex items-center space-x-2 hover:opacity-80 transition-opacity flex-shrink-0"
+              className="hidden md:flex items-center space-x-2 hover:opacity-80 transition-opacity flex-shrink-0"
             >
               <img 
                 src="/jetsy_colorful_transparent_horizontal.png" 
@@ -203,77 +203,88 @@ const UpgradePlanPage = ({ onBackToChat, onNavigateToProfile }) => {
                 className="h-8 sm:h-10 md:h-12 w-auto flex-shrink-0"
               />
             </button>
+            {/* Logo without click on mobile */}
+            <div className="md:hidden flex items-center">
+              <img 
+                src="/jetsy_colorful_transparent_horizontal.png" 
+                alt="Jetsy" 
+                className="h-8 sm:h-10 md:h-12 w-auto flex-shrink-0"
+              />
+            </div>
           </div>
 
-          {/* Centered container for workflow bar */}
-          <div className="flex-1 flex justify-center">
+          {/* Workflow Progress Bar - hidden on mobile, visible on desktop */}
+          <div className="hidden md:flex items-center justify-center flex-1">
             <div className="max-w-7xl w-full px-2 sm:px-4 lg:px-8">
-              <div className="flex justify-between items-center h-16">
-                {/* Left side - Empty for balance when workflow bar is centered */}
-                <div className="flex items-center">
-                  {/* This div is intentionally empty to balance the layout */}
-                </div>
-
-                {/* Center - Workflow Progress Bar */}
-                <div className="flex items-center justify-center flex-1">
-                  <div className="flex items-center space-x-4 flex-nowrap">
-                    <WorkflowProgressBar 
-                      currentStage={1}
-                      projectId={null}
-                      websiteDeployed={false}
-                      adsExist={false}
-                      hasTemplateData={false}
-                      onStageClick={(stageId) => {
-                        if (stageId === 1) {
-                          onBackToChat();
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Right side - Profile icon */}
-                <div className="flex items-center pr-3 sm:pr-6 lg:pr-8">
-                  <button
-                    onClick={onNavigateToProfile}
-                    className="p-2 rounded-full hover:bg-gray-100 border border-gray-200"
-                    title={user?.email || 'Account'}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-gray-700">
-                      <path fillRule="evenodd" d="M12 2a5 5 0 100 10 5 5 0 000-10zm-7 17a7 7 0 1114 0v1H5v-1z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
+              <div className="flex items-center justify-center">
+                <WorkflowProgressBar 
+                  currentStage={1}
+                  projectId={null}
+                  websiteDeployed={false}
+                  adsExist={false}
+                  hasTemplateData={false}
+                  onStageClick={(stageId) => {
+                    if (stageId === 1) {
+                      onBackToChat();
+                    }
+                  }}
+                />
               </div>
             </div>
+          </div>
+
+          {/* Right side - Profile icon */}
+          <div className="flex items-center">
+            <button
+              onClick={onNavigateToProfile}
+              className="p-2 rounded-full hover:bg-gray-100 border border-gray-200"
+              title={user?.email || 'Account'}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-gray-700">
+                <path fillRule="evenodd" d="M12 2a5 5 0 100 10 5 5 0 000-10zm-7 17a7 7 0 1114 0v1H5v-1z" clipRule="evenodd" />
+              </svg>
+            </button>
           </div>
         </div>
       </nav>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {/* Back to Chat Button - visible on mobile, hidden on desktop */}
+        <div className="md:hidden mb-6">
+          <button
+            onClick={onBackToChat}
+            className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Chat
+          </button>
+        </div>
+
         {/* Upgrade Required Message */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-400 via-pink-400 to-orange-400 flex items-center justify-center">
-              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="flex justify-center mb-3 sm:mb-4">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-purple-400 via-pink-400 to-orange-400 flex items-center justify-center">
+              <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
               </svg>
             </div>
           </div>
-          <h2 className="text-3xl font-bold mb-4 text-gray-900">Upgrade Required</h2>
-          <p className="text-lg text-gray-600 mb-2">You need to upgrade to a paid plan to connect your own custom domain name to your website</p>
-          <p className="text-sm text-gray-500">Choose a plan below to unlock custom domain functionality and more features</p>
+          <h2 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4 text-gray-900">Upgrade Required</h2>
+          <p className="text-base sm:text-lg text-gray-600 mb-2">You need to upgrade to a paid plan to connect your own custom domain name to your website</p>
+          <p className="text-xs sm:text-sm text-gray-500">Choose a plan below to unlock custom domain functionality and more features</p>
         </div>
 
         {/* Header */}
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold mb-2 text-gray-900">Choose Your Plan</h2>
-          <p className="text-gray-600">Idea into Business in 24 hours 🚀</p>
+        <div className="text-center mb-6 sm:mb-8">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-2 text-gray-900">Choose Your Plan</h2>
+          <p className="text-sm sm:text-base text-gray-600">Idea into Business in 24 hours 🚀</p>
         </div>
 
         {/* Plans Grid */}
-        <div ref={plansContainerRef} className="grid md:grid-cols-4 gap-6 mb-8">
+        <div ref={plansContainerRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
           {plans.map((planItem) => (
             <div
               key={planItem.type}
@@ -381,15 +392,6 @@ const UpgradePlanPage = ({ onBackToChat, onNavigateToProfile }) => {
           ))}
         </div>
 
-        {/* Back to Chat Button */}
-        <div className="text-center">
-          <button
-            onClick={onBackToChat}
-            className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors duration-200 font-medium"
-          >
-            ← Back to Chat
-          </button>
-        </div>
       </div>
     </div>
   );
