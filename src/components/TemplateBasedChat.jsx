@@ -325,6 +325,8 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const [creditsLoading, setCreditsLoading] = useState(true);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeOutOfCredits, setUpgradeOutOfCredits] = useState(false);
+  const [upgradeModalTitle, setUpgradeModalTitle] = useState("You're out of credits");
+  const [upgradeModalDescription, setUpgradeModalDescription] = useState("Free plan includes 15 credits. Upgrade to a paid plan to get a higher monthly credit allowance and continue generating.");
   const [isWebsiteGenerated, setIsWebsiteGenerated] = useState(false);
   const [showBillingSuccessAlert, setShowBillingSuccessAlert] = useState(false);
 
@@ -579,18 +581,18 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   // Function to refresh user credits (can be called after credit-consuming operations)
   const refreshUserCredits = async () => {
     if (!session?.access_token) return;
-    
+
     setCreditsLoading(true);
     try {
       const headers = { 'Content-Type': 'application/json' };
       if (session?.access_token) {
         headers['Authorization'] = `Bearer ${session.access_token}`;
       }
-      
+
       const response = await fetch(`${getApiBaseUrl()}/api/user-credits`, {
         headers
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.credits !== undefined) {
@@ -602,6 +604,22 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
     } finally {
       setCreditsLoading(false);
     }
+  };
+
+  // Function to show upgrade modal with custom title and description
+  const handleShowUpgradeModal = (showModal = true, title, description) => {
+    console.log('TemplateBasedChat: handleShowUpgradeModal called', { showModal, title, description });
+    if (title) {
+      setUpgradeModalTitle(title);
+      console.log('TemplateBasedChat: Set upgrade modal title to:', title);
+    }
+    if (description) {
+      setUpgradeModalDescription(description);
+      console.log('TemplateBasedChat: Set upgrade modal description to:', description);
+    }
+    setUpgradeOutOfCredits(false); // Reset to default state
+    setShowUpgradeModal(showModal);
+    console.log('TemplateBasedChat: Set showUpgradeModal to:', showModal);
   };
 
   // Progress tracking state
@@ -1774,6 +1792,9 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const effectivePreviewMode = isMobile ? 'phone' : previewMode;
   const { plan } = useBillingPlan();
 
+  // Debug plan detection
+  console.log('TemplateBasedChat: Current plan detected:', plan);
+
   return (
     <div className="flex flex-col lg:flex-row h-screen bg-gray-50 pb-24 lg:pb-0">
       {/* Inject mobile viewport styles */}
@@ -1818,11 +1839,14 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
 
       {showUpgradeModal && (
         <PricingModal
-          onPlanSelect={() => { /* no-op for now */ }}
-          onClose={() => setShowUpgradeModal(false)}
+          onPlanSelect={() => { console.log('TemplateBasedChat: Pricing modal plan selected'); /* no-op for now */ }}
+          onClose={() => {
+            console.log('TemplateBasedChat: Pricing modal closed');
+            setShowUpgradeModal(false);
+          }}
           showUpgradeMessage={upgradeOutOfCredits}
-          upgradeTitle="You're out of credits"
-          upgradeDescription="Free plan includes 15 credits. Upgrade to a paid plan to get a higher monthly credit allowance and continue generating."
+          upgradeTitle={upgradeModalTitle}
+          upgradeDescription={upgradeModalDescription}
           currentPlanType={plan}
         />
       )}
@@ -1846,9 +1870,10 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
               <div className="flex items-center space-x-2 flex-shrink-0">
                 {/* Visibility Toggle - to the left of Projects button on desktop */}
                 {currentProject && (
-                  <VisibilityToggle 
-                    project={currentProject} 
+                  <VisibilityToggle
+                    project={currentProject}
                     onVisibilityChange={handleVisibilityChange}
+                    onShowUpgradeModal={handleShowUpgradeModal}
                     className="mr-1"
                   />
                 )}
@@ -3440,8 +3465,8 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
 
       {/* Workflow Panel */}
       {showWorkflowPanel && (
-        <div className={`workflow-panel-container ${isMobile ? 'fixed inset-0 bg-black bg-opacity-50 z-50' : 'border-b border-gray-200 bg-gray-50'}`}>
-          <div className={`${isMobile ? 'fixed bottom-0 left-0 right-0 bg-white rounded-t-lg shadow-xl max-h-[80vh] overflow-y-auto' : 'p-4'}`}>
+        <div className={`workflow-panel-container ${isMobile ? 'fixed inset-0 bg-black bg-opacity-50 z-40 pointer-events-none' : 'border-b border-gray-200 bg-gray-50'}`}>
+          <div className={`${isMobile ? 'fixed bottom-0 left-0 right-0 bg-white rounded-t-lg shadow-xl max-h-[80vh] overflow-y-auto pointer-events-auto' : 'p-4'}`}>
             <div className="space-y-4">
               {/* Mobile Header */}
               {isMobile && (
@@ -3488,9 +3513,11 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                 {isMobile && currentProject && (
                   <div className="mb-4">
                     <div className="text-xs font-medium text-gray-500 mb-1">Project visibility</div>
+                    {console.log('TemplateBasedChat: Rendering VisibilityToggle in mobile workflow panel', { currentProject, isMobile })}
                     <VisibilityToggle
                       project={currentProject}
                       onVisibilityChange={handleVisibilityChange}
+                      onShowUpgradeModal={handleShowUpgradeModal}
                     />
                   </div>
                 )}

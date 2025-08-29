@@ -1009,6 +1009,10 @@ const ChatPage = ({ onBackToHome }) => {
                     <VisibilityToggle
                       project={currentProject}
                       onVisibilityChange={handleProjectVisibilityChange}
+                      onShowUpgradeModal={(showModal, title, description) => {
+                        setUpgradeOutOfCredits(false);
+                        setShowUpgradeModal(showModal);
+                      }}
                       className="hidden lg:inline-flex"
                     />
                   )}
@@ -1060,6 +1064,10 @@ const ChatPage = ({ onBackToHome }) => {
                     <VisibilityToggle
                       project={currentProject}
                       onVisibilityChange={handleProjectVisibilityChange}
+                      onShowUpgradeModal={(showModal, title, description) => {
+                        setUpgradeOutOfCredits(false);
+                        setShowUpgradeModal(showModal);
+                      }}
                       className="inline-flex"
                     />
                   </div>
