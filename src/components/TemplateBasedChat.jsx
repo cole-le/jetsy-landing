@@ -329,6 +329,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   const [upgradeModalDescription, setUpgradeModalDescription] = useState("Free plan includes 15 credits. Upgrade to a paid plan to get a higher monthly credit allowance and continue generating.");
   const [isWebsiteGenerated, setIsWebsiteGenerated] = useState(false);
   const [showBillingSuccessAlert, setShowBillingSuccessAlert] = useState(false);
+  const [upgradeForPrivateProject, setUpgradeForPrivateProject] = useState(false);
 
   // Redirect unauthenticated users once auth has finished loading
   useEffect(() => {
@@ -618,6 +619,14 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
       console.log('TemplateBasedChat: Set upgrade modal description to:', description);
     }
     setUpgradeOutOfCredits(false); // Reset to default state
+    
+    // Check if this is for private project visibility upgrade
+    if (title === 'Upgrade Required' && description && description.includes('private')) {
+      setUpgradeForPrivateProject(true);
+    } else {
+      setUpgradeForPrivateProject(false);
+    }
+    
     setShowUpgradeModal(showModal);
     console.log('TemplateBasedChat: Set showUpgradeModal to:', showModal);
   };
@@ -1844,7 +1853,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
             console.log('TemplateBasedChat: Pricing modal closed');
             setShowUpgradeModal(false);
           }}
-          showUpgradeMessage={upgradeOutOfCredits}
+          showUpgradeMessage={upgradeOutOfCredits || upgradeForPrivateProject}
           upgradeTitle={upgradeModalTitle}
           upgradeDescription={upgradeModalDescription}
           currentPlanType={plan}

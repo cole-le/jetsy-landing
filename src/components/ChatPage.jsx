@@ -28,6 +28,7 @@ const ChatPage = ({ onBackToHome }) => {
   const [userCredits, setUserCredits] = useState(0);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeOutOfCredits, setUpgradeOutOfCredits] = useState(false);
+  const [upgradeForPrivateProject, setUpgradeForPrivateProject] = useState(false);
   const [isWebsiteGenerated, setIsWebsiteGenerated] = useState(false);
 
   const { plan } = useBillingPlan();
@@ -950,7 +951,7 @@ const ChatPage = ({ onBackToHome }) => {
         <PricingModal
           onPlanSelect={() => { /* no-op */ }}
           onClose={() => setShowUpgradeModal(false)}
-          showUpgradeMessage={upgradeOutOfCredits}
+          showUpgradeMessage={upgradeOutOfCredits || upgradeForPrivateProject}
           currentPlanType={plan}
           upgradeTitle="Upgrade your plan"
           upgradeDescription="Upgrade to unlock more monthly credits and premium features."
@@ -1011,6 +1012,14 @@ const ChatPage = ({ onBackToHome }) => {
                       onVisibilityChange={handleProjectVisibilityChange}
                       onShowUpgradeModal={(showModal, title, description) => {
                         setUpgradeOutOfCredits(false);
+                        
+                        // Check if this is for private project visibility upgrade
+                        if (title === 'Upgrade Required' && description && description.includes('private')) {
+                          setUpgradeForPrivateProject(true);
+                        } else {
+                          setUpgradeForPrivateProject(false);
+                        }
+                        
                         setShowUpgradeModal(showModal);
                       }}
                       className="hidden lg:inline-flex"
@@ -1066,6 +1075,14 @@ const ChatPage = ({ onBackToHome }) => {
                       onVisibilityChange={handleProjectVisibilityChange}
                       onShowUpgradeModal={(showModal, title, description) => {
                         setUpgradeOutOfCredits(false);
+                        
+                        // Check if this is for private project visibility upgrade
+                        if (title === 'Upgrade Required' && description && description.includes('private')) {
+                          setUpgradeForPrivateProject(true);
+                        } else {
+                          setUpgradeForPrivateProject(false);
+                        }
+                        
                         setShowUpgradeModal(showModal);
                       }}
                       className="inline-flex"
