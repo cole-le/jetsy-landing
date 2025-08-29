@@ -12,6 +12,7 @@ const PublicRouteView = ({ userId, projectId }) => {
     const loadProject = async () => {
       try {
         setIsLoading(true);
+        // For public project routes, we can fetch by project ID directly
         const res = await fetch(`${getApiBaseUrl()}/api/projects/${projectId}`);
         if (!res.ok) {
           throw new Error('Project not found');

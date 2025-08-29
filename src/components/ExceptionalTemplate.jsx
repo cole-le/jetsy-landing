@@ -80,7 +80,7 @@ const calculateOptimalTextColor = (imageUrl) => {
 };
 
 // Tracking functions for live preview
-const sendEvent = (eventName, eventData = {}) => {
+const sendEvent = (eventName, eventData = {}, projectId) => {
   if (!projectId) return; // Only track if we have a project ID
   
   fetch(`${getApiBaseUrl()}/api/track`, {
@@ -367,7 +367,7 @@ const ExceptionalTemplate = ({
       sendEvent('page_view', {
         page_title: document.title,
         referrer: document.referrer
-      });
+      }, projectId);
     }
     
     // Smooth scroll for navigation
@@ -487,7 +487,7 @@ const ExceptionalTemplate = ({
             form_type: 'contact',
             has_name: !!formData.name,
             has_company: !!formData.company
-          });
+          }, projectId);
         }
         
         alert('Thank you! We\'ll be in touch soon.');
@@ -977,7 +977,7 @@ const ExceptionalTemplate = ({
                         plan_name: plan.name,
                         plan_price: plan.price,
                         plan_popular: plan.popular
-                      });
+                      }, projectId);
                     }
                   }}
                   className={`w-full py-3 px-6 rounded-full font-semibold transition-all duration-300 transform hover:scale-105 ${
@@ -1189,7 +1189,7 @@ const ExceptionalTemplate = ({
                       sendEvent('lead_form_submit', {
                         form_type: 'lead',
                         has_phone: !!leadPhone
-                      });
+                      }, projectId);
                     }
                     
                     setIsLeadModalOpen(false);

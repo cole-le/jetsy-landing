@@ -180,6 +180,15 @@ function App() {
         if (!isNaN(uid)) setRouteUserId(uid);
         setCurrentStep('public-route');
       }
+    } else if (/^\/[0-9]+$/.test(path)) {
+      // Handle /{projectId} routes for public projects
+      const projectIdStr = path.slice(1);
+      const pid = parseInt(projectIdStr, 10);
+      if (!isNaN(pid)) {
+        setRouteProjectId(pid);
+        setRouteUserId(null); // No userId for public project routes
+        setCurrentStep('public-route');
+      }
     } else if (path.startsWith('/route/')) {
       // Backward compatibility: redirect old /route/{uid}-{pid} to new /{uid}-{pid}
       const pair = path.slice('/route/'.length);

@@ -70,7 +70,11 @@ const ProjectCard = ({ project, onRemixClick }) => {
         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-300 flex items-end justify-center pb-4">
           <div className="flex gap-2 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300 opacity-0 group-hover:opacity-100">
             <button
-              onClick={() => {}}
+              onClick={() => {
+                // Open project website in new tab
+                const projectUrl = `${window.location.origin}/${project.id}`;
+                window.open(projectUrl, '_blank');
+              }}
               className="px-4 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
             >
               View Website
