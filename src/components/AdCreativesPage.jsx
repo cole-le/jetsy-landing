@@ -817,6 +817,8 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
                     onAspectRatioChange={setLinkedInAspectRatio}
                     projectId={projectId}
                     onCreditsRefresh={refreshCredits}
+                    onShowUpgradeModal={setShowUpgradeModal}
+                    onSetUpgradeOutOfCredits={setUpgradeOutOfCredits}
                   />
                 ) : activePlatform === 'meta' ? (
                   <AdControls
@@ -829,6 +831,8 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
                     onAspectRatioChange={setMetaAspectRatio}
                     projectId={projectId}
                     onCreditsRefresh={refreshCredits}
+                    onShowUpgradeModal={setShowUpgradeModal}
+                    onSetUpgradeOutOfCredits={setUpgradeOutOfCredits}
                   />
                 ) : (
                   <AdControls
@@ -841,6 +845,8 @@ const AdCreativesPage = ({ projectId, onNavigateToChat, onNavigateToLaunch, onNa
                     onAspectRatioChange={setInstagramAspectRatio}
                     projectId={projectId}
                     onCreditsRefresh={refreshCredits}
+                    onShowUpgradeModal={setShowUpgradeModal}
+                    onSetUpgradeOutOfCredits={setUpgradeOutOfCredits}
                   />
                 )}
               </div>

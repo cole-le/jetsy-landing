@@ -13,6 +13,9 @@ import { useAuth } from '../auth/AuthProvider';
  * @param {Function} props.onVisualChange - Callback for visual changes
  * @param {Function} props.onAspectRatioChange - Callback for aspect ratio changes
  * @param {string|number} props.projectId - Current project id for image uploads
+ * @param {Function} props.onCreditsRefresh - Callback to refresh credits
+ * @param {Function} props.onShowUpgradeModal - Callback to show upgrade modal
+ * @param {Function} props.onSetUpgradeOutOfCredits - Callback to set upgrade out of credits state
  */
 const AdControls = ({
   copy,
@@ -23,7 +26,9 @@ const AdControls = ({
   onVisualChange,
   onAspectRatioChange,
   projectId,
-  onCreditsRefresh
+  onCreditsRefresh,
+  onShowUpgradeModal,
+  onSetUpgradeOutOfCredits
 }) => {
   const { session } = useAuth();
   const [isRegenerating, setIsRegenerating] = useState(false);
@@ -98,7 +103,16 @@ const AdControls = ({
         },
         body: JSON.stringify({ projectId, platform })
       });
+
+      // Handle insufficient credits (402 status)
+      if (resp.status === 402) {
+        if (onSetUpgradeOutOfCredits) onSetUpgradeOutOfCredits(true);
+        if (onShowUpgradeModal) onShowUpgradeModal(true);
+        return;
+      }
+
       if (!resp.ok) throw new Error('Failed to regenerate copy');
+
       const data = await resp.json();
       if (data.success && data.copy) {
         // Normalize payload to current copy shape
@@ -123,7 +137,10 @@ const AdControls = ({
       }
     } catch (e) {
       console.error('Regenerate copy failed:', e);
-      alert('Failed to regenerate copy. Please try again.');
+      // Only show generic error for non-402 errors
+      if (!e.message.includes('402')) {
+        alert('Failed to regenerate copy. Please try again.');
+      }
     } finally {
       setIsRegenerating(false);
     }
@@ -141,7 +158,16 @@ const AdControls = ({
         },
         body: JSON.stringify({ projectId })
       });
+
+      // Handle insufficient credits (402 status)
+      if (resp.status === 402) {
+        if (onSetUpgradeOutOfCredits) onSetUpgradeOutOfCredits(true);
+        if (onShowUpgradeModal) onShowUpgradeModal(true);
+        return;
+      }
+
       if (!resp.ok) throw new Error('Failed to generate image');
+
       const data = await resp.json();
       if (data.success && data.imageUrl) {
         onVisualChange({
@@ -154,7 +180,10 @@ const AdControls = ({
       }
     } catch (e) {
       console.error('Generate image failed:', e);
-      alert('Failed to generate image. Please try again.');
+      // Only show generic error for non-402 errors
+      if (!e.message.includes('402')) {
+        alert('Failed to generate image. Please try again.');
+      }
     } finally {
       setIsImageRegenerating(false);
     }
