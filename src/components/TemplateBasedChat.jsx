@@ -748,6 +748,20 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
         if (response.ok) {
           console.log('Template data saved successfully');
           alert('Changes saved successfully!');
+          
+          // Update workflow status after successful save
+          if (currentProject?.id) {
+            try {
+              window.dispatchEvent(new CustomEvent('chat:workflow-status', {
+                detail: {
+                  projectId: currentProject.id,
+                  hasTemplateData: true,
+                  adsExist: !!currentProject.ads_data,
+                  websiteDeployed: undefined
+                }
+              }));
+            } catch (_) {}
+          }
         } else {
           console.error('Failed to save template data');
           alert('Failed to save changes. Please try again.');
@@ -821,16 +835,30 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
               })
             });
           } catch (error) {
-            console.error('Error updating project name in database:', error);
+            console.error('Failed to update project name in database:', error);
           }
         };
-
-        // Debounce the database update to avoid excessive API calls
-        const timeoutId = setTimeout(updateProjectName, 300);
-        return () => clearTimeout(timeoutId);
+        
+        updateProjectName();
       }
     }
   }, [templateData?.businessName, currentProject?.project_name, isEditorMode, currentProject?.id, session]);
+
+  // Dispatch workflow status when editor mode changes (website creation status)
+  useEffect(() => {
+    if (currentProject?.id) {
+      try {
+        window.dispatchEvent(new CustomEvent('chat:workflow-status', {
+          detail: {
+            projectId: currentProject.id,
+            hasTemplateData: isEditorMode,
+            adsExist: !!currentProject.ads_data,
+            websiteDeployed: undefined
+          }
+        }));
+      } catch (_) {}
+    }
+  }, [isEditorMode, currentProject?.id, currentProject?.ads_data]);
 
   // When we have a project, load any existing custom domain mapping
 
@@ -881,6 +909,20 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
           
           if (response.ok) {
             console.log('Template data auto-saved successfully');
+            
+            // Update workflow status after successful auto-save
+            if (currentProject?.id) {
+              try {
+                window.dispatchEvent(new CustomEvent('chat:workflow-status', {
+                  detail: {
+                    projectId: currentProject.id,
+                    hasTemplateData: true,
+                    adsExist: !!currentProject.ads_data,
+                    websiteDeployed: undefined
+                  }
+                }));
+              } catch (_) {}
+            }
           } else {
             console.error('Failed to auto-save template data');
           }

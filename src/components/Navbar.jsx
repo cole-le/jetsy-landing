@@ -494,7 +494,10 @@ const Navbar = ({
                         isLaunchMonitorMode ? 3 : 3
                       } 
                       pulseStageId={
-                        isChatMode ? (adsExist ? 2 : (hasTemplateData ? 2 : undefined)) : undefined
+                        isChatMode ? (adsExist ? 2 : (hasTemplateData ? 2 : undefined)) : 
+                        isAdCreativesMode ? (hasTemplateData && !adsExist ? 2 : undefined) :
+                        isLaunchMonitorMode ? (hasTemplateData && !adsExist ? 2 : undefined) :
+                        (hasTemplateData && !adsExist ? 2 : undefined)
                       }
                       projectId={currentProjectId}
                       websiteDeployed={websiteDeployed}
