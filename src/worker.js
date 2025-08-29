@@ -11204,7 +11204,7 @@ async function handleGenerateAdsWithAI(request, env, corsHeaders) {
     const { projectId, projectData } = await request.json();
     
     if (!projectId || !projectData) {
-      return new Response(JSON.stringify({ error: 'projectId and projectData are required' }), {
+      return new Response(JSON.stringify({ errfor: 'projectId and projectData are required' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
@@ -11444,6 +11444,170 @@ async function generateAdsContent(businessName, templateData, businessType, env)
       meta: { primaryText: '', headline: '', description: '', cta: 'GET_STARTED' },
       instagram: { description: '', headline: '', cta: 'GET_STARTED' }
     };
+  }
+}
+
+// Helper function to generate image prompt for ads - attention-grabbing images without text
+async function generateImagePromptForAds(businessName, templateData, businessType, env) {
+  const prompt = `You are a marketing genius specializing in creating attention-grabbing ad images. Generate an optimal image generation prompt for ${businessName}, a ${businessType} business.
+
+Business Context:
+- Name: ${businessName}
+- Type: ${businessType}
+- Description: ${templateData.businessDescription || templateData.aboutContent || 'Innovative business solution'}
+- Industry: ${businessType}
+
+IMPORTANT IMAGE REQUIREMENTS:
+- **NO TEXT WHATSOEVER**: The image must contain absolutely no text, letters, numbers, or written content
+- **NO LOGOS**: No business logos, watermarks, or brand elements
+- **ATTENTION-GRABBING**: Create an image that stops the scroll and captures attention
+- **EMOTIONAL IMPACT**: Use visual elements that evoke desire, success, or aspiration
+- **UNIVERSAL APPEAL**: Image should work across all social media platforms
+
+CREATIVE APPROACH:
+Sometimes the most effective ad images are NOT directly related to the business but convey the feeling of success, wealth, or desire that the target audience wants. For example:
+- For a business validation tool like Jetsy: A luxury supercar (conveys success/wealth)
+- For a fitness app: A fit person achieving their goals (conveys transformation)
+- For a business consulting service: A person in a luxury office (conveys success)
+
+IMAGE CHARACTERISTICS:
+- High contrast for text overlay
+- Modern, professional aesthetic
+- Visually striking and memorable
+- Suitable for text overlay (not too busy)
+- Follows current advertising design trends
+- Appeals to the target audience's aspirations
+
+Return ONLY the image generation prompt, no additional text or formatting. Make it specific and detailed for the AI image generator.`;
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'developer', content: 'You are an expert in advertising design and image generation prompts, specializing in attention-grabbing visuals without text.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 200
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI API error: ${response.status}`);
+  }
+
+  const result = await response.json();
+  // Cost log for ad image prompt generation
+  if (result.usage) {
+    const inputTokens = result.usage.prompt_tokens || 0;
+    const outputTokens = result.usage.completion_tokens || 0;
+    const cost = logApiCost('gpt-4o-mini', inputTokens, outputTokens, 'mini');
+    totalCost.mini.input_tokens = inputTokens;
+    totalCost.mini.output_tokens = outputTokens;
+    totalCost.mini.cost = cost;
+    totalCost.total += cost;
+  }
+  const aiResponse = result.choices[0].message.content.trim();
+  
+  // Clean up the response and ensure it's a good prompt
+  return aiResponse.replace(/^["']|["']$/g, '').trim();
+}
+
+// --- Save Business Info Handler ---
+async function handleSaveBusinessInfo(request, env, corsHeaders) {
+  try {
+    const { projectId, businessName, businessDescription, targetAudience } = await request.json();
+    
+    if (!projectId || !businessName || !businessDescription || !targetAudience) {
+      return new Response(JSON.stringify({ error: 'All fields are required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    // Save business info to database
+    const db = env.DB;
+    await db.prepare(`
+      UPDATE projects 
+      SET business_name = ?, business_description = ?, target_audience = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).bind(businessName, businessDescription, targetAudience, projectId).run();
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Business information saved successfully'
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+
+  } catch (error) {
+    console.error('Save business info error:', error);
+    return new Response(JSON.stringify({ error: 'Failed to save business information' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+}
+
+// --- Comprehensive Analytics API Functions ---
+
+async function getAnalyticsOverview(request, env, corsHeaders) {
+  try {
+    const db = env.DB;
+    
+    // Get total leads (from lead capture events) - only from main Jetsy website
+    const leadsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('lead_form_submit').first()
+    const totalLeads = leadsResult?.count || 0
+
+    // Get total events (streamlined events only) - only from main Jetsy website
+    const eventsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name IN (?, ?, ?, ?, ?, ?) AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').first()
+    const totalEvents = eventsResult?.count || 0
+
+    // Get priority access attempts (from tracking events) - only from main Jetsy website
+    const priorityResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('priority_access_attempt').first()
+    const priorityAccessAttempts = priorityResult?.count || 0
+
+    // Get today's leads - only from main Jetsy website
+    const todayLeadsResult = await db.prepare(`
+      SELECT COUNT(*) as count FROM tracking_events 
+      WHERE event_name = ? AND DATE(created_at) = DATE('now') AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")
+    `).bind('lead_form_submit').first()
+    const todayLeads = todayLeadsResult?.count || 0
+
+    // Get today's events - only from main Jetsy website
+    const todayEventsResult = await db.prepare(`
+      SELECT COUNT(*) as count FROM tracking_events 
+      WHERE event_name IN (?, ?, ?, ?, ?, ?) AND DATE(created_at) = DATE('now') AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")
+    `).bind('page_view', 'chat_input_submit', 'pricing_plan_select', 'lead_form_submit', 'queue_view', 'priority_access_attempt').first()
+    const todayEvents = todayEventsResult?.count || 0
+
+    // Calculate conversion rate (leads who reached queue view) - only from main Jetsy website
+    const queueViewsResult = await db.prepare('SELECT COUNT(*) as count FROM tracking_events WHERE event_name = ? AND (jetsy_generated = 0 OR jetsy_generated IS NULL) AND (website_id IS NULL OR website_id = "")').bind('queue_view').first()
+    const queueViews = queueViewsResult?.count || 0
+    const conversionRate = totalLeads > 0 ? Math.round((queueViews / totalLeads) * 100) : 0
+
+    return new Response(JSON.stringify({
+      totalLeads,
+      totalEvents,
+      priorityAccessAttempts,
+      conversionRate,
+      todayLeads,
+      todayEvents
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
+    })
+  } catch (error) {
+    console.error('Error getting analytics overview:', error)
+    throw error
   }
 }
 
