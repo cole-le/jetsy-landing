@@ -44,17 +44,17 @@ function formatViewCount(count) {
   return `${n} Views`;
 }
 
-const Avatar = ({ name }) => {
-  const initials = (name || 'User')
-    .split(/\s+/)
-    .map((s) => s[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
+const Avatar = ({ name, projectId }) => {
+  // Generate consistent random avatar based on project ID for credibility
+  const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${projectId || 'default'}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+  
   return (
-    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 text-white flex items-center justify-center text-xs font-semibold shadow-sm" title={name}>
-      {initials}
-    </div>
+    <img 
+      src={avatarUrl} 
+      alt={`${name || 'User'} avatar`}
+      className="w-7 h-7 rounded-full shadow-sm"
+      title={name || 'User'}
+    />
   );
 };
 
@@ -101,7 +101,7 @@ const ProjectCard = ({ project, onRemixClick, onViewIdea }) => {
       </div>
       <div className="p-4">
         <div className="flex items-center gap-2 mb-2">
-          <Avatar name={project.owner_name || 'Community'} />
+          <Avatar name={project.owner_name || 'Community'} projectId={project.id} />
           <div className="truncate">
             <div className="text-sm font-semibold text-gray-900 truncate">{title}</div>
             <div className="text-xs text-gray-500">{formatViewCount(viewCount)}</div>
