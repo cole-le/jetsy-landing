@@ -32,6 +32,7 @@ import UpgradePlanPage from './components/UpgradePlanPage'
 
 import useBillingPlan from './utils/useBillingPlan'
 import OAuthCallbackHandler from './components/OAuthCallbackHandler'
+import CommunityPage from './components/CommunityPage'
 
 function App() {
   const [currentStep, setCurrentStep] = useState('hero') // hero, faq, pricing, lead-capture, onboarding, login, signup, demo-booking, demo-thankyou, chat, profile
@@ -238,6 +239,8 @@ function App() {
       }
     } else if (path === '/faq') {
       setCurrentStep('faq');
+    } else if (path === '/projects/featured') {
+      setCurrentStep('community');
     } else if (path === '/template') {
       setCurrentStep('template');
       // Check if this is a custom domain (not jetsy.dev or localhost)
@@ -360,6 +363,8 @@ function App() {
       window.history.pushState({}, '', `/data_analytics/project_${analyticsProjectId}`);
     } else if (currentStep === 'faq' && path !== '/faq') {
       window.history.pushState({}, '', '/faq');
+    } else if (currentStep === 'community' && path !== '/projects/featured') {
+      window.history.pushState({}, '', '/projects/featured');
     } else if (currentStep === 'upgrade-plan' && path !== '/upgrade_plan') {
       window.history.pushState({}, '', '/upgrade_plan');
     } else if (currentStep === 'template' && path !== '/template') {
@@ -415,6 +420,11 @@ function App() {
   const handleFAQClick = () => {
     setCurrentStep('faq')
     trackEvent('faq_click')
+  }
+
+  const handleCommunityClick = () => {
+    setCurrentStep('community')
+    trackEvent('community_click')
   }
 
   const handleBackToHome = () => {
@@ -714,6 +724,7 @@ function App() {
             setCurrentStep('launch-monitor');
           }}
           onProfileClick={() => setCurrentStep('profile')}
+          onCommunityClick={handleCommunityClick}
         />
       )}
       
@@ -732,6 +743,11 @@ function App() {
       {/* FAQ Section */}
       {currentStep === 'faq' && (
         <FAQ />
+      )}
+
+      {/* Community Page */}
+      {currentStep === 'community' && (
+        <CommunityPage onShowIdea={handleShowIdea} />
       )}
 
       {/* Pricing Modal */}

@@ -122,7 +122,8 @@ const CommunityShowcase = ({ onShowIdea }) => {
     (async () => {
       try {
         setLoading(true);
-        const res = await fetch(`${getApiBaseUrl()}/api/projects/public?limit=24`);
+        // Fetch only the 20 most recent public projects to avoid overwhelming the page
+        const res = await fetch(`${getApiBaseUrl()}/api/projects/public?limit=20`);
         if (!res.ok) throw new Error('Failed to load public projects');
         const data = await res.json();
         if (mounted) setProjects(data.projects || []);
@@ -162,7 +163,7 @@ const CommunityShowcase = ({ onShowIdea }) => {
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-xl md:text-2xl font-semibold text-gray-900">From the Community</h2>
           {/* Placeholder for filters or View All */}
-          <a href="#" className="text-sm text-black hover:underline font-medium">View All</a>
+          <a href="/projects/featured" className="text-sm text-black hover:underline font-medium">View All</a>
         </div>
         {loading && (
           <div className="text-gray-500 text-sm text-center py-8">Loading public projects…</div>

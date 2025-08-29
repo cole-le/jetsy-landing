@@ -25,7 +25,8 @@ const Navbar = ({
   onNavigateToWebsiteCreation,
   onNavigateToAdCreatives,
   onNavigateToLaunchMonitor,
-  onProfileClick
+  onProfileClick,
+  onCommunityClick
 }) => {
   const { session, loading: authLoading, signOut } = useAuth();
   const { plan } = useBillingPlan();
@@ -448,6 +449,30 @@ const Navbar = ({
           </button>
         </div>
 
+        {/* Navigation Links - positioned right after logo on desktop */}
+        {!isChatMode && !isAdCreativesMode && !isLaunchMonitorMode && (
+          <div className="hidden md:flex items-center space-x-8 ml-8">
+            <button
+              onClick={onCommunityClick}
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              Community
+            </button>
+            <button
+              onClick={onPricingClick}
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              Pricing
+            </button>
+            <button
+              onClick={onFAQClick}
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              FAQ
+            </button>
+          </div>
+        )}
+
         {/* Centered container for other navbar elements */}
         <div className="flex-1 flex justify-center">
           <div className="max-w-7xl w-full px-2 sm:px-4 lg:px-8">
@@ -525,23 +550,9 @@ const Navbar = ({
                 )}
               </div>
 
-              {/* Desktop Navigation and Account Actions */}
+              {/* Desktop Login/Get Started buttons - positioned on far right */}
               {!isChatMode && !isAdCreativesMode && !isLaunchMonitorMode && (
-                <div className="hidden md:flex items-center space-x-8">
-                  <button
-                    onClick={onFAQClick}
-                    className="text-gray-600 hover:text-gray-900 transition-colors"
-                  >
-                    FAQ
-                  </button>
-                  {(isMainPage || isProfilePage || plan === 'free') && (
-                    <button
-                      onClick={onPricingClick}
-                      className="text-gray-600 hover:text-gray-900 transition-colors"
-                    >
-                      Pricing
-                    </button>
-                  )}
+                <div className="hidden md:flex items-center space-x-4">
                   <button
                     onClick={onLoginClick}
                     className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg transition-colors duration-200 font-medium"

@@ -2735,7 +2735,8 @@ async function getPublicProjects(request, env, corsHeaders) {
       FROM projects 
       WHERE visibility = 'public' 
       AND project_name NOT LIKE 'test-project%'
-      ORDER BY updated_at DESC 
+      AND project_name != 'New business'
+      ORDER BY created_at DESC 
       LIMIT ? OFFSET ?
     `).bind(limit, offset).all();
     
