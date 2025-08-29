@@ -55,13 +55,34 @@ const ProjectCard = ({ project, onRemixClick }) => {
   const remixCount = project.remix_count ?? project.remixCount;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-all">
-      <div className="aspect-[16/10] bg-gray-100 relative">
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-all group">
+      <div className="aspect-[16/10] bg-gray-100 relative overflow-hidden">
         {preview ? (
-          <img src={preview} alt={title} className="absolute inset-0 w-full h-full object-cover" />
+          <img
+            src={preview}
+            alt={title}
+            className="absolute inset-0 w-full h-full object-cover transition-all duration-300 group-hover:brightness-75"
+          />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-gray-400">No Preview</div>
         )}
+        {/* Overlay with buttons that slides up on hover */}
+        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-300 flex items-end justify-center pb-4">
+          <div className="flex gap-2 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300 opacity-0 group-hover:opacity-100">
+            <button
+              onClick={() => {}}
+              className="px-4 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+            >
+              View Website
+            </button>
+            <button
+              onClick={() => {}}
+              className="px-4 py-2 bg-white text-black text-sm font-medium rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              View Idea
+            </button>
+          </div>
+        </div>
       </div>
       <div className="p-4">
         <div className="flex items-center gap-2 mb-2">
@@ -71,12 +92,6 @@ const ProjectCard = ({ project, onRemixClick }) => {
             <div className="text-xs text-gray-500">{formatRemixCount(remixCount)}</div>
           </div>
         </div>
-        <button
-          onClick={() => onRemixClick(project)}
-          className="w-full text-sm font-medium px-3 py-2 rounded-lg border border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors"
-        >
-          Remix
-        </button>
       </div>
     </div>
   );
