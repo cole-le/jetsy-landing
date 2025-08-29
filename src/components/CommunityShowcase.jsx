@@ -28,11 +28,20 @@ function extractProjectTitle(project) {
   }
 }
 
-function formatRemixCount(count) {
-  if (count == null) return '0 Remixes';
+// Generate consistent random view count based on project ID
+function generateViewCount(projectId) {
+  // Use project ID as seed for consistent random numbers
+  const seed = projectId || 1;
+  const random = ((seed * 9301 + 49297) % 233280) / 233280;
+  const result = Math.floor(random * 6001) + 1000; // Random between 1000-7000
+  console.log(`Generated view count for project ${projectId}: ${result}`);
+  return result;
+}
+
+function formatViewCount(count) {
+  if (count == null) return '0 Views';
   const n = Number(count) || 0;
-  if (n >= 1000) return `${Math.floor(n / 1000)}k Remixes`;
-  return `${n} Remixes`;
+  return `${n} Views`;
 }
 
 const Avatar = ({ name }) => {
@@ -52,7 +61,9 @@ const Avatar = ({ name }) => {
 const ProjectCard = ({ project, onRemixClick, onViewIdea }) => {
   const title = extractProjectTitle(project);
   const preview = project.preview_image_url || extractPreviewImage(project);
-  const remixCount = project.remix_count ?? project.remixCount;
+  // Generate consistent view count - always use generated count for now
+  const viewCount = generateViewCount(project.id);
+  console.log(`Project ${project.id}: title="${title}", viewCount=${viewCount}`);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-all group">
@@ -93,7 +104,7 @@ const ProjectCard = ({ project, onRemixClick, onViewIdea }) => {
           <Avatar name={project.owner_name || 'Community'} />
           <div className="truncate">
             <div className="text-sm font-semibold text-gray-900 truncate">{title}</div>
-            <div className="text-xs text-gray-500">{formatRemixCount(remixCount)}</div>
+            <div className="text-xs text-gray-500">{formatViewCount(viewCount)}</div>
           </div>
         </div>
       </div>
