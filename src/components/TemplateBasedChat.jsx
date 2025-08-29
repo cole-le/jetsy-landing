@@ -955,13 +955,21 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
 
   const handleRegenerateHeroBackground = async () => {
     if (!currentProject?.id || isRegeneratingHeroBg) return;
+
+    // Check if user has sufficient credits (2 credits required for image generation)
+    if (userCredits < 2) {
+      setUpgradeOutOfCredits(true);
+      setShowUpgradeModal(true);
+      return;
+    }
+
     try {
       setIsRegeneratingHeroBg(true);
       const headers = { 'Content-Type': 'application/json' };
       if (session?.access_token) {
         headers['Authorization'] = `Bearer ${session.access_token}`;
       }
-      
+
       const resp = await fetch(`${getApiBaseUrl()}/api/regenerate-background`, {
         method: 'POST',
         headers,
@@ -1074,6 +1082,14 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   // Regenerate About background with 402 handling
   const handleRegenerateAboutBackground = async () => {
     if (!currentProject?.id || isRegeneratingAboutBg) return;
+
+    // Check if user has sufficient credits (2 credits required for image generation)
+    if (userCredits < 2) {
+      setUpgradeOutOfCredits(true);
+      setShowUpgradeModal(true);
+      return;
+    }
+
     try {
       setIsRegeneratingAboutBg(true);
       const headers = { 'Content-Type': 'application/json' };
@@ -1120,6 +1136,14 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
   // Regenerate Business Logo with 402 handling
   const handleRegenerateLogo = async () => {
     if (!currentProject?.id || isRegeneratingLogo) return;
+
+    // Check if user has sufficient credits (2 credits required for image generation)
+    if (userCredits < 2) {
+      setUpgradeOutOfCredits(true);
+      setShowUpgradeModal(true);
+      return;
+    }
+
     try {
       setIsRegeneratingLogo(true);
       const headers = { 'Content-Type': 'application/json' };
