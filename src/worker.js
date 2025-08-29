@@ -11402,47 +11402,148 @@ async function handleGenerateAdsWithAI(request, env, corsHeaders) {
   }
 }
 
-// Helper function to generate ads content. If advanced generation is unavailable, fall back to sane defaults.
+// Helper function to generate ads content using OpenAI with Sabri Suby's copywriting style
 async function generateAdsContent(businessName, templateData, businessType, env) {
+  const prompt = `You are a marketing genius and expert copywriter specializing in the direct response copywriting style of Sabri Suby. Your mission is to create ads that grab attention, create desire, and drive action.
+
+SABRI SUBY COPYWRITING PRINCIPLES:
+- **Hook First**: Start with a powerful, attention-grabbing statement that stops the scroll
+- **Problem-Agitation-Solution**: Identify the problem, agitate it, then present your solution
+- **Specificity**: Use specific numbers, results, and outcomes
+- **Urgency & Scarcity**: Create FOMO (Fear of Missing Out) and urgency
+- **Social Proof**: Include testimonials, case studies, or proof elements
+- **Risk Reversal**: Remove risk with guarantees or free trials
+- **Emotional Triggers**: Use words that evoke emotion and desire
+- **Clear CTA**: Make the next step crystal clear and compelling
+
+Business Context:
+- Name: ${businessName}
+- Type: ${businessType}
+- Description: ${templateData.businessDescription || templateData.aboutContent || 'Innovative business solution'}
+- Target Audience: ${templateData.targetAudience || 'Professionals and businesses'}
+- Value Proposition: ${templateData.tagline || 'Transform your business'}
+
+Generate high-converting ad copy for three platforms using Sabri Suby's style:
+
+1. LinkedIn Ads (Professional/B2B):
+- Primary Text: 150-200 characters, professional but attention-grabbing
+- Headline: 40 characters max, compelling and specific
+- Description: 60 characters max, benefit-focused with social proof
+- CTA: "LEARN_MORE", "GET_DEMO", "CONTACT_US", or similar
+
+2. Meta Ads (Facebook/Instagram):
+- Primary Text: 125 characters max, conversational and engaging
+- Headline: 40 characters max, attention-grabbing with specificity
+- Description: 30 characters max, benefit-focused with urgency
+- CTA: "SIGN_UP", "GET_STARTED", "LEARN_MORE", or similar
+
+3. Instagram Ads:
+- Description: 125 characters max, visually appealing and engaging
+- Headline: 40 characters max, trendy and modern with emotional triggers
+- CTA: "GET_STARTED", "SHOP_NOW", "LEARN_MORE", or similar
+
+COPYWRITING TECHNIQUES TO USE:
+- Start with a hook that stops the scroll
+- Use specific numbers and results
+- Create urgency and scarcity
+- Include social proof elements
+- Use emotional trigger words
+- Make benefits clear and compelling
+- End with a strong, clear CTA
+
+Return ONLY a JSON object with this exact structure:
+{
+  "linkedIn": {
+    "primaryText": "text here",
+    "headline": "text here",
+    "description": "text here",
+    "cta": "LEARN_MORE"
+  },
+  "meta": {
+    "primaryText": "text here",
+    "headline": "text here",
+    "description": "text here",
+    "cta": "SIGN_UP"
+  },
+  "instagram": {
+    "description": "text here",
+    "headline": "text here",
+    "cta": "GET_STARTED"
+  }
+}`;
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'developer', content: 'You are an expert ad copywriter specialized in high-converting ad creatives for all social media platforms.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 500
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI API error: ${response.status}`);
+  }
+
+  const result = await response.json();
+  // Cost log for multi-platform ad copy generation
+  if (result.usage) {
+    const inputTokens = result.usage.prompt_tokens || 0;
+    const outputTokens = result.usage.completion_tokens || 0;
+    const cost = logApiCost('gpt-4o-mini', inputTokens, outputTokens, 'mini');
+    totalCost.mini.input_tokens = inputTokens;
+    totalCost.mini.output_tokens = outputTokens;
+    totalCost.mini.cost = cost;
+    totalCost.total += cost;
+  }
+  const aiResponse = result.choices[0].message.content.trim();
+
+  // Parse the JSON response (robust to code fences/backticks)
   try {
-    const name = businessName || templateData?.businessName || 'Your Business';
-    const tagline = templateData?.tagline || 'Transform your business';
-    const website = templateData?.websiteUrl || 'https://yourwebsite.com';
-
-    // Minimal heuristic copy based on business type
-    const isB2B = /saas|b2b|software|tech|consult/i.test(businessType || '') || /SaaS|AI|Platform|Analytics/i.test(tagline);
-
-    const linkedIn = {
-      primaryText: isB2B
-        ? `${name} — ${tagline}. See how teams like yours get results faster.`
-        : `${name}: ${tagline}. See what makes us different today.`,
-      headline: isB2B ? 'Drive measurable results' : 'Experience the difference',
-      description: isB2B ? 'Trusted by growing teams' : 'Loved by customers',
-      cta: isB2B ? 'GET_DEMO' : 'LEARN_MORE'
-    };
-
-    const meta = {
-      primaryText: isB2B
-        ? `${name} helps you work smarter. Try it today.`
-        : `${name} — ${tagline}. Tap to explore.`,
-      headline: isB2B ? 'Work smarter' : 'Discover more',
-      description: isB2B ? 'Start in minutes' : 'Limited time',
-      cta: isB2B ? 'SIGN_UP' : 'GET_STARTED'
-    };
-
-    const instagram = {
-      description: `${tagline}`,
-      headline: isB2B ? `${name}` : `${name}`,
-        cta: 'GET_STARTED'
-    };
-
-    return { linkedIn, meta, instagram };
-      } catch (e) {
-    // Final safety fallback to avoid breaking callers
+    let jsonText = aiResponse;
+    // If wrapped in code fences like ```json ... ``` or ``` ... ```
+    const fenceMatch = aiResponse.match(/```(?:json)?\n([\s\S]*?)```/i);
+    if (fenceMatch && fenceMatch[1]) {
+      jsonText = fenceMatch[1].trim();
+    }
+    // Fallback: extract first {...} block
+    if (!jsonText.trim().startsWith('{')) {
+      const start = jsonText.indexOf('{');
+      const end = jsonText.lastIndexOf('}');
+      if (start !== -1 && end !== -1 && end > start) {
+        jsonText = jsonText.slice(start, end + 1);
+      }
+    }
+    return JSON.parse(jsonText);
+  } catch (parseError) {
+    console.error('Failed to parse AI response:', parseError);
+    // Fallback content
     return {
-      linkedIn: { primaryText: '', headline: '', description: '', cta: 'LEARN_MORE' },
-      meta: { primaryText: '', headline: '', description: '', cta: 'GET_STARTED' },
-      instagram: { description: '', headline: '', cta: 'GET_STARTED' }
+      linkedIn: {
+        primaryText: `Transform your business with ${businessName}. Professional solutions for modern companies.`,
+        headline: 'Transform Your Business',
+        description: 'Professional solutions',
+        cta: 'LEARN_MORE'
+      },
+      meta: {
+        primaryText: `Discover how ${businessName} can revolutionize your business. Get started today!`,
+        headline: 'Revolutionize Your Business',
+        description: 'Get started today',
+        cta: 'SIGN_UP'
+      },
+      instagram: {
+        description: `Transform your business with ${businessName}. Professional solutions that deliver results.`,
+        headline: 'Transform Your Business',
+        cta: 'GET_STARTED'
+      }
     };
   }
 }
