@@ -42,6 +42,47 @@ const Navbar = ({
   const [hideNavbar, setHideNavbar] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
 
+  // Debug useEffect to track state changes
+  useEffect(() => {
+    console.log('Navbar Debug - State changed:', {
+      currentProjectId,
+      hasTemplateData,
+      adsExist,
+      isChatMode,
+      isMobile
+    });
+  }, [currentProjectId, hasTemplateData, adsExist, isChatMode, isMobile]);
+
+  // Debug useEffect to track component mount
+  useEffect(() => {
+    console.log('Navbar Debug - Component mounted with props:', {
+      isChatMode,
+      isAdCreativesMode,
+      isLaunchMonitorMode,
+      isMainPage,
+      hideWorkflowAndAnalytics
+    });
+  }, []);
+
+  // Add custom CSS for intense pulse animation
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes intense-pulse {
+        0%, 100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.3;
+          transform: scale(1.05);
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
+  }, []);
+
   // Effect to detect mobile screen size
   useEffect(() => {
     const checkMobile = () => {
@@ -234,6 +275,16 @@ const Navbar = ({
   React.useEffect(() => {
     const handleChatWorkflowStatus = (event) => {
       const { websiteDeployed: newWebsiteDeployed, adsExist: newAdsExist, hasTemplateData: newHasTemplateData, projectId } = event.detail || {};
+      
+      // Debug logging for workflow status events
+      console.log('Navbar Debug - Received chat:workflow-status event:', {
+        eventDetail: event.detail,
+        newProjectId: projectId,
+        newHasTemplateData,
+        newAdsExist,
+        newWebsiteDeployed
+      });
+      
       if (projectId) setCurrentProjectId(projectId);
       if (typeof newHasTemplateData === 'boolean') setHasTemplateData(newHasTemplateData);
       if (typeof newAdsExist === 'boolean') setAdsExist(newAdsExist);
@@ -266,10 +317,29 @@ const Navbar = ({
       const project = json.project;
       
       // Treat non-empty ads_data as existence
-      setAdsExist(!!project?.ads_data);
+      const adsDataExists = project?.ads_data && 
+                           project.ads_data !== '' && 
+                           project.ads_data !== 'null' && 
+                           project.ads_data !== 'undefined' &&
+                           project.ads_data.trim() !== '';
+      setAdsExist(adsDataExists);
       setHasTemplateData(!!project?.template_data);
       const projName = project?.project_name || 'Project';
       setCurrentProjectName(projName);
+      
+      // Debug logging for ads state
+      console.log('Navbar Debug - loadAdsState:', {
+        projectId: currentProjectId,
+        projectName: projName,
+        adsData: project?.ads_data,
+        adsDataType: typeof project?.ads_data,
+        adsDataLength: project?.ads_data?.length,
+        adsDataExists,
+        templateData: project?.template_data,
+        adsExist: adsDataExists,
+        hasTemplateData: !!project?.template_data
+      });
+      
       // cache latest known project name for refreshes
       try { localStorage.setItem('jetsy_current_project_name', projName); } catch (_) {}
       
@@ -345,6 +415,16 @@ const Navbar = ({
   
   // Mobile chat-mode pulse around project name when Ads creation is the next step
   const shouldPulseProjectName = isChatMode && isMobile && hasTemplateData && !adsExist;
+
+  // Debug logging for pulsing animation
+  console.log('Navbar Debug - Pulsing Animation:', {
+    isChatMode,
+    isMobile,
+    hasTemplateData,
+    adsExist,
+    shouldPulseProjectName,
+    currentProjectId
+  });
 
   // Hide entire navbar on mobile for Launch & Monitor page (it has its own mobile header)
   if (isLaunchMonitorMode && isMobile) {
@@ -490,7 +570,13 @@ const Navbar = ({
                         className="flex items-center space-x-1 sm:space-x-2 text-center hover:bg-gray-50 rounded-lg px-2 sm:px-3 py-2 transition-colors min-w-0 relative w-28 sm:w-44 overflow-hidden"
                       >
                         {shouldPulseProjectName && (
-                          <span className="pointer-events-none absolute inset-0 rounded-lg ring-2 ring-blue-400 ring-inset animate-pulse"></span>
+                          <>
+                            <span className="pointer-events-none absolute inset-0 rounded-lg ring-4 ring-blue-500 ring-inset animate-pulse"></span>
+                            {/* High-intensity custom animation */}
+                            <span className="pointer-events-none absolute inset-0 rounded-lg ring-2 ring-blue-300 ring-inset" style={{
+                              animation: 'intense-pulse 1.5s ease-in-out infinite'
+                            }}></span>
+                          </>
                         )}
                         <span className="text-xs sm:text-sm font-medium text-gray-900 truncate flex-1 min-w-0">
                           {currentProjectName || 'Loading...'}
