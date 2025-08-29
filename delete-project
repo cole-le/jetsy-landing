@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Simple project deletion script
+# Usage: ./delete-project "Project Name"
+
+if [ -z "$1" ]; then
+    echo "❌ Please provide a project name to delete"
+    echo "Usage: ./delete-project \"Project Name\""
+    echo "Example: ./delete-project \"LaundroCafé\""
+    exit 1
+fi
+
+node delete-project.js "$1"
