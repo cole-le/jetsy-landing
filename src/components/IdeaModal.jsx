@@ -75,7 +75,7 @@ const IdeaModal = ({ isOpen, onClose, project, businessIdea }) => {
                   className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
                     copied
                       ? 'bg-green-500 text-white'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-black text-white hover:bg-gray-800'
                   }`}
                 >
                   {copied ? (
@@ -117,18 +117,6 @@ const IdeaModal = ({ isOpen, onClose, project, businessIdea }) => {
           >
             Close
           </button>
-          {businessIdea && (
-            <button
-              onClick={handleCopyIdea}
-              className={`px-6 py-2 rounded-lg font-medium transition-all duration-200 ${
-                copied
-                  ? 'bg-green-500 text-white'
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
-            >
-              {copied ? 'Copied!' : 'Copy Idea'}
-            </button>
-          )}
         </div>
       </div>
     </div>
