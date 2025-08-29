@@ -2734,6 +2734,7 @@ async function getPublicProjects(request, env, corsHeaders) {
       SELECT id, project_name, template_data, created_at, updated_at, user_id, visibility, remix_count, preview_image_url 
       FROM projects 
       WHERE visibility = 'public' 
+      AND project_name NOT LIKE 'test-project%'
       ORDER BY updated_at DESC 
       LIMIT ? OFFSET ?
     `).bind(limit, offset).all();
