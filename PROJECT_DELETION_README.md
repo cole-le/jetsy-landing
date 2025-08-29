@@ -27,13 +27,37 @@ The Node.js script that performs the actual deletion. You can run this directly 
 node delete-project.js "Project Name"
 ```
 
-### 3. `delete-test-projects.cjs`
+### 3. `delete-user-projects.js`
+The Node.js script that deletes all projects for a specific user ID.
+
+**Usage:**
+```bash
+node delete-user-projects.js <userId>
+```
+
+### 4. `delete-test-projects.cjs`
 A script to delete all projects with names starting with "test" (batch deletion).
 
 **Usage:**
 ```bash
 node delete-test-projects.cjs
 ```
+
+### 5. `delete-user-projects` (Recommended)
+A script to delete ALL projects created by a specific user ID.
+
+**Usage:**
+```bash
+./delete-user-projects <userId>
+```
+
+**Examples:**
+```bash
+./delete-user-projects 1
+./delete-user-projects 42
+```
+
+**⚠️  WARNING:** This will delete ALL projects for the specified user!
 
 ## ⚠️ Safety Features
 

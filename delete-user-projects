@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Script to delete all projects for a specific user ID
+# Usage: ./delete-user-projects <userId>
+# Example: ./delete-user-projects 1
+
+if [ -z "$1" ]; then
+    echo "❌ Please provide a user ID to delete projects for"
+    echo "Usage: ./delete-user-projects <userId>"
+    echo "Example: ./delete-user-projects 1"
+    exit 1
+fi
+
+if ! [[ "$1" =~ ^[0-9]+$ ]]; then
+    echo "❌ User ID must be a number"
+    echo "Usage: ./delete-user-projects <userId>"
+    echo "Example: ./delete-user-projects 1"
+    exit 1
+fi
+
+echo "⚠️  WARNING: This will delete ALL projects for user ID $1"
+echo "   This action cannot be undone!"
+echo ""
+
+node delete-user-projects.js "$1"
