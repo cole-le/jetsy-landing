@@ -49,7 +49,7 @@ const Avatar = ({ name }) => {
   );
 };
 
-const ProjectCard = ({ project, onRemixClick }) => {
+const ProjectCard = ({ project, onRemixClick, onViewIdea }) => {
   const title = extractProjectTitle(project);
   const preview = project.preview_image_url || extractPreviewImage(project);
   const remixCount = project.remix_count ?? project.remixCount;
@@ -80,7 +80,7 @@ const ProjectCard = ({ project, onRemixClick }) => {
               View Website
             </button>
             <button
-              onClick={() => {}}
+              onClick={() => onViewIdea(project)}
               className="px-4 py-2 bg-white text-black text-sm font-medium rounded-lg hover:bg-gray-100 transition-colors"
             >
               View Idea
@@ -101,7 +101,7 @@ const ProjectCard = ({ project, onRemixClick }) => {
   );
 };
 
-const CommunityShowcase = () => {
+const CommunityShowcase = ({ onShowIdea }) => {
   const [projects, setProjects] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -136,6 +136,15 @@ const CommunityShowcase = () => {
     window.location.href = url.pathname + url.search;
   };
 
+  const handleViewIdea = async (project) => {
+    try {
+      // Call parent function to show idea modal
+      onShowIdea(project);
+    } catch (error) {
+      console.error('Error showing idea modal:', error);
+    }
+  };
+
   return (
     <section className="py-8 md:py-12 bg-white rounded-3xl shadow-lg border border-gray-100 mx-0 md:mx-8">
       <div className="max-w-screen-xl mx-auto px-4 md:px-8">
@@ -155,7 +164,7 @@ const CommunityShowcase = () => {
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {projects.map((p) => (
-            <ProjectCard key={p.id} project={p} onRemixClick={handleRemixClick} />)
+            <ProjectCard key={p.id} project={p} onRemixClick={handleRemixClick} onViewIdea={handleViewIdea} />)
           )}
         </div>
       </div>

@@ -725,6 +725,16 @@ export default {
             return await getProjectVisibility(pid, env, corsHeaders);
           }
         }
+
+        // --- Project Idea API ---
+        const ideaMatch = path.match(/^\/api\/projects\/(\d+)\/idea$/);
+        if (ideaMatch) {
+          const pid = ideaMatch[1];
+          if (request.method === 'GET') {
+            // GET /api/projects/:id/idea - get project's business idea
+            return await getProjectIdea(pid, env, corsHeaders);
+          }
+        }
       }
 
       // --- Vercel Deployment API ---
@@ -2812,6 +2822,36 @@ async function getProjectVisibility(projectId, env, corsHeaders) {
   } catch (error) {
     console.error('getProjectVisibility error:', error);
     return new Response(JSON.stringify({ error: 'Failed to get project visibility', details: error.message }), { status: 500, headers: corsHeaders });
+  }
+}
+
+async function getProjectIdea(projectId, env, corsHeaders) {
+  const db = env.DB;
+  try {
+    // Get the project's initial business idea from chat messages
+    const initialMessage = await db.prepare(`
+      SELECT message, timestamp 
+      FROM chat_messages 
+      WHERE project_id = ? AND is_initial_message = 1 
+      ORDER BY timestamp ASC 
+      LIMIT 1
+    `).bind(projectId).first();
+    
+    if (!initialMessage) {
+      return new Response(JSON.stringify({ 
+        success: true, 
+        idea: 'No business idea available for this project.' 
+      }), { status: 200, headers: corsHeaders });
+    }
+    
+    return new Response(JSON.stringify({ 
+      success: true, 
+      idea: initialMessage.message,
+      created_at: initialMessage.timestamp
+    }), { status: 200, headers: corsHeaders });
+  } catch (error) {
+    console.error('getProjectIdea error:', error);
+    return new Response(JSON.stringify({ error: 'Failed to get project idea', details: error.message }), { status: 500, headers: corsHeaders });
   }
 }
 async function remixProject(sourceProjectId, request, env, corsHeaders) {

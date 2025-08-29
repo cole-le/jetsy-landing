@@ -3,7 +3,7 @@ import ChatInputWithToggle from './ChatInputWithToggle'
 import CommunityShowcase from './CommunityShowcase'
 import { trackEvent } from '../utils/analytics'
 
-const HeroSection = ({ onIdeaSubmit, onPricingShown, expandChat, onShowSignup }) => {
+const HeroSection = ({ onIdeaSubmit, onPricingShown, expandChat, onShowSignup, onShowIdea }) => {
   const [isVisible, setIsVisible] = useState(false)
   const [currentProofIndex, setCurrentProofIndex] = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
@@ -62,7 +62,7 @@ const HeroSection = ({ onIdeaSubmit, onPricingShown, expandChat, onShowSignup })
 
         {/* Subheadline */}
         <p className={`text-lg md:text-xl text-mutedText mb-12 max-w-3xl mx-auto leading-relaxed font-medium transition-all duration-1000 delay-400 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-        Create website, run ads, and see if people pay — all in 24 hours with AI
+        Create websites, run ads, and see if people pay — all in 24 hours with AI
         </p>
 
         {/* Chat Input with Toggle */}
@@ -98,7 +98,7 @@ const HeroSection = ({ onIdeaSubmit, onPricingShown, expandChat, onShowSignup })
 
       {/* Community Showcase - positioned to be visible like Lovable website */}
       <div className={`w-full mt-16 transition-all duration-1000 delay-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-        <CommunityShowcase />
+        <CommunityShowcase onShowIdea={onShowIdea} />
       </div>
     </section>
   )

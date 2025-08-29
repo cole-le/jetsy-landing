@@ -21,6 +21,7 @@ import PublicRouteView from './components/PublicRouteView'
 import AdCreativesPage from './components/AdCreativesPage'
 import AdsTemplatePage from './components/AdsTemplatePage'
 import LaunchMonitorPage from './components/LaunchMonitorPage'
+import IdeaModal from './components/IdeaModal'
 import { AuthProvider, useAuth } from './components/auth/AuthProvider'
 import SignUpForm from './components/auth/SignUpForm'
 import ProfilePage from './components/auth/ProfilePage'
@@ -55,6 +56,8 @@ function App() {
   // Billing success modal state
   const [showBillingSuccess, setShowBillingSuccess] = useState(false);
   const [billingSuccessPlan, setBillingSuccessPlan] = useState(null);
+  // Idea modal state
+  const [ideaModal, setIdeaModal] = useState({ isOpen: false, project: null, businessIdea: '' });
   const { plan } = useBillingPlan();
 
   // Fetch billing and broadcast to interested components
@@ -79,6 +82,29 @@ function App() {
       // silent fail
     }
   }, []);
+
+  // Handle showing idea modal
+  const handleShowIdea = async (project) => {
+    try {
+      setIdeaModal({ isOpen: true, project, businessIdea: 'Loading...' });
+      
+      // Fetch the business idea from the project's initial message
+      const res = await fetch(`${getApiBaseUrl()}/api/projects/${project.id}/idea`);
+      if (res.ok) {
+        const data = await res.json();
+        setIdeaModal({ isOpen: true, project, businessIdea: data.idea || 'No business idea available for this project.' });
+      } else {
+        setIdeaModal({ isOpen: true, project, businessIdea: 'Unable to load business idea for this project.' });
+      }
+    } catch (error) {
+      console.error('Error fetching business idea:', error);
+      setIdeaModal({ isOpen: true, project, businessIdea: 'Error loading business idea. Please try again.' });
+    }
+  };
+
+  const closeIdeaModal = () => {
+    setIdeaModal({ isOpen: false, project: null, businessIdea: '' });
+  };
 
   useEffect(() => {
     // Track page view
@@ -698,6 +724,7 @@ function App() {
           onPricingShown={() => setHasSeenPricing(true)}
           expandChat={expandChat}
           onShowSignup={handleShowSignup}
+          onShowIdea={handleShowIdea}
         />
       )}
 
@@ -1021,6 +1048,14 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Idea Modal */}
+      <IdeaModal
+        isOpen={ideaModal.isOpen}
+        onClose={closeIdeaModal}
+        project={ideaModal.project}
+        businessIdea={ideaModal.businessIdea}
+      />
 
     </div>
   )
