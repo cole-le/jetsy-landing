@@ -2089,7 +2089,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
                         value={inputMessage}
                         onChange={(e) => setInputMessage(e.target.value)}
                         onKeyPress={handleKeyPress}
-                        placeholder={aiProgress.isActive ? "AI is generating your website... Please wait." : "Describe your startup idea or business..."}
+                        placeholder={aiProgress.isActive ? "AI is generating your website... Please wait." : "Describe your business idea..."}
                         className="w-full px-4 py-3 bg-transparent border-none outline-none resize-none text-text placeholder-mutedText text-lg leading-relaxed min-h-[80px] md:min-h-[60px] max-h-[400px] md:max-h-[200px]"
                         rows={4}
                         disabled={isLoading || aiProgress.isActive}
