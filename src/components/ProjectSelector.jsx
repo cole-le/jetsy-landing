@@ -104,7 +104,7 @@ const ProjectSelector = ({ onProjectSelect, currentProjectId, onAllProjectsDelet
           id: result.project_id, 
           user_id: session?.user?.id || 1,
           project_name: 'New business', // Explicitly set to "New business"
-          visibility: 'public', // Will be updated with actual visibility from backend
+          visibility: result.visibility || 'public', // Use visibility from backend
           files: projectData.files,
           updated_at: new Date().toISOString()
         };

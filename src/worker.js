@@ -2559,10 +2559,22 @@ async function createProject(request, env, corsHeaders) {
       
       if (userCreditsRow && userCreditsRow.plan_type && userCreditsRow.plan_type !== 'free') {
         defaultVisibility = 'private'; // Private for paid users
+      } else {
+        // If no user_credits record exists or plan is 'free', ensure user_credits is initialized
+        if (!userCreditsRow) {
+          console.log('No user_credits record found for new user, initializing with free plan');
+          const nowIso = new Date().toISOString();
+          await db.prepare(`
+            INSERT INTO user_credits (user_id, credits, plan_type, credits_per_month, last_refresh_date, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          `).bind(user_id, 15, 'free', 15, nowIso).run();
+        }
+        defaultVisibility = 'public'; // Explicitly set to public for free users
       }
     } catch (error) {
       console.log('Could not determine user plan, defaulting to public visibility:', error.message);
       // Default to public if we can't determine the plan
+      defaultVisibility = 'public';
     }
     
     const now = new Date().toISOString();
@@ -2580,7 +2592,7 @@ async function createProject(request, env, corsHeaders) {
     if (!result.success) {
       throw new Error('Failed to create project');
     }
-    return new Response(JSON.stringify({ success: true, project_id: result.meta.last_row_id }), { status: 201, headers: corsHeaders });
+    return new Response(JSON.stringify({ success: true, project_id: result.meta.last_row_id, visibility: defaultVisibility }), { status: 201, headers: corsHeaders });
   } catch (error) {
     console.error('createProject error:', error);
     return new Response(JSON.stringify({ error: 'Failed to create project', details: error.message, stack: error.stack }), { status: 500, headers: corsHeaders });
@@ -2901,10 +2913,22 @@ async function remixProject(sourceProjectId, request, env, corsHeaders) {
       
       if (userCreditsRow && userCreditsRow.plan_type && userCreditsRow.plan_type !== 'free') {
         defaultVisibility = 'private'; // Private for paid users
+      } else {
+        // If no user_credits record exists or plan is 'free', ensure user_credits is initialized
+        if (!userCreditsRow) {
+          console.log('No user_credits record found for new user during remix, initializing with free plan');
+          const nowIso = new Date().toISOString();
+          await db.prepare(`
+            INSERT INTO user_credits (user_id, credits, plan_type, credits_per_month, last_refresh_date, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          `).bind(user_id, 15, 'free', 15, nowIso).run();
+        }
+        defaultVisibility = 'public'; // Explicitly set to public for free users
       }
     } catch (error) {
       console.log('Could not determine user plan for remix, defaulting to public visibility:', error.message);
       // Default to public if we can't determine the plan
+      defaultVisibility = 'public';
     }
     
     // Create a new project based on the source

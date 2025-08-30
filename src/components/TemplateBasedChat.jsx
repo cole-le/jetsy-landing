@@ -1452,7 +1452,7 @@ const TemplateBasedChat = forwardRef(({ onBackToHome, onSaveChanges, previewMode
 
       if (response.ok) {
         const result = await response.json();
-        const newProject = { id: result.project_id, ...projectData };
+        const newProject = { id: result.project_id, visibility: result.visibility || 'public', ...projectData };
         
         // Force immediate project name update in UI with "New business"
         forceProjectNameUpdate("New business", result.project_id);
