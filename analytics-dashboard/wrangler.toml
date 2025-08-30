@@ -16,5 +16,9 @@ binding = "DB"
 database_name = "jetsy-leads"
 database_id = "682478d4-6494-4f47-93e6-be1b6397fe92"
 
+[vars]
+SUPABASE_URL = "https://buzliqopvlxrtoegzois.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ1emxpcW9wdmx4cnRvZWd6b2lzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4Njc2MzcsImV4cCI6MjA3MTQ0MzYzN30.V3Xt-AewaWSsTQEluQbG-Qym65ZTSvuQt6oGdE2RT9Y"
+
 [site]
 bucket = "./dist" 

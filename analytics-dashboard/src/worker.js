@@ -116,6 +116,8 @@ async function handleAnalyticsRequest(path, request, env, corsHeaders) {
         return await getPriorityAccessMetrics(db, corsHeaders)
       case '/api/analytics/realtime':
         return await getRealTimeMetrics(db, corsHeaders)
+      case '/api/analytics/launches':
+        return await handleLaunchesRequest(env, corsHeaders)
       case '/api/analytics/debug':
         return await getDebugInfo(db, corsHeaders)
       case '/api/analytics/test-funnel':
@@ -608,6 +610,277 @@ async function handleDemoLeadsPost(request, env, corsHeaders) {
     return new Response(JSON.stringify({ error: 'Failed to store demo lead' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
+  }
+}
+
+async function handleLaunchesRequest(env, corsHeaders) {
+  try {
+    console.log('=== LAUNCHES REQUEST STARTED ===');
+    console.log('Environment:', Object.keys(env));
+
+    const db = env.DB;
+    if (!db) {
+      console.error('No DB binding found!');
+      throw new Error('Database connection not available');
+    }
+
+    // STEP 1: Fetch users from user_credits table (our local user database)
+    console.log('Fetching users from user_credits table...');
+    
+    let users = [];
+    try {
+      // Get all users from user_credits table
+      const usersResult = await db.prepare(`
+        SELECT 
+          user_id,
+          credits,
+          plan_type,
+          created_at,
+          updated_at
+        FROM user_credits 
+        ORDER BY created_at ASC
+      `).all();
+      
+      users = usersResult?.results || [];
+      console.log('Users from user_credits table found:', users.length);
+    } catch (e) {
+      console.error('Error fetching users from user_credits:', e.message);
+      throw e;
+    }
+
+    // Filter out test accounts (if any exist)
+    const realUsers = users.filter(user =>
+      user.user_id &&
+      !user.user_id.includes('test') &&
+      !user.user_id.includes('jetsy')
+    );
+
+    console.log('Filtered real users:', realUsers.length, 'out of', users.length);
+
+    // STEP 2: Fetch user details from Supabase for each user ID
+    console.log('Fetching user details from Supabase...');
+    
+    let userDetails = [];
+    try {
+      if (env.SUPABASE_URL && env.SUPABASE_ANON_KEY) {
+        // Fetch user details from Supabase for each user ID
+        for (const userId of realUsers) {
+          try {
+            const supabaseResponse = await fetch(`${env.SUPABASE_URL}/rest/v1/users?id=eq.${userId.user_id}`, {
+              headers: {
+                'apikey': env.SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${env.SUPABASE_ANON_KEY}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            if (supabaseResponse.ok) {
+              const userData = await supabaseResponse.json();
+              if (userData && userData.length > 0) {
+                userDetails.push({
+                  id: userId.user_id,
+                  email: userData[0].email || 'No email found',
+                  name: userData[0].full_name || userData[0].name || `User ${userId.user_id.slice(0, 8)}`,
+                  ...userId // Include all the user_credits data
+                });
+              } else {
+                // Fallback if no Supabase data found
+                userDetails.push({
+                  id: userId.user_id,
+                  email: `user-${userId.user_id.slice(0, 8)}@jetsy.com`,
+                  name: `User ${userId.user_id.slice(0, 8)}`,
+                  ...userId
+                });
+              }
+            } else {
+              console.log(`Supabase API failed for user ${userId.user_id}:`, supabaseResponse.status);
+              // Fallback if Supabase API fails
+              userDetails.push({
+                id: userId.user_id,
+                email: `user-${userId.user_id.slice(0, 8)}@jetsy.com`,
+                name: `User ${userId.user_id.slice(0, 8)}`,
+                ...userId
+              });
+            }
+          } catch (e) {
+            console.log(`Error fetching Supabase data for user ${userId.user_id}:`, e.message);
+            // Fallback if individual user fetch fails
+            userDetails.push({
+              id: userId.user_id,
+              email: `user-${userId.user_id.slice(0, 8)}@jetsy.com`,
+              name: `User ${userId.user_id.slice(0, 8)}`,
+              ...userId
+            });
+          }
+        }
+        console.log('User details fetched from Supabase:', userDetails.length);
+      } else {
+        console.log('Supabase credentials not configured, using fallback data');
+        userDetails = realUsers.map(user => ({
+          id: user.user_id,
+          email: `user-${user.user_id.slice(0, 8)}@jetsy.com`,
+          name: `User ${user.user_id.slice(0, 8)}`,
+          ...user
+        }));
+      }
+    } catch (e) {
+      console.error('Error in Supabase user details fetch:', e.message);
+      // Fallback if entire Supabase fetch fails
+      userDetails = realUsers.map(user => ({
+        id: user.user_id,
+        email: `user-${user.user_id.slice(0, 8)}@jetsy.com`,
+        name: `User ${user.user_id.slice(0, 8)}`,
+        ...user
+      }));
+    }
+
+    // STEP 3: Query Cloudflare D1 for related data using user IDs
+    console.log('Querying Cloudflare D1 for related data...');
+
+    const userIds = realUsers.map(u => u.user_id);
+    let projects = [];
+    let deployments = [];
+    let ads = [];
+
+    // Query projects by user IDs
+    if (userIds.length > 0) {
+      try {
+        const placeholders = userIds.map(() => '?').join(',');
+        const projectsResult = await db.prepare(`
+          SELECT * FROM projects WHERE user_id IN (${placeholders})
+        `).bind(...userIds).all();
+        projects = projectsResult?.results || [];
+        console.log('Projects found for users:', projects.length);
+      } catch (e) {
+        console.log('Error querying projects:', e.message);
+      }
+
+      // Query deployments/websites by user IDs
+      try {
+        const deploymentsResult = await db.prepare(`
+          SELECT * FROM jetsy_websites WHERE user_id IN (${placeholders})
+        `).bind(...userIds).all();
+        deployments = deploymentsResult?.results || [];
+        console.log('Deployments found for users:', deployments.length);
+      } catch (e) {
+        console.log('Error querying deployments:', e.message);
+      }
+
+      // Query ads by user IDs
+      try {
+        const adsResult = await db.prepare(`
+          SELECT * FROM images WHERE user_id IN (${placeholders})
+        `).bind(...userIds).all();
+        ads = adsResult?.results || [];
+        console.log('Ads found for users:', ads.length);
+      } catch (e) {
+        console.log('Error querying ads:', e.message);
+      }
+    }
+
+    console.log('Sample user data:', realUsers.slice(0, 3));
+    console.log('Sample project data:', projects.slice(0, 3));
+    console.log('Sample deployment data:', deployments.slice(0, 3));
+    
+    // Calculate totals
+    const totalUsers = realUsers.length;
+    const totalProjects = projects.length;
+    const totalDeployments = deployments.filter(d => d.status === 'deployed').length;
+
+    // Generate user growth data from August 20, 2025 onwards
+    const startDate = new Date('2025-08-20');
+    const userGrowth = [];
+    const currentDate = new Date();
+    
+    console.log('Start date for user growth:', startDate.toISOString());
+    console.log('Current date:', currentDate.toISOString());
+    
+    // If start date is in the future, create a range from start date to start date + 30 days
+    // If start date is in the past, create a range from start date to current date
+    let endDate = startDate > currentDate ? new Date(startDate.getTime() + (30 * 24 * 60 * 60 * 1000)) : currentDate;
+    
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const dateStr = d.toISOString().split('T')[0];
+      const usersOnDate = realUsers.filter(user => {
+        const userDate = new Date(user.created_at);
+        return userDate.toISOString().split('T')[0] <= dateStr;
+      }).length;
+
+      userGrowth.push({
+        date: dateStr,
+        users: usersOnDate
+      });
+    }
+    
+    console.log('Generated user growth data:', userGrowth.length, 'days');
+
+    // Prepare detailed user data from userDetails + Cloudflare D1
+    const detailedUsers = userDetails.map(user => {
+      // Find related data from Cloudflare D1 using user ID
+      const userProjects = projects.filter(p => p.user_id === user.user_id);
+      const userDeployments = deployments.filter(d =>
+        d.user_id === user.user_id && d.status === 'deployed'
+      );
+      const userAds = ads.filter(a => a.user_id === user.user_id);
+
+      return {
+        id: user.user_id,
+        email: user.email, // Real email from Supabase
+        name: user.name, // Real name from Supabase
+        signupDate: user.created_at,
+        credits: user.credits || 0,
+        plan: user.plan_type || 'Free',
+        subscriptionStatus: user.subscription_status || user.status || 'active',
+        canceledAt: user.canceled_at || user.cancelled_at || null,
+        projectsCount: userProjects.length,
+        deploymentsCount: userDeployments.length,
+        adsCount: userAds.length
+      };
+    });
+    
+    const result = {
+      totalUsers,
+      totalProjects,
+      totalDeployments,
+      userGrowth,
+      users: detailedUsers,
+      debug: {
+        userCreditsUsersCount: users.length,
+        filteredUsersCount: realUsers.length,
+        projectsCount: projects.length,
+        deploymentsCount: deployments.length,
+        adsCount: ads.length
+      }
+    };
+    
+    console.log('Launches result:', result);
+    
+    return new Response(JSON.stringify(result), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
+    });
+    
+  } catch (error) {
+    console.error('Error in launches request:', error);
+    
+    const fallbackData = {
+      totalUsers: 0,
+      totalProjects: 0,
+      totalDeployments: 0,
+      userGrowth: [],
+      users: [],
+      error: 'Database query failed',
+      details: error.message
+    };
+    
+    return new Response(JSON.stringify(fallbackData), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
     });
   }
 } 

@@ -6,6 +6,7 @@ import EventTracking from './components/EventTracking'
 import PriorityAccessMetrics from './components/PriorityAccessMetrics'
 import RealTimeMetrics from './components/RealTimeMetrics'
 import DemoLeads from './components/DemoLeads'
+import Launches from './components/Launches'
 import { config } from './config'
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
 
   const tabs = [
     { id: 'overview', name: 'Overview', icon: '📊' },
+    { id: 'launches', name: 'Launches', icon: '🚀' },
     { id: 'funnel', name: 'Funnel Analysis', icon: '🔄' },
     { id: 'events', name: 'Event Tracking', icon: '📈' },
     { id: 'priority', name: 'Priority Access', icon: '💰' },
@@ -254,6 +256,7 @@ function App() {
         ) : (
           <>
             {activeTab === 'overview' && <Overview data={data} />}
+            {activeTab === 'launches' && <Launches data={data} />}
             {activeTab === 'funnel' && <FunnelAnalysis data={data} />}
             {activeTab === 'events' && <EventTracking data={data} />}
             {activeTab === 'priority' && <PriorityAccessMetrics data={data} />}
