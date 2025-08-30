@@ -1,6 +1,6 @@
 # Jetsy - AI-Powered Startup Idea Validation Platform
 
-Jetsy auto-generates landing pages and ad tests to measure real interest — before you write a single line of code.
+Jetsy turns any idea into a business in 24 hours. Instantly create websites, launch ads, and see if real customers would pay — all powered by AI.
 
 ## 🚀 Features
 
